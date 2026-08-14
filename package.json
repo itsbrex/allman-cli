@@ -12,11 +12,14 @@
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
+    "typecheck": "tsc --noEmit",
     "lint": "biome check src tests",
     "lint:fix": "biome check --write src tests",
     "format": "biome format --write src tests",
     "install-browsers": "bunx playwright install chromium",
-    "release": "bun scripts/release.ts"
+    "release": "bun scripts/release.ts",
+    "plans": "bun scripts/plans.mjs",
+    "prepare": "husky"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.10",
@@ -24,6 +27,8 @@
     "@types/tough-cookie": "^4.0.5",
     "@types/tunnel": "^0.0.7",
     "@vitest/coverage-v8": "^4.1.2",
+    "husky": "^9.1.7",
+    "lint-staged": "^17.3.0",
     "typescript": "^5.9.3",
     "vitest": "^4.1.2"
   },

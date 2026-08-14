@@ -265,3 +265,17 @@ Use `vitest`'s `vi.mock` for axios. Use real temp directories (via `os.tmpdir()`
 store tests — don't mock the filesystem.
 
 Recorded LinkedIn API fixtures go in `tests/fixtures/`.
+
+## Agent skills
+
+### Issue tracker
+
+Issues live as GitHub issues in `itsbrex/allman-cli`, driven by the `gh` CLI. See `docs/agents/issue-tracker.md`.
+
+### Triage labels
+
+The five canonical roles, label string equal to role name (`needs-triage`, `needs-info`, `ready-for-agent`, `ready-for-human`, `wontfix`). See `docs/agents/triage-labels.md`.
+
+### Domain docs
+
+Single-context: one `CONTEXT.md` at the repo root plus ADRs in `docs/adr/`. See `docs/agents/domain.md`.
