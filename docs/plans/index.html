@@ -1,0 +1,89 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Plans — allman-cli</title>
+<!-- Generated dashboard. Rebuilt by `plans.mjs index` (SessionStart hook + `plans new`). Do not edit. -->
+<style>
+:root{
+  --bg:oklch(0 0 0);--surface-1:oklch(0.169 0.004 265);--surface-2:oklch(0.214 0.005 265);
+  --surface-3:oklch(0.255 0.006 265);--hairline:oklch(0.30 0.006 265);
+  --hairline-strong:oklch(0.40 0.008 265);--ink:oklch(0.971 0 0);
+  --ink-muted:oklch(0.74 0.012 265);--ink-faint:oklch(0.62 0.012 265);
+  --accent:oklch(0.78 0.17 30);--accent-ink:oklch(0.17 0.03 30);
+  --focus:oklch(0.86 0.16 215);
+  --font-ui:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --font-mono:ui-monospace,"SF Mono","Cascadia Code",Menlo,monospace;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font-ui);
+  font-size:.9375rem;line-height:1.55;-webkit-font-smoothing:antialiased}
+:focus-visible{outline:2px solid var(--focus);outline-offset:2px;border-radius:4px}
+::selection{background:var(--accent);color:var(--accent-ink)}
+.wrap{max-width:900px;margin:0 auto;padding:32px 16px 64px}
+.eyebrow{font-family:var(--font-mono);font-size:.75rem;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--accent);display:flex;align-items:center;gap:8px;
+  margin-bottom:12px}
+.eyebrow .dot{width:9px;height:9px;border-radius:50%;background:var(--accent);
+  box-shadow:0 0 12px -1px var(--accent)}
+h1{font-size:1.75rem;font-weight:700;letter-spacing:-.02em;margin:0 0 4px}
+.sub{color:var(--ink-faint);font-family:var(--font-mono);font-size:.75rem;margin:0 0 24px}
+.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;
+  margin-bottom:24px}
+.tile{background:var(--surface-1);border:1px solid var(--hairline);border-radius:12px;
+  padding:12px 16px}
+.tile .n{font-family:var(--font-mono);font-size:1.125rem;font-weight:600}
+.tile .l{font-size:.75rem;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.06em}
+input.search{width:100%;background:var(--surface-1);border:1px solid var(--hairline);
+  border-radius:8px;color:var(--ink);font-family:var(--font-ui);font-size:.9375rem;
+  min-height:44px;padding:0 14px;margin-bottom:16px;outline:none}
+input.search:focus{border-color:var(--hairline-strong)}
+a.row{display:flex;align-items:center;gap:12px;background:var(--surface-1);
+  border:1px solid var(--hairline);border-radius:12px;padding:12px 16px;margin-bottom:10px;
+  color:inherit;text-decoration:none;transition:border-color .15s,transform .15s}
+a.row:hover{border-color:var(--accent);transform:translateY(-1px)}
+a.row.hidden{display:none}
+.seq{font-family:var(--font-mono);font-size:.75rem;font-weight:700;flex:none;
+  background:var(--surface-3);border:1px solid var(--hairline);color:var(--ink-muted);
+  padding:3px 9px;border-radius:999px;min-width:44px;text-align:center}
+a.row.latest .seq{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
+.rt{flex:1;min-width:0}
+.rt .t{font-weight:600;font-size:.875rem;overflow:hidden;text-overflow:ellipsis;
+  white-space:nowrap}
+.rt .f{font-family:var(--font-mono);font-size:.75rem;color:var(--ink-faint);
+  overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.when{font-family:var(--font-mono);font-size:.75rem;color:var(--ink-faint);flex:none}
+.pill{font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.05em;
+  flex:none;background:var(--accent);color:var(--accent-ink);padding:2px 8px;
+  border-radius:999px;text-transform:uppercase}
+.empty{color:var(--ink-faint);text-align:center;padding:32px;border:1px dashed var(--hairline);
+  border-radius:12px}
+@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+</style>
+</head>
+<body>
+<main class="wrap">
+  <div class="eyebrow"><span class="dot"></span>plans · allman-cli · accent coral</div>
+  <h1>Plan dashboard</h1>
+  <p class="sub">regenerated 2026-08-14 21:13 UTC · newest first · #seq = creation order</p>
+  <div class="tiles">
+    <div class="tile"><div class="n">0</div><div class="l">plans</div></div>
+    <div class="tile"><div class="n">—</div><div class="l">latest seq</div></div>
+    <div class="tile"><div class="n">—</div><div class="l">last plan</div></div>
+  </div>
+  <input class="search" id="q" type="search" placeholder="Filter plans…" aria-label="Filter plans">
+  <div id="list">
+    <div class="empty">No plan pages yet. Create one with <code>bun run plans new &lt;slug&gt;</code>.</div>
+  </div>
+</main>
+<script>
+document.getElementById('q').addEventListener('input', function () {
+  var q = this.value.toLowerCase();
+  document.querySelectorAll('a.row').forEach(function (r) {
+    r.classList.toggle('hidden', q !== '' && r.textContent.toLowerCase().indexOf(q) === -1);
+  });
+});
+</script>
+</body>
+</html>
