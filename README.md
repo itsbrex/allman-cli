@@ -42,6 +42,20 @@ Add `dist/allman` to your `$PATH`, or run directly with:
 bun run dev -- <command> [options]
 ```
 
+For day-to-day development, `bun run link` puts the working tree on your PATH instead — it
+symlinks `~/.local/bin/allman` at `bin/allman`, a shim that execs `bun src/index.ts`, so `allman`
+always runs your current source with no build step:
+
+```bash
+bun run link           # ~/.local/bin/allman -> ./bin/allman
+bun run link --force   # ...moving an installed allman aside first
+bun run unlink         # remove it, restore whatever was displaced
+```
+
+An `allman` installed by `install.sh` is kept at `allman.pre-dev-link` and restored by `unlink`.
+[`allman-tui`](https://github.com/tarkaai/allman-tui) has the same `link` script, and its shim
+prefers a sibling checkout of this repo — link both and the dev TUI drives the dev CLI.
+
 Playwright's Chromium browser is required for login only:
 
 ```bash
