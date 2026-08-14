@@ -250,11 +250,36 @@ PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH  Use existing Chromium
 bun install
 bun run dev          # runs src/index.ts directly
 bun test             # vitest
+bun run typecheck    # tsc --noEmit
 bun run build        # bun build --compile → dist/allman
 ```
 
 Never install packages without using `bun add <package>` (or `bun add -d <package>`
 for dev deps). Always install to get the latest version — don't assume a version exists.
+
+### Running the local dev version
+
+`bun run link` symlinks `~/.local/bin/allman` at `bin/allman`, a shim that execs
+`bun src/index.ts`. So `allman` on PATH is the working tree — no rebuild between an edit and the
+next run, and no `dist/allman` to go stale.
+
+```bash
+bun run link           # ~/.local/bin/allman -> ./bin/allman
+bun run link --force   # ...moving an installed allman aside first
+bun run unlink         # remove it, restore whatever was displaced
+```
+
+An `allman` already installed by `install.sh` is never silently overwritten: `--force` moves it to
+`allman.pre-dev-link` and `unlink` puts it back. Override the target directory with `--dir` or
+`ALLMAN_LINK_DIR`.
+
+`allman-tui`'s own dev shim looks for `bin/allman` in a sibling checkout of this repo, so linking
+both means the dev TUI drives the dev CLI.
+
+### Pre-commit
+
+husky + lint-staged run on every commit: biome over staged `src`/`tests` files, then
+`bun run typecheck`, then `bun run test`. Don't reach for `--no-verify`; fix the failure.
 
 ## Testing
 

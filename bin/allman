@@ -1,0 +1,24 @@
+#!/usr/bin/env bash
+# Dev shim for `allman`.
+#
+# Runs the CLI straight from this checkout's TypeScript source, so whatever is
+# in the working tree is what `allman` on PATH does — no build step, no stale
+# `dist/allman`. `bun run link` symlinks ~/.local/bin/allman at this file;
+# `bun run unlink` removes it and restores anything it displaced.
+#
+# Deliberately argv-transparent: it forwards every argument untouched, so
+# `--store`, `--account` and the rest behave exactly as they do in a release
+# build. Anything that needs to differ in dev belongs in the CLI, not here.
+
+set -euo pipefail
+
+# Resolve through symlinks so ROOT is the repo, not ~/.local/bin.
+SOURCE="${BASH_SOURCE[0]}"
+while [ -L "$SOURCE" ]; do
+  DIR="$(cd -P "$(dirname "$SOURCE")" && pwd)"
+  SOURCE="$(readlink "$SOURCE")"
+  [[ $SOURCE != /* ]] && SOURCE="$DIR/$SOURCE"
+done
+ROOT="$(cd -P "$(dirname "$SOURCE")/.." && pwd)"
+
+exec bun "$ROOT/src/index.ts" "$@"

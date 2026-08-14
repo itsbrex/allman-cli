@@ -17,6 +17,8 @@
     "lint:fix": "biome check --write src tests",
     "format": "biome format --write src tests",
     "install-browsers": "bunx playwright install chromium",
+    "link": "bun scripts/dev-link.ts",
+    "unlink": "bun scripts/dev-link.ts --remove",
     "release": "bun scripts/release.ts",
     "plans": "bun scripts/plans.mjs",
     "prepare": "husky"
