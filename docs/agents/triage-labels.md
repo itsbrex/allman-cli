@@ -14,6 +14,11 @@ When a skill mentions a role (e.g. "apply the AFK-ready triage label"), use the 
 
 Edit the right-hand column to match whatever vocabulary you actually use.
 
+These labels exist on the fork, `itsbrex/allman-cli`, only. Upstream `tarkaai/allman-cli` carries
+just GitHub's default label set and we have no push access to add to it, so **`/triage` runs
+against the fork only** — see `issue-tracker.md`. Adopt an upstream ticket into a fork issue rather
+than trying to label it in place.
+
 ## Wayfinder labels
 
 `/wayfinder` also needs these to exist. `gh issue create --label <missing>` fails outright rather

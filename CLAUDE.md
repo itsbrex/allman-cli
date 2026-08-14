@@ -270,7 +270,9 @@ Recorded LinkedIn API fixtures go in `tests/fixtures/`.
 
 ### Issue tracker
 
-Issues live as GitHub issues in `itsbrex/allman-cli`, driven by the `gh` CLI. See `docs/agents/issue-tracker.md`.
+All ticket writes go to the fork, `itsbrex/allman-cli`; upstream `tarkaai/allman-cli` is a
+read-only source (no push access). Never write a bare `#N` — always `owner/repo#N`.
+See `docs/agents/issue-tracker.md`.
 
 ### Triage labels
 
