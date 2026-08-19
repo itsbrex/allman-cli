@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-// PLANS_TPL_VERSION: 11
+// PLANS_TPL_VERSION: 13
 // Plan-page toolchain for docs/plans/ — browse, create, and index interactive
 // HTML plan pages. Runs on `bun` (preferred, faster) or `node`.
 //

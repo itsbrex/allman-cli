@@ -25,6 +25,12 @@ Stamps `YYYY-MM-DD-NNN-<slug>.html` from `.plan-template.html` with the next
 sequence number and this repo's accent color, then rebuilds the dashboard.
 Fill in the thesis paragraph and `PLAN_ITEMS` (see `DESIGN.md`).
 
+Plan pages (v13) carry a 13-entry theme system — default **Auto** resolves to
+Cresa goldenrod on dark systems, paper on light; **Repo accent** restores the
+stamped per-repo color — plus a persisted Motion toggle. Both live on the
+toolbar and are shared across a repo's plan pages via the `plan-ui`
+localStorage key.
+
 ## App skeletons — owned by appkit, not by this folder
 
 ```bash
@@ -55,9 +61,10 @@ Two recipes today:
   `.app-template.html`.
 
 Both ship the shared shell: embedded Geist Sans/Mono/Pixel (fully offline),
-monochrome base + 10 switchable themes (`t` cycles; live preview in the command
-bar), ⌘K/⌘; fuzzy command bar, confirm modal, toast stack, drawer, and a
-keyboard layer where each overlay owns its keys.
+12 switchable themes incl. Cresa goldenrod — default Auto resolves goldenrod on
+dark systems, paper on light (`t` cycles; live preview in the command bar) —
+⌘K/⌘; fuzzy command bar with a Motion setting, confirm modal, toast stack,
+drawer, and a keyboard layer where each overlay owns its keys.
 
 `--template <name>` still uses the old copy-a-file path for named variants that
 have not been ported to a recipe yet (e.g. `--template changes`). As of hook v9

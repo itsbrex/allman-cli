@@ -80,8 +80,11 @@ Reader affordances (v11, already wired in the template — do not remove):
   left off. `dflt` seeding runs once and never overwrites a saved decision.
 - **Accessibility.** `aria-live` announcer for card changes and submit
   results, real buttons with `aria-pressed`/labels everywhere, dialogs with
-  `role=dialog aria-modal`, skip link, visible focus rings,
-  `prefers-reduced-motion` kills all animation.
+  `role=dialog aria-modal`, skip link, visible focus rings, and a persisted
+  Motion: Reduced toggle (`html[data-motion=reduced]`) that kills all
+  animation.
+- **Theme + Motion toolbar buttons** (v13) — cycle the 13-entry theme list /
+  toggle motion; both persist under the shared `plan-ui` localStorage key.
 - **Submit to Claude** POSTs the full decision payload to
   `http://127.0.0.1:47613/submit`; when the listener is offline it downloads
   `<slug>-decisions.json` instead. A status dot pings `/ping` every 5s.
@@ -118,10 +121,31 @@ decisions:[{id,group,kind,title,status,current,suggested,edited}]}`. Execute
 
 ## Theme
 
-OLED-native dark, single theme. True black `#000` base, near-black elevated
-surfaces separated by lightness + hairline borders, never drop shadow. No
-gradient backgrounds, no gradient text, no glassmorphism. Precision-instrument
-feel: dense, legible, fast.
+OLED-native dark base with a full switchable theme system (v13; the old
+single-theme contract is superseded). True black `#000` base, near-black
+elevated surfaces separated by lightness + hairline borders, never drop
+shadow. No gradient backgrounds, no gradient text, no glassmorphism.
+Precision-instrument feel: dense, legible, fast.
+
+**Default is Auto (system-aware):** dark systems resolve to **Goldenrod** (the
+Cresa house theme), light systems to **Paper**, via `prefers-color-scheme`,
+with a live change listener while Auto is selected. An explicit theme choice
+overrides the OS and persists. The plan template cycles 13 entries on the
+toolbar Theme button (Auto · Goldenrod · **Repo accent** · Mono · Graphite ·
+Phosphor · Amber · Ember · Cobalt · Violet · Jade · Rose · Paper), persisted
+under the shared `plan-ui` localStorage key so every plan page in a repo
+follows the same choice. **Repo accent** removes `data-theme` and restores the
+stamped per-repo accent on the base OLED palette. App shells (appkit ≥1.1.0
+and the monolith app template) expose 12 themes in the command bar with live
+preview and on `t`; Paper darkens danger/warn/focus (and the plan template's
+kind-chip hues) for AA on light.
+
+**Motion policy (deliberate):** the OS `prefers-reduced-motion` media query is
+NOT honored by default — motion is full unless the person picks Motion:
+Reduced (toolbar button on plan pages, command-bar Setting in app shells),
+applied as `html[data-motion=reduced]` and persisted. This is a conscious
+departure from the usual accessibility default for these internal tools; the
+reduced setting remains one click away and sticky.
 
 ## Color
 
@@ -153,7 +177,39 @@ accent; read the config. Supporting roles are fixed:
 ```
 
 The curated accent pool (all ≥7:1 on black): lime 132, cyan 215, violet 300,
-amber 75, pink 8, coral 30, mint 165, azure 245, magenta 330, chartreuse 105.
+amber 75, pink 8, coral 30, mint 165, azure 245, magenta 330, chartreuse 105,
+goldenrod 84 (Cresa brand — use when a page carries the Cresa name).
+
+### Semantic layer
+
+Never reference `--accent` or `--danger` directly for meaning. Derive a named
+role once, then use the role, so a change of accent (or theme) recolors the
+whole page:
+
+```css
+--tier-crit:      var(--accent);   /* highest-priority items */
+--tier-note:      var(--ink-muted);
+--tier-ctx:       var(--hairline-strong);
+--caution-wash:   color-mix(in oklch, var(--danger), transparent 93%);
+--caution-line:   color-mix(in oklab, var(--danger) 36%, var(--hairline));
+--verify-wash:    color-mix(in oklch, var(--warn),   transparent 92%);
+--verify-line:    color-mix(in oklab, var(--warn) 30%, var(--hairline));
+```
+
+Interpolation space is not interchangeable here. Mixing two colors that carry
+different hues must use `oklab`: `oklch` interpolates hue along the shorter arc,
+so blending danger (hue 25) with a hue-265 neutral swings the result through
+purple at roughly hue 308. Mixing a single color with `transparent` keeps its
+hue either way, so the wash tokens can stay in `oklch`. Verify the result, do
+not assume it.
+
+Applied in `.plan-template.html` (and the mono variant): caution tokens on the
+rejected state chip, verify tokens on the edited state chip. Applied in the
+app templates and appkit `10-tokens.css`: caution tokens on the blocked stage
+pill, `--tier-crit`/`--tier-ctx` on the other stage pills.
+
+Completion semantics are green, not accent:
+`input[type=checkbox]{accent-color:var(--ok)}`.
 
 ## Typography
 
@@ -173,8 +229,26 @@ seq badges, dates, filenames, labels, counts, code. Code blocks never wrap;
 
 8px rhythm (`4 8 12 16 24 32 48 64`). Radius 8/12/16, pill 999 for chips/badges.
 Touch-target floor 44px (38px buttons acceptable inside dense desktop toolbars).
-Content `max-width:1100px` (dashboard 900px). Sticky toolbar solid `--surface-2`
-+ hairline, no blur. Mobile <640px: single column, cards stack full width.
+Content `max-width:1100px` (dashboard 900px, focus-mode plan pages 960px).
+Sticky toolbar solid `--surface-2` + hairline, no blur. Mobile <640px: single
+column, cards stack full width.
+
+### Widescreen (≥1680px) — app shells
+
+Mobile-first is the default; wide viewports are an opt-in second column, never
+a stretched measure. Tokens: `--measure:920px`, `--col-max:1080px`,
+`--col-gap:clamp(32px,3vw,72px)`, `--wide:1680px`.
+
+- Long prose or a single register keeps `max-width:var(--measure)` at every width.
+- Two sibling sections read independently: wrap each in `.col` (which is
+  `display:contents` below `--wide`, so nothing changes on mobile) inside a
+  `.cols` grid of `repeat(2,minmax(0,var(--col-max)))`.
+- One long list that should fill the width: CSS `columns:2` with
+  `break-inside:avoid` on items (`.colflow`), so order stays top-down —
+  never a left-right zigzag.
+- Verify at 390 / 834 / 1440 / 2560px; no horizontal page scroll at any width.
+
+Plan pages need no widescreen change — `.wrap` is already capped.
 
 ## Components
 
@@ -209,7 +283,45 @@ Content `max-width:1100px` (dashboard 900px). Sticky toolbar solid `--surface-2`
 navigate), state-badge pop on decide, hover lift, chip select, toast slide,
 progress-segment scale on hover. Auto-advance waits ~260ms so the state
 change is seen before the next card slides in. No page-load choreography.
-`@media (prefers-reduced-motion: reduce)` → instant everything.
+Reduced motion is the explicit `html[data-motion=reduced]` gate (see Motion
+policy under Theme) — it kills transitions, animations, and smooth scroll.
+
+## Semantic z-index scale
+
+Templates declare their stacking order as tokens rather than arbitrary
+numbers. `.plan-template.html`: `--z-keys:80`, `--z-banner:85`, `--z-track:90`,
+`--z-bar:100`, `--z-overlay:200`, `--z-skip:300`, `--z-toast:1000`. App
+shells: `--z-header:30` (changes variant), `--z-drawer:40`, `--z-cmdbar:50`,
+`--z-modal:55`, `--z-toast:60`. The skip link sits above the sticky toolbar
+because the toolbar would otherwise cover it on focus.
+
+## Horizontal-scroll affordance
+
+Any container that scrolls horizontally while hiding its scrollbar needs an
+edge signal. Use a mask driven by a numeric `--fade-r` custom property:
+
+```css
+--fade-r:0;
+mask-image:linear-gradient(to right,#000 calc(100% - var(--fade-r) * 44px),transparent 100%);
+```
+
+Set `--fade-r` to 1 from script only while `scrollLeft < scrollWidth -
+clientWidth`. At 0 the mask is a no-op, so containers that fit pay nothing.
+Fade the right edge only: pinned first columns / leading elements mean a
+left-edge fade would dim anchored content. Applied on the mono variant's chip
+strip and the changes variant's view tabs; the v13 focus-mode plan template
+has no hidden-scrollbar strip, so it carries none.
+
+## Kanban card moves (monolith app template)
+
+The app template's Board is a kanban: drag a card between stage columns
+(HTML5 drag, pointer), or focus a card and press `[` / `]` to move it to the
+previous / next visible column; the drawer carries a "Move to stage" chip row
+for touch and screen readers. A move writes `r.stage`, persists to
+`st.stages` keyed by `DATA` index (re-applied at boot), re-renders, restores
+focus, and toasts the destination. Drop targets highlight via `.kcol.dropover`
+using the accent border only. appkit's board is a grouped table, not cards —
+card moves are a monolith-template feature until appkit grows a card board.
 
 ## Self-contained rule
 
