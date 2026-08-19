@@ -455,6 +455,25 @@ export class ConnectionsStore {
   }
 
   /**
+   * Read one stored connection by flagship id or slug (null if unknown).
+   * Unlike `hasConnection` this returns ad-hoc `enrich`-sourced records too —
+   * the caller decides what the record proves.
+   */
+  async readConnectionByKey(idOrSlug: string): Promise<StoredConnection | null> {
+    for (const name of [`${idOrSlug}.json`, idOrSlug]) {
+      // Slug symlinks are stored without the .json suffix; both resolve to the
+      // same record, so read whichever exists.
+      try {
+        const raw = await readFile(join(this.connectionsDir(), name), "utf8");
+        return JSON.parse(raw) as StoredConnection;
+      } catch {
+        // try the next name
+      }
+    }
+    return null;
+  }
+
+  /**
    * Whether this person is a known 1st-degree connection.
    *
    * Accepts a flagship id or a slug (slugs resolve through the symlink). Only
@@ -462,20 +481,10 @@ export class ConnectionsStore {
    * "not known locally", not "definitely not connected".
    */
   async hasConnection(idOrSlug: string): Promise<boolean> {
-    for (const name of [`${idOrSlug}.json`, idOrSlug]) {
-      // Slug symlinks are stored without the .json suffix; both resolve to the
-      // same record, so read whichever exists.
-      try {
-        const raw = await readFile(join(this.connectionsDir(), name), "utf8");
-        const rec = JSON.parse(raw) as StoredConnection;
-        // Records created ad hoc by `enrich <target>` prove nothing about the
-        // relationship — only a `connections` sweep does.
-        return (rec.source ?? "connections") === "connections";
-      } catch {
-        // try the next name
-      }
-    }
-    return false;
+    const rec = await this.readConnectionByKey(idOrSlug);
+    // Records created ad hoc by `enrich <target>` prove nothing about the
+    // relationship — only a `connections` sweep does.
+    return rec !== null && (rec.source ?? "connections") === "connections";
   }
 
   private salesnavDir(): string {

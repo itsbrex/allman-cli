@@ -25,6 +25,7 @@ import { AccountStore } from "./accounts.js";
 import { ConnectionsStore } from "./connections-store.js";
 import { ConversationStore } from "./conversations.js";
 import { ensureGitignore, StoreGit } from "./git.js";
+import { PeopleStore } from "./people.js";
 
 export interface StoreOptions {
   /** Absolute path to the store root. Defaults to ./.allman */
@@ -65,6 +66,11 @@ export class Store {
     return new ConnectionsStore(join(this.root, profileId), this.git);
   }
 
+  /** Return a people store (joined person views, ADR-0003) for an account. */
+  peopleFor(profileId: string): PeopleStore {
+    return new PeopleStore(join(this.root, profileId), this.git);
+  }
+
   /** Return the resolved store root path. */
   get path(): string {
     return this.root;
@@ -92,4 +98,6 @@ async function ensureStoreDir(dirPath: string): Promise<void> {
 export { AccountStore } from "./accounts.js";
 export { ConnectionsStore } from "./connections-store.js";
 export { ConversationStore } from "./conversations.js";
+export * from "./enricher.js";
+export * from "./people.js";
 export * from "./types.js";
