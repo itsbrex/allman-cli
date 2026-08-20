@@ -23,7 +23,8 @@ import {
 } from "../linkedin/api/endpoints/profile-detail.js";
 import { loadSession } from "../linkedin/api/session.js";
 import type { ConnectionEnrichment, ConnectionsStore } from "../store/connections-store.js";
-import { resolveStorePath, Store } from "../store/index.js";
+import type { Provenance } from "../store/enricher.js";
+import { observationsFrom, type PeopleStore, resolveStorePath, Store } from "../store/index.js";
 import { AccountQuota } from "../utils/account-quota.js";
 import * as output from "../utils/output.js";
 import { describeWait, describeWindow } from "../utils/quota.js";
@@ -73,6 +74,7 @@ export async function enrichCommand(
   }
 
   const cstore = store.connectionsFor(session.profileId);
+  const pstore = store.peopleFor(session.profileId);
   const depth = opts.deep ? "deep" : "core";
 
   // Volume cap on this sensitive endpoint. Seat-aware: 100/hour with a Sales
@@ -134,6 +136,7 @@ export async function enrichCommand(
       nowIso
     );
     await cstore.enrichConnection(flagshipId, toEnrichment(detail, depth), depth, nowIso);
+    await writePersonRecord(pstore, flagshipId, detail, depth, nowIso);
     cstore.git.scheduleCommit(`enrich: ${detail.publicIdentifier ?? flagshipId}`);
     await store.git.flush();
 
@@ -161,6 +164,7 @@ export async function enrichCommand(
   const result = await enrichConnections({
     apiClient: session.apiClient,
     cstore,
+    pstore,
     ids,
     depth,
     force: opts.force === true,
@@ -193,6 +197,8 @@ export async function enrichCommand(
 export interface EnrichPassParams {
   apiClient: LinkedInApiClient;
   cstore: ConnectionsStore;
+  /** Person-record writer — every enrichment dual-writes `people/` (ADR-0003 Phase 1). */
+  pstore: PeopleStore;
   ids: string[];
   depth: "core" | "deep";
   force: boolean;
@@ -222,8 +228,20 @@ export interface EnrichPassResult {
  * the caller owns the git commit + flush.
  */
 export async function enrichConnections(params: EnrichPassParams): Promise<EnrichPassResult> {
-  const { apiClient, cstore, ids, depth, force, limit, json, noDelay, delayConfig, quota, raw } =
-    params;
+  const {
+    apiClient,
+    cstore,
+    pstore,
+    ids,
+    depth,
+    force,
+    limit,
+    json,
+    noDelay,
+    delayConfig,
+    quota,
+    raw,
+  } = params;
   const cap = limit && limit > 0 ? limit : Number.POSITIVE_INFINITY;
 
   let enriched = 0;
@@ -273,6 +291,7 @@ export async function enrichConnections(params: EnrichPassParams): Promise<Enric
 
     const nowIso = new Date().toISOString();
     await cstore.enrichConnection(id, toEnrichment(detail, depth), depth, nowIso);
+    await writePersonRecord(pstore, id, detail, depth, nowIso);
     enriched += 1;
 
     if (json) {
@@ -322,6 +341,10 @@ function toEnrichment(d: ProfileDetail, depth: "core" | "deep"): ConnectionEnric
     location: d.location,
     country: d.country,
     geoUrn: d.geoUrn,
+    geoName: d.geoName,
+    // Precision only means something alongside a resolved geo entity — never
+    // let a degraded fetch stamp "unknown" over a record that has the entity.
+    geoGranularity: d.geoUrn ? d.geoGranularity : null,
     about: d.about,
     industry: d.industry,
     industryUrn: d.industryUrn,
@@ -333,6 +356,67 @@ function toEnrichment(d: ProfileDetail, depth: "core" | "deep"): ConnectionEnric
     primaryLocale: d.primaryLocale,
     versionTag: d.versionTag,
     raw: d.raw ?? null,
+  };
+  if (depth !== "deep") return base;
+  return {
+    ...base,
+    positions: d.positions.length > 0 ? d.positions : null,
+    education: d.education.length > 0 ? d.education : null,
+    skills: d.skills.length > 0 ? d.skills : null,
+  };
+}
+
+/**
+ * Dual-write the person record for one enrichment (ADR-0003 Phase 1). The
+ * connection-record mirror keeps `versionTag`/`raw` (record plumbing, not
+ * person facts); the person record gets everything else, each field stamped
+ * `linkedin/enrich-core` or `linkedin/enrich-deep`.
+ */
+async function writePersonRecord(
+  pstore: PeopleStore,
+  flagshipId: string,
+  d: ProfileDetail,
+  depth: "core" | "deep",
+  nowIso: string
+): Promise<void> {
+  const provenance: Provenance = {
+    source: depth === "deep" ? "linkedin/enrich-deep" : "linkedin/enrich-core",
+    observedAt: nowIso,
+  };
+  await pstore.applyObservations(
+    { flagshipId, memberUrn: d.urn },
+    observationsFrom(personFactsFrom(d, depth), provenance),
+    nowIso
+  );
+}
+
+/** The person-fact projection of a fetched profile — what `people/` owns. */
+function personFactsFrom(d: ProfileDetail, depth: "core" | "deep") {
+  const base = {
+    memberUrn: d.urn,
+    objectUrn: d.objectUrn,
+    memberId: d.memberId,
+    publicIdentifier: d.publicIdentifier,
+    firstName: d.firstName,
+    lastName: d.lastName,
+    headline: d.headline,
+    title: d.title,
+    company: d.company,
+    companyUrn: d.companyUrn,
+    location: d.location,
+    country: d.country,
+    geoUrn: d.geoUrn,
+    geoName: d.geoName,
+    geoGranularity: d.geoUrn ? d.geoGranularity : null,
+    about: d.about,
+    industry: d.industry,
+    industryUrn: d.industryUrn,
+    address: d.address,
+    pronoun: d.pronoun,
+    premium: d.premium,
+    memorialized: d.memorialized,
+    profilePictureUrl: d.profilePictureUrl,
+    primaryLocale: d.primaryLocale,
   };
   if (depth !== "deep") return base;
   return {

@@ -395,9 +395,14 @@ allman connections --enrich              # also fetch each connection's full pro
 allman connections --enrich --deep       # ...including work history, education, skills
 allman connections --salesnav            # force Sales Navigator (rich data, no slugs)
 allman connections --flagship            # force flagship (slugs, needs `enrich`)
+allman connections --geo "austin"        # LOCAL query: stored records whose geo name matches (no network)
+allman connections --geo urn:li:fsd_geo:90000064 --json   # exact geo urn, as NDJSON
+allman connections --geo-granularity metro                # only metro-precision geo records
 ```
 
 Writes `{myProfileId}/connections/{flagshipId}.json` per connection plus a `{slug} -> {flagshipId}.json` symlink. Re-running is idempotent: `firstSeenAt` is preserved and `lastSeenAt` is refreshed.
+
+**Local geo query.** `--geo` / `--geo-granularity` switch the command into a pure local query over records already on disk — no session, no network. A `urn:li:fsd_geo:<id>` filter matches `geoUrn` exactly; anything else is a case-insensitive substring of the structured geo name; repeat `--geo` to OR filters. Every run reports coverage (`n structured / m total`) because structured geo only exists on records enriched since the geo fields landed — coverage grows as you enrich, there is no backfill.
 
 **Options:**
 
@@ -412,6 +417,8 @@ Writes `{myProfileId}/connections/{flagshipId}.json` per connection plus a `{slu
 | `--deep` | — | With `--enrich`: also fetch work history, education, and skills |
 | `--salesnav` | auto | Force Sales Navigator (errors without a seat) |
 | `--flagship` | auto | Force the flagship backend |
+| `--geo <name\|urn>` | — | Local query: filter stored records by geo (repeatable, OR-ed; no network) |
+| `--geo-granularity <level>` | — | Local query: keep only `metro`, `country`, or `unknown` precision |
 | `--json` | — | Stream NDJSON to stdout (no store write) |
 
 ---
@@ -452,6 +459,8 @@ The SalesNav seat is captured automatically by `allman login` (it visits Sales N
 ### `allman enrich [target]`
 
 Turn stored connections (IDs + name) into full **profiles**: current title, company, location, and About — plus, with `--deep`, full work history, education, and skills. Results are written back onto each connection record with an `enrichedAt` stamp, so re-runs skip already-enriched people (unless `--force`). Fetches use the flagship profile **API** (no profile-page scraping) and are paced with the same 2–8s delay as `connections`.
+
+Every enrichment also writes a **person record** — `people/{flagshipId}.json` (+ slug symlink) — the single owner of person facts, with per-field provenance `{source, observedAt}`. A re-enrich only overwrites a field whose provenance is equal-or-worse (`user` edits are never auto-overwritten), and readers prefer the person record over the connection-record mirror. Structured geo (`geoUrn`, `geoName`, `geoGranularity`) lands here; query it with `allman connections --geo`.
 
 LinkedIn serves this across several resources, so enriching one person costs **2 requests** (4 with `--deep`). Budget accordingly on large networks — that's why `--limit` exists.
 
@@ -626,6 +635,9 @@ The store is a git repository. All message history is committed; session-sensiti
 │   ├── connections/                  # `allman connections` output (+ `enrich` fields)
 │   │   ├── {flagshipId}.json         # one record per 1st-degree connection
 │   │   └── {slug} -> {flagshipId}.json   # symlink: slug → connection record
+│   ├── people/                       # person records — one owner of person facts (ADR-0003)
+│   │   ├── {flagshipId}.json         # written by `enrich`, per-field provenance
+│   │   └── {slug} -> {flagshipId}.json   # symlink: slug → person record
 │   ├── companies/                    # `allman companies` output (+ slug symlinks)
 │   ├── connections-salesnav/         # `allman connections --salesnav` output
 │   │   └── {memberId}.json           # includes title, company, location, about

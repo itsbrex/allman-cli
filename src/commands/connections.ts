@@ -27,6 +27,7 @@ import {
   randomPageSleep,
 } from "../utils/random-delay.js";
 import { profileUrnId } from "../utils/urn.js";
+import { connectionsGeoQuery } from "./connections-geo.js";
 import { hasSalesNavSeat } from "./connections-of.js";
 import { enrichConnections } from "./enrich.js";
 
@@ -61,12 +62,32 @@ export interface ConnectionsOptions {
   salesnav?: boolean;
   /** Force the flagship backend. */
   flagship?: boolean;
+  /**
+   * Local geo query (ADR-0001): filter *stored* records by geo instead of
+   * sweeping LinkedIn. `urn:li:fsd_geo:<id>` matches exactly; anything else is
+   * a case-insensitive substring of the structured geo name. Repeatable, OR-ed.
+   */
+  geo?: string[];
+  /** With/without --geo: keep only records at this precision (metro|country|unknown). */
+  geoGranularity?: string;
   /** For tests: skip the inter-page delay. */
   noDelay?: boolean;
   delayConfig?: RandomDelayConfig;
 }
 
 export async function connectionsCommand(opts: ConnectionsOptions): Promise<void> {
+  // Geo mode is a pure local query — no session, no network (ADR-0001).
+  if ((opts.geo && opts.geo.length > 0) || opts.geoGranularity) {
+    await connectionsGeoQuery({
+      account: opts.account,
+      store: opts.store,
+      json: opts.json,
+      geo: opts.geo ?? [],
+      granularity: opts.geoGranularity,
+    });
+    return;
+  }
+
   const storePath = resolveStorePath(opts.store);
   const store = new Store({ path: storePath });
   await store.init();
@@ -185,6 +206,7 @@ export async function connectionsCommand(opts: ConnectionsOptions): Promise<void
       const res = await enrichConnections({
         apiClient: session.apiClient,
         cstore,
+        pstore: store.peopleFor(session.profileId),
         ids,
         depth,
         force: false,

@@ -1,16 +1,17 @@
 /**
- * PeopleStore (ADR-0003 Phase 0): read-only join view over connection and
- * conversation records — no `people/` directory on disk yet.
+ * PeopleStore (ADR-0003): the joined person view over connection and
+ * conversation records (Phase 0), the provenance-governed `people/` writes
+ * (Phase 1, ADR-0004 policy), and the reader preferring `people/` (Phase 2).
  * Uses a real temp directory (no git). Synthetic ids/slugs.
  */
-import { mkdtemp, rm } from "node:fs/promises";
+import { mkdtemp, readFile, readlink, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
 import { ConnectionsStore } from "@/store/connections-store.js";
 import { ConversationStore } from "@/store/conversations.js";
 import type { StoreGit } from "@/store/git.js";
-import { PeopleStore } from "@/store/people.js";
+import { observationsFrom, PeopleStore } from "@/store/people.js";
 import type { ConversationRecord } from "@/store/types.js";
 
 // ConversationStore.upsert schedules a git commit; swallow it in tests.
@@ -184,5 +185,159 @@ describe("PeopleStore.readPerson", () => {
     expect(person?.firstName).toBe("Newer");
     expect(person?.publicIdentifier).toBe("new-slug");
     expect(person?.lastSeenAt).toBe("2026-07-01T00:00:00.000Z");
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Phase 1 — applyObservations (ADR-0003 / ADR-0004 overwrite policy)
+// ---------------------------------------------------------------------------
+
+const T1 = "2026-06-01T00:00:00.000Z";
+const T2 = "2026-07-01T00:00:00.000Z";
+const stamp = (source: string, observedAt: string) => ({ source, observedAt });
+const identity = { flagshipId: FLAGSHIP, memberUrn: `urn:li:fsd_profile:${FLAGSHIP}` };
+
+describe("PeopleStore.applyObservations", () => {
+  it("creates people/{flagshipId}.json with per-field provenance and a slug symlink", async () => {
+    await people.applyObservations(
+      identity,
+      observationsFrom(
+        { publicIdentifier: SLUG, title: "Staff Engineer", location: "San Francisco Bay Area" },
+        stamp("linkedin/enrich-core", T1)
+      ),
+      T1
+    );
+
+    const rec = JSON.parse(await readFile(join(accountDir, "people", `${FLAGSHIP}.json`), "utf8"));
+    expect(rec.flagshipId).toBe(FLAGSHIP);
+    expect(rec.title).toBe("Staff Engineer");
+    expect(rec.provenance.title).toEqual({ source: "linkedin/enrich-core", observedAt: T1 });
+    expect(rec.firstSeenAt).toBe(T1);
+    expect(rec.lastSeenAt).toBe(T1);
+    expect(await readlink(join(accountDir, "people", SLUG))).toBe(`${FLAGSHIP}.json`);
+  });
+
+  it("a re-observation of equal provenance overwrites — newest observation wins", async () => {
+    await people.applyObservations(
+      identity,
+      observationsFrom({ title: "Old Title" }, stamp("linkedin/enrich-core", T1)),
+      T1
+    );
+    const rec = await people.applyObservations(
+      identity,
+      observationsFrom({ title: "New Title" }, stamp("linkedin/enrich-core", T2)),
+      T2
+    );
+    expect(rec.title).toBe("New Title");
+    expect(rec.provenance?.title?.observedAt).toBe(T2);
+    expect(rec.firstSeenAt).toBe(T1);
+    expect(rec.lastSeenAt).toBe(T2);
+  });
+
+  it("preserves a better-provenance value against a worse write (pinned by ADR-0001)", async () => {
+    await people.applyObservations(
+      identity,
+      observationsFrom(
+        { location: "Austin, Texas Metropolitan Area" },
+        stamp("linkedin/enrich-core", T1)
+      ),
+      T1
+    );
+    const rec = await people.applyObservations(
+      identity,
+      observationsFrom(
+        { location: "United States", headline: "From a sweep" },
+        stamp("linkedin/sweep", T2)
+      ),
+      T2
+    );
+    // The worse-ranked sweep must not overwrite the enrich-core location…
+    expect(rec.location).toBe("Austin, Texas Metropolitan Area");
+    expect(rec.provenance?.location?.source).toBe("linkedin/enrich-core");
+    // …but it may still fill fields nothing better has claimed.
+    expect(rec.headline).toBe("From a sweep");
+    expect(rec.provenance?.headline?.source).toBe("linkedin/sweep");
+  });
+
+  it("never auto-overwrites a user-sourced value", async () => {
+    await people.applyObservations(
+      identity,
+      observationsFrom({ location: "Where I say I am" }, stamp("user", T1)),
+      T1
+    );
+    const rec = await people.applyObservations(
+      identity,
+      observationsFrom({ location: "Somewhere else" }, stamp("linkedin/enrich-deep", T2)),
+      T2
+    );
+    expect(rec.location).toBe("Where I say I am");
+    expect(rec.provenance?.location?.source).toBe("user");
+  });
+
+  it("throws on a field outside the person-fact shape", async () => {
+    await expect(
+      people.applyObservations(
+        identity,
+        { convId: { value: "2-nope", provenance: stamp("linkedin/enrich-core", T1) } },
+        T1
+      )
+    ).rejects.toThrow(/Unknown person field/);
+  });
+});
+
+// ---------------------------------------------------------------------------
+// Phase 2 — readPerson prefers the person record over the mirrors
+// ---------------------------------------------------------------------------
+
+describe("readPerson prefers people/ (Phase 2)", () => {
+  it("person-record fields beat a newer connection mirror; mirrors fill the gaps", async () => {
+    await people.applyObservations(
+      identity,
+      observationsFrom(
+        { publicIdentifier: SLUG, headline: "Person headline", title: "Person Title" },
+        stamp("linkedin/enrich-core", T1)
+      ),
+      T1
+    );
+    // Mirror re-swept LATER with different values — must not win.
+    await connections.upsertConnection(
+      { ...baseConnection, headline: "Mirror headline" },
+      "2026-08-01T00:00:00.000Z"
+    );
+
+    const person = await people.readPerson(FLAGSHIP);
+    expect(person?.headline).toBe("Person headline");
+    expect(person?.title).toBe("Person Title");
+    // Fields the person record does not carry still join in from the mirror.
+    expect(person?.company).toBe("Example Corp");
+    // Provenance rides along on the view; stamps span all sources.
+    expect(person?.provenance?.headline?.source).toBe("linkedin/enrich-core");
+    expect(person?.firstSeenAt).toBe(T1);
+    expect(person?.lastSeenAt).toBe("2026-08-01T00:00:00.000Z");
+  });
+
+  it("a person-only record resolves by flagship id and by slug", async () => {
+    await people.applyObservations(
+      identity,
+      observationsFrom(
+        { publicIdentifier: SLUG, firstName: "Solo", headline: "Only in people/" },
+        stamp("linkedin/enrich-core", T1)
+      ),
+      T1
+    );
+    const byId = await people.readPerson(FLAGSHIP);
+    expect(byId?.firstName).toBe("Solo");
+    expect(await people.readPerson(SLUG)).toEqual(byId);
+  });
+
+  it("listPersonIds unions connection ids and person records", async () => {
+    const OTHER = "ACoAAB0000000000000000000000000000000002";
+    await connections.upsertConnection(baseConnection, T1);
+    await people.applyObservations(
+      { flagshipId: OTHER },
+      observationsFrom({ firstName: "Rec" }, stamp("linkedin/enrich-core", T1)),
+      T1
+    );
+    expect((await people.listPersonIds()).sort()).toEqual([FLAGSHIP, OTHER]);
   });
 });

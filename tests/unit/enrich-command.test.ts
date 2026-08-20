@@ -24,13 +24,18 @@ const h = vi.hoisted(() => {
   const urls: string[] = [];
   const upserts: Array<Record<string, unknown>> = [];
   const enrichCalls: Array<{ id: string; patch: Record<string, unknown>; depth: string }> = [];
+  const personWrites: Array<{
+    identity: Record<string, unknown>;
+    observations: Record<string, { value: unknown; provenance: Record<string, unknown> }>;
+    nowIso: string;
+  }> = [];
   const out = {
     errors: [] as string[],
     successes: [] as string[],
     infos: [] as string[],
     warns: [] as string[],
   };
-  return { state, urls, upserts, enrichCalls, out };
+  return { state, urls, upserts, enrichCalls, personWrites, out };
 });
 
 vi.mock("@/utils/output.js", () => ({
@@ -72,6 +77,7 @@ vi.mock("@/linkedin/api/session.js", () => ({
                 objectUrn: "urn:li:member:375843124",
                 "*industry": "urn:li:fsd_industry:11",
                 industryUrn: "urn:li:fsd_industry:11",
+                geoLocation: { "*geo": "urn:li:fsd_geo:90000064" },
                 location: { countryCode: "US" },
                 premium: true,
                 memorialized: false,
@@ -82,6 +88,16 @@ vi.mock("@/linkedin/api/session.js", () => ({
                 $type: "com.linkedin.voyager.dash.common.Industry",
                 entityUrn: "urn:li:fsd_industry:11",
                 name: "Management Consulting",
+              },
+              {
+                $type: "com.linkedin.voyager.dash.common.Geo",
+                entityUrn: "urn:li:fsd_geo:90000064",
+                defaultLocalizedName: "Austin, Texas Metropolitan Area",
+              },
+              {
+                $type: "com.linkedin.voyager.dash.common.Geo",
+                entityUrn: "urn:li:fsd_geo:103644278",
+                defaultLocalizedName: "United States",
               },
             ],
           };
@@ -115,7 +131,10 @@ vi.mock("@/linkedin/api/session.js", () => ({
   })),
 }));
 
-vi.mock("@/store/index.js", () => ({
+vi.mock("@/store/index.js", async () => ({
+  // The real observation builder runs — only the stores are faked.
+  observationsFrom: (await vi.importActual<typeof import("@/store/people.js")>("@/store/people.js"))
+    .observationsFrom,
   resolveStorePath: () => "/tmp/allman-test-store",
   Store: class {
     git = { flush: vi.fn().mockResolvedValue(undefined) };
@@ -127,6 +146,18 @@ vi.mock("@/store/index.js", () => ({
       },
     };
     async init() {}
+    peopleFor() {
+      return {
+        applyObservations: async (
+          identity: Record<string, unknown>,
+          observations: Record<string, { value: unknown; provenance: Record<string, unknown> }>,
+          nowIso: string
+        ) => {
+          h.personWrites.push({ identity, observations, nowIso });
+          return {};
+        },
+      };
+    }
     connectionsFor() {
       return {
         git: { scheduleCommit: vi.fn() },
@@ -164,6 +195,7 @@ beforeEach(() => {
   h.urls.length = 0;
   h.upserts.length = 0;
   h.enrichCalls.length = 0;
+  h.personWrites.length = 0;
   for (const k of Object.keys(h.out) as Array<keyof typeof h.out>) h.out[k].length = 0;
 });
 afterEach(() => vi.clearAllMocks());
@@ -222,7 +254,46 @@ describe("enrich: request shape", () => {
       premium: true,
       memorialized: false,
       versionTag: "v1",
+      // Structured geo (ADR-0001), mirrored onto the connection record.
+      geoUrn: "urn:li:fsd_geo:90000064",
+      geoName: "Austin, Texas Metropolitan Area",
+      geoGranularity: "metro",
     });
+  });
+});
+
+describe("enrich: person records (ADR-0003 Phase 1)", () => {
+  it("dual-writes a person record per enriched profile, stamped enrich-core", async () => {
+    h.state.records.set(ID_1, pending(ID_1));
+    await enrichCommand(undefined, { noDelay: true });
+    expect(h.personWrites).toHaveLength(1);
+    const write = h.personWrites[0];
+    expect(write?.identity).toMatchObject({
+      flagshipId: ID_1,
+      memberUrn: `urn:li:fsd_profile:${ID_1}`,
+    });
+    expect(write?.observations.title?.value).toBe("Engineer");
+    expect(write?.observations.company?.value).toBe("Test Co");
+    expect(write?.observations.geoName?.value).toBe("Austin, Texas Metropolitan Area");
+    expect(write?.observations.geoGranularity?.value).toBe("metro");
+    expect(write?.observations.title?.provenance).toMatchObject({
+      source: "linkedin/enrich-core",
+      observedAt: write?.nowIso,
+    });
+  });
+
+  it("stamps deep enrichments linkedin/enrich-deep and includes skills", async () => {
+    h.state.records.set(ID_1, pending(ID_1));
+    await enrichCommand(undefined, { deep: true, noDelay: true });
+    const write = h.personWrites[0];
+    expect(write?.observations.title?.provenance.source).toBe("linkedin/enrich-deep");
+    expect(write?.observations.skills?.value).toEqual(["TypeScript"]);
+  });
+
+  it("writes the person record in single-target mode too", async () => {
+    await enrichCommand("slug-1", { noDelay: true });
+    expect(h.personWrites).toHaveLength(1);
+    expect(h.personWrites[0]?.observations.title?.value).toBe("Engineer");
   });
 });
 

@@ -1,23 +1,31 @@
 /**
  * Person records — one owner for person facts (ADR-0003).
  *
- * Phase 0 (this file): `readPerson` is a read-only join view over the two
- * places person facts already live — the connection record and the
- * conversation record — merged at read time. Nothing is written to disk;
- * `people/{flagshipId}.json` arrives in Phase 1 (enrich dual-writes with
- * provenance) and Phase 2 makes this reader prefer it. Callers build against
- * `readPerson` now so those phases change no callers.
+ * All three phases live here:
+ *
+ * - **Phase 0** — `readPerson` joins the connection record and the
+ *   conversation record at read time.
+ * - **Phase 1** — `applyObservations` writes `people/{flagshipId}.json`
+ *   (+ slug symlink) with per-field provenance, under the ADR-0004 overwrite
+ *   policy. Enrich keeps mirroring the same facts onto `StoredConnection` as a
+ *   declared back-compat shim.
+ * - **Phase 2** — `readPerson` prefers the person record: fields it carries
+ *   win outright; the mirrors only fill the gaps.
  *
  * Join key: `ConversationRecord.profileId` and `StoredConnection.flagshipId`
- * are the same flagship id. Merge policy: the newer record wins per field
- * (connection `lastSeenAt` vs conversation `fetchedAt`), but a null on the
- * newer side never clobbers a real value from the older side — same
+ * are the same flagship id. Mirror merge policy: the newer record wins per
+ * field (connection `lastSeenAt` vs conversation `fetchedAt`), but a null on
+ * the newer side never clobbers a real value from the older side — same
  * never-downgrade rule the write paths follow.
  */
+import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
+import { join } from "node:path";
+import type { GeoGranularity } from "../linkedin/api/endpoints/profile-detail.js";
+import { forceAlias } from "./alias.js";
 import type { StoredConnection, StoredEducation, StoredPosition } from "./connections-store.js";
 import { ConnectionsStore } from "./connections-store.js";
 import { ConversationStore } from "./conversations.js";
-import type { Provenance } from "./enricher.js";
+import type { ObservationSet, Provenance } from "./enricher.js";
 import type { StoreGit } from "./git.js";
 import type { ConversationRecord, ProfilePicture } from "./types.js";
 
@@ -53,6 +61,10 @@ export interface StoredPerson {
   country?: string | null;
   /** `urn:li:fsd_geo:<id>` — stable location identity, unlike the label. */
   geoUrn?: string | null;
+  /** LinkedIn's label for the geo entity behind `geoUrn` (ADR-0001). */
+  geoName?: string | null;
+  /** Precision of `geoUrn` (ADR-0001): metro, country, or unknown. */
+  geoGranularity?: GeoGranularity | null;
   about?: string | null;
   industry?: string | null;
   industryUrn?: string | null;
@@ -70,13 +82,16 @@ export interface StoredPerson {
   positions?: StoredPosition[] | null;
   education?: StoredEducation[] | null;
   skills?: string[] | null;
-  /** Per-field provenance stamps. Written from Phase 1; absent on Phase-0 joined views. */
+  /**
+   * Per-field provenance stamps (ADR-0004), written by `applyObservations`.
+   * Absent on fields that were only ever joined in from the mirrors.
+   */
   provenance?: Record<string, Provenance>;
   firstSeenAt: string;
   lastSeenAt: string;
 }
 
-/** Every fact `readPerson` merges newest-wins across its two sources. */
+/** Every person fact: what `applyObservations` accepts and `readPerson` merges. */
 const MERGED_FIELDS = [
   "memberUrn",
   "objectUrn",
@@ -91,6 +106,8 @@ const MERGED_FIELDS = [
   "location",
   "country",
   "geoUrn",
+  "geoName",
+  "geoGranularity",
   "about",
   "industry",
   "industryUrn",
@@ -105,28 +122,155 @@ const MERGED_FIELDS = [
   "skills",
 ] as const;
 
-type PersonFacts = Partial<Pick<StoredPerson, (typeof MERGED_FIELDS)[number]>>;
+/** A field name `applyObservations` accepts and `readPerson` merges. */
+export type PersonFactField = (typeof MERGED_FIELDS)[number];
+
+type PersonFacts = Partial<Pick<StoredPerson, PersonFactField>>;
+
+const PERSON_FACT_FIELDS: ReadonlySet<string> = new Set(MERGED_FIELDS);
+
+/**
+ * ADR-0004 overwrite ranking:
+ * "user" > enrich-deep > enrich-core > sweep > everything else.
+ * New namespaces slot below the LinkedIn tiers until an ADR says otherwise.
+ */
+const SOURCE_RANK: Record<string, number> = {
+  user: 4,
+  "linkedin/enrich-deep": 3,
+  "linkedin/enrich-core": 2,
+  "linkedin/sweep": 1,
+};
+
+function sourceRank(source: string): number {
+  return SOURCE_RANK[source] ?? 0;
+}
+
+/**
+ * Build an `ObservationSet` from resolved person facts, all stamped with one
+ * provenance. Null and undefined facts are dropped: a partial fetch says
+ * nothing about the fields it did not resolve, and the never-downgrade rule
+ * means an absent fact must not erase a stored one.
+ */
+export function observationsFrom(facts: PersonFacts, provenance: Provenance): ObservationSet {
+  const out: ObservationSet = {};
+  for (const [field, value] of Object.entries(facts)) {
+    if (value === undefined || value === null) continue;
+    out[field] = { value, provenance };
+  }
+  return out;
+}
 
 export class PeopleStore {
   private readonly connections: ConnectionsStore;
   private readonly conversations: ConversationStore;
 
-  constructor(accountDir: string, git: StoreGit) {
+  constructor(
+    private readonly accountDir: string,
+    git: StoreGit
+  ) {
     this.connections = new ConnectionsStore(accountDir, git);
     this.conversations = new ConversationStore(accountDir, git);
   }
 
+  private peopleDir(): string {
+    return join(this.accountDir, "people");
+  }
+
   /**
-   * Read the joined person view by flagship id or slug. Null when neither
-   * store knows the person. Only flagship-identified people resolve here —
-   * salesnav-only rows wait for `resolveSalesnavIdsFromFlagshipIds`
-   * (ADR-0003's materialization rule).
+   * Read the joined person view by flagship id or slug. Null when no store
+   * knows the person. Fields carried by the `people/` record win outright
+   * (Phase 2); connection and conversation mirrors fill the gaps. Only
+   * flagship-identified people resolve here — salesnav-only rows wait for
+   * `resolveSalesnavIdsFromFlagshipIds` (ADR-0003's materialization rule).
    */
   async readPerson(idOrSlug: string): Promise<StoredPerson | null> {
     const conn = await this.connections.readConnectionByKey(idOrSlug);
-    const conv = await this.readConversation(conn?.flagshipId, idOrSlug);
-    if (!conn && !conv) return null;
-    return mergePerson(conn, conv);
+    const person = await this.readPersonRecord(conn?.flagshipId ?? idOrSlug);
+    const conv = await this.readConversation(conn?.flagshipId ?? person?.flagshipId, idOrSlug);
+    if (!person && !conn && !conv) return null;
+    return mergePerson(person, conn, conv);
+  }
+
+  /**
+   * Read the raw `people/{flagshipId}.json` record by flagship id or slug
+   * (slugs resolve through the symlink). Null when it doesn't exist yet —
+   * records materialize when an enricher first observes the person (Phase 1).
+   */
+  async readPersonRecord(idOrSlug: string): Promise<StoredPerson | null> {
+    for (const name of [`${idOrSlug}.json`, idOrSlug]) {
+      try {
+        return JSON.parse(await readFile(join(this.peopleDir(), name), "utf8")) as StoredPerson;
+      } catch {
+        // try the next name
+      }
+    }
+    return null;
+  }
+
+  /**
+   * Every flagship id that resolves to a person view: person records plus
+   * connection records. (Conversation-only people are readable by id but are
+   * not enumerated — there is no per-account index of contact profile ids.)
+   */
+  async listPersonIds(): Promise<string[]> {
+    const ids = new Set<string>(await this.connections.listConnectionIds());
+    try {
+      for (const name of await readdir(this.peopleDir())) {
+        if (name.endsWith(".json")) ids.add(name.slice(0, -".json".length));
+      }
+    } catch {
+      // no people/ directory yet
+    }
+    return [...ids];
+  }
+
+  /**
+   * Apply an enricher's observations to `people/{flagshipId}.json`, creating
+   * the record if absent (Phase 1, ADR-0003/0004). Per field, a write lands
+   * only when its provenance is equal-or-better than what the field already
+   * carries, and `"user"`-sourced values are never auto-overwritten. Field
+   * names are validated against the person-fact shape — an unknown field is a
+   * contract violation and throws.
+   */
+  async applyObservations(
+    identity: { flagshipId: string; memberUrn?: string },
+    observations: ObservationSet,
+    nowIso: string
+  ): Promise<StoredPerson> {
+    const { flagshipId } = identity;
+    const prev = await this.readPersonRecord(flagshipId);
+    const rec: StoredPerson = prev ?? {
+      flagshipId,
+      memberUrn: identity.memberUrn ?? `urn:li:fsd_profile:${flagshipId}`,
+      publicIdentifier: null,
+      provenance: {},
+      firstSeenAt: nowIso,
+      lastSeenAt: nowIso,
+    };
+    const provenance = rec.provenance ?? {};
+    rec.provenance = provenance;
+    const target = rec as unknown as Record<string, unknown>;
+
+    for (const [field, obs] of Object.entries(observations)) {
+      if (!PERSON_FACT_FIELDS.has(field)) {
+        throw new Error(`Unknown person field in observation set: "${field}"`);
+      }
+      const existing = provenance[field];
+      if (existing?.source === "user") continue;
+      if (existing && sourceRank(existing.source) > sourceRank(obs.provenance.source)) continue;
+      target[field] = obs.value;
+      provenance[field] = obs.provenance;
+    }
+
+    rec.firstSeenAt = prev?.firstSeenAt ?? nowIso;
+    rec.lastSeenAt = nowIso;
+
+    const dir = this.peopleDir();
+    await mkdir(dir, { recursive: true });
+    const file = `${flagshipId}.json`;
+    await writeFile(join(dir, file), `${JSON.stringify(rec, null, 2)}\n`, "utf8");
+    if (rec.publicIdentifier) await forceAlias(dir, rec.publicIdentifier, file);
+    return rec;
   }
 
   /**
@@ -149,19 +293,36 @@ export class PeopleStore {
   }
 }
 
-function mergePerson(conn: StoredConnection | null, conv: ConversationRecord | null): StoredPerson {
-  // Newest source first; a tie keeps the connection record (the canonical
+function mergePerson(
+  person: StoredPerson | null,
+  conn: StoredConnection | null,
+  conv: ConversationRecord | null
+): StoredPerson {
+  const merged: Record<string, unknown> = {};
+  // Phase 2: the person record owns the fields it carries — a newer mirror
+  // never overrides them (only `applyObservations` may, under provenance).
+  const owned = new Set<string>();
+  if (person) {
+    for (const field of MERGED_FIELDS) {
+      const value = (person as unknown as Record<string, unknown>)[field];
+      if (value !== undefined) {
+        merged[field] = value;
+        owned.add(field);
+      }
+    }
+  }
+
+  // Mirrors, newest first; a tie keeps the connection record (the canonical
   // store) ahead of the conversation cache. ISO timestamps compare as strings.
-  const sources = [
+  const mirrors = [
     conn ? { at: conn.lastSeenAt, facts: connectionFacts(conn) } : null,
     conv ? { at: conv.fetchedAt, facts: conversationFacts(conv) } : null,
   ]
     .filter((s): s is { at: string; facts: PersonFacts } => s !== null)
     .sort((a, b) => (a.at < b.at ? 1 : a.at > b.at ? -1 : 0));
-
-  const merged: Record<string, unknown> = {};
-  for (const source of sources) {
+  for (const source of mirrors) {
     for (const field of MERGED_FIELDS) {
+      if (owned.has(field)) continue;
       if (merged[field] === undefined || merged[field] === null) {
         const value = source.facts[field];
         if (value !== undefined) merged[field] = value;
@@ -170,15 +331,29 @@ function mergePerson(conn: StoredConnection | null, conv: ConversationRecord | n
   }
 
   // At least one source exists, so flagshipId and a lastSeenAt stamp always resolve.
-  const flagshipId = (conn?.flagshipId ?? conv?.profileId) as string;
+  const flagshipId = (person?.flagshipId ?? conn?.flagshipId ?? conv?.profileId) as string;
   return {
     ...merged,
     flagshipId,
     memberUrn: (merged.memberUrn as string | undefined) ?? `urn:li:fsd_profile:${flagshipId}`,
     publicIdentifier: (merged.publicIdentifier as string | undefined) ?? null,
-    firstSeenAt: conn?.firstSeenAt ?? (conv?.fetchedAt as string),
-    lastSeenAt: (sources[0]?.at ?? sources[1]?.at) as string,
+    ...(person?.provenance ? { provenance: person.provenance } : {}),
+    firstSeenAt: minIso(person?.firstSeenAt, conn?.firstSeenAt) ?? (conv?.fetchedAt as string),
+    lastSeenAt: maxIso(person?.lastSeenAt, conn?.lastSeenAt, conv?.fetchedAt) as string,
   } as StoredPerson;
+}
+
+/** Earliest of the given ISO stamps (they compare as strings), if any. */
+function minIso(...stamps: Array<string | undefined>): string | undefined {
+  return stamps.filter((s): s is string => s !== undefined).sort()[0];
+}
+
+/** Latest of the given ISO stamps, if any. */
+function maxIso(...stamps: Array<string | undefined>): string | undefined {
+  return stamps
+    .filter((s): s is string => s !== undefined)
+    .sort()
+    .at(-1);
 }
 
 function connectionFacts(c: StoredConnection): PersonFacts {
@@ -196,6 +371,8 @@ function connectionFacts(c: StoredConnection): PersonFacts {
     location: c.location,
     country: c.country,
     geoUrn: c.geoUrn,
+    geoName: c.geoName,
+    geoGranularity: c.geoGranularity,
     about: c.about,
     industry: c.industry,
     industryUrn: c.industryUrn,

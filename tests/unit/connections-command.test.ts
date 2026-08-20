@@ -104,6 +104,9 @@ vi.mock("@/store/index.js", () => ({
     path = "/tmp/allman-test-store";
     git = { flush: vi.fn().mockResolvedValue(undefined) };
     async init() {}
+    peopleFor() {
+      return { applyObservations: async () => ({}) };
+    }
     connectionsFor() {
       return {
         git: { scheduleCommit: vi.fn() },

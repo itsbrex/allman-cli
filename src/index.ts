@@ -403,6 +403,16 @@ program
   .option("--deep", "with --enrich: also fetch work history, education, and skills")
   .option("--salesnav", "force the Sales Navigator backend (default when a seat exists)")
   .option("--flagship", "force the flagship backend")
+  .option(
+    "--geo <name|urn>",
+    "local query: filter stored records by geo — a urn:li:fsd_geo:<id> matches exactly, anything else matches the geo name (repeatable, OR-ed; no network)",
+    (value: string, previous: string[]) => [...previous, value],
+    [] as string[]
+  )
+  .option(
+    "--geo-granularity <level>",
+    "local query: keep only records at this geo precision (metro|country|unknown)"
+  )
   .option("--json", "stream NDJSON to stdout (ephemeral — does not write the store)")
   .action(async (opts, cmd) => {
     const globalOpts = cmd.parent?.opts() ?? {};
@@ -419,6 +429,8 @@ program
       deep: opts.deep === true,
       salesnav: opts.salesnav === true,
       flagship: opts.flagship === true,
+      geo: opts.geo,
+      geoGranularity: opts.geoGranularity,
     });
   });
 
