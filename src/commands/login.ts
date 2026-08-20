@@ -10,6 +10,12 @@ export interface LoginOptions {
   store?: string;
   proxy?: string;
   json?: boolean;
+  /** Browser channel to launch: chrome | msedge | chromium (bundled) | … */
+  browser?: string;
+  /** Persistent browser profile directory (device LinkedIn learns to trust). */
+  profile?: string;
+  /** CDP endpoint (or bare port) of an already-running browser to attach to. */
+  cdp?: string;
   /** Warm + capture the Sales Navigator seat cookie during login. Default true;
    *  set false (via --no-salesnav) to skip the optional SalesNav visit. */
   salesnav?: boolean;
@@ -56,7 +62,13 @@ export async function loginCommand(options: LoginOptions): Promise<void> {
   output.info("All data stays on your machine — nothing is sent to Tarka or any third party.");
   output.info("");
 
-  const result = await runLogin({ existingCookieJar, salesnav: options.salesnav !== false });
+  const result = await runLogin({
+    existingCookieJar,
+    salesnav: options.salesnav !== false,
+    channel: options.browser,
+    profileDir: options.profile,
+    cdpEndpoint: options.cdp,
+  });
 
   if (!result.success) {
     output.error(`Login failed: ${result.error ?? "unknown error"}`, 1);

@@ -56,10 +56,10 @@ An `allman` installed by `install.sh` is kept at `allman.pre-dev-link` and resto
 [`allman-tui`](https://github.com/tarkaai/allman-tui) has the same `link` script, and its shim
 prefers a sibling checkout of this repo — link both and the dev TUI drives the dev CLI.
 
-Playwright's Chromium browser is required for login only:
+Login uses your installed Google Chrome or Microsoft Edge automatically. Only when neither exists does it need Playwright's bundled Chromium:
 
 ```bash
-allman install-browsers
+allman install-browsers      # optional — only without a system Chrome/Edge
 # or: bunx playwright install chromium
 ```
 
@@ -95,16 +95,29 @@ All commands accept these flags:
 
 ### `allman login`
 
-Authenticate with LinkedIn. Opens a headed Chromium browser. Complete the login in the browser window; cookies are captured automatically.
+Authenticate with LinkedIn. Opens a headed browser — your installed Google Chrome (or Edge) by default, falling back to Playwright's bundled Chromium only when neither exists, so no download is required. Complete the login in the browser window; LinkedIn cookies are captured automatically.
 
 ```bash
 allman login
 allman login --account your-account
 allman login --proxy host:port
 allman login --proxy host:port:username:password
+allman login --profile ~/.allman/browser   # persistent profile: LinkedIn remembers the device, re-logins usually skip 2FA
+allman login --cdp 9222                    # attach to a browser you already have running (see below)
+allman login --browser msedge              # pick the browser channel explicitly
 ```
 
 On success, writes `AUTH.json` and `COOKIES.json` to the store and creates a slug symlink for the account.
+
+**Reusing an existing browser session (`--cdp`).** Start a browser yourself with remote debugging, log in (or already be logged in), then attach — the CLI reads the live session's LinkedIn cookies and disconnects without closing your browser or writing anything into it:
+
+```bash
+"/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
+  --remote-debugging-port=9222 --user-data-dir="$HOME/.allman/chrome-debug"
+allman login --cdp 9222
+```
+
+Chrome 136+ refuses remote debugging on its *default* profile (and a running Chrome locks it), so the `--user-data-dir` override is required — you can't point at your daily profile directly. Log into LinkedIn once in that side profile and it stays a known device from then on. `--profile` is the simpler managed version of the same idea.
 
 **Options:**
 
@@ -112,6 +125,9 @@ On success, writes `AUTH.json` and `COOKIES.json` to the store and creates a slu
 |------|-------------|
 | `--account <slug>` | Account name to create or re-authenticate |
 | `--proxy <host:port[:user:pass]>` | HTTP proxy for this account (saved to `config.json`) |
+| `--browser <channel>` | `chrome` \| `msedge` \| `chromium` (bundled) — default: auto (Chrome → Edge → bundled) |
+| `--profile <dir>` | Persistent browser profile directory (a device LinkedIn learns to trust) |
+| `--cdp <url\|port>` | Attach to an already-running browser with `--remote-debugging-port`; never closes it |
 
 ---
 
@@ -602,7 +618,7 @@ allman store commit "message"  # manually trigger a git commit
 
 ### `allman install-browsers`
 
-Install Playwright's Chromium browser (required for `allman login`).
+Install Playwright's bundled Chromium. Optional: `allman login` uses your installed Google Chrome or Microsoft Edge automatically and only falls back to the bundled build when neither exists.
 
 ```bash
 allman install-browsers
@@ -783,7 +799,10 @@ Per-conversation: if you sent a message in a conversation, that conversation's r
 | `ALLMAN_STORE` | Override default store path (default: `./.allman`) |
 | `ALLMAN_ACCOUNT` | Default account slug (used when `--account` is not specified) |
 | `ALLMAN_SEARCH_CLUSTERS_QID` | Override the flagship people-search queryId (otherwise auto-discovered + cached) |
-| `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` | Use an existing Chromium binary for login |
+| `ALLMAN_BROWSER` | Browser channel for login/capture: `chrome` \| `msedge` \| `chromium` (default: auto) |
+| `ALLMAN_BROWSER_PROFILE` | Persistent browser profile directory (same as `login --profile`) |
+| `ALLMAN_CDP_URL` | CDP endpoint/port of an already-running browser (same as `login --cdp`) |
+| `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` | Use an explicit browser executable (wins over channels) |
 
 ---
 

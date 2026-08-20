@@ -18,9 +18,11 @@
  * Flagship-only; unrelated to the Sales Navigator seat.
  */
 
+import type { Response } from "playwright";
 import * as output from "../../utils/output.js";
 import type { LinkedInApiClient } from "../api/client.js";
 import { isPeopleSearchClustersQueryId } from "../api/endpoints/people-search.js";
+import { browserEnvDefaults, openBrowserContext } from "./browser.js";
 
 const HASH_RX = /voyagerSearchDashClusters\.[a-f0-9]{32}/g;
 const SEARCH_URL = "https://www.linkedin.com/search/results/people/?keywords=a";
@@ -72,25 +74,23 @@ function jarToPlaywrightCookies(cookieJar: unknown): Array<Record<string, unknow
  * people-search headlessly and grepping the large query-manifest chunk(s).
  */
 async function discoverCandidates(cookieJar: unknown): Promise<string[]> {
-  const { chromium } = await import("playwright");
-  const executablePath = process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
-  const browser = await chromium.launch({
+  // System Chrome/Edge → bundled Chromium, same fallback as login — but always
+  // a plain ephemeral launch: this is headless cookie-injected work, so the
+  // user's --profile / --cdp browser is deliberately NOT used here.
+  const env = browserEnvDefaults();
+  const session = await openBrowserContext({
     headless: true,
-    ...(executablePath ? { executablePath } : {}),
-    args: ["--no-sandbox", "--disable-blink-features=AutomationControlled"],
+    channel: env.channel,
+    executablePath: env.executablePath,
   });
   const chunks = new Map<string, number>(); // url -> content-length
   try {
-    const context = await browser.newContext({
-      userAgent:
-        "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36",
-      viewport: { width: 1366, height: 900 },
-    });
+    const context = session.context;
     await context.addCookies(
       jarToPlaywrightCookies(cookieJar) as unknown as Parameters<typeof context.addCookies>[0]
     );
     const page = await context.newPage();
-    page.on("response", (res) => {
+    page.on("response", (res: Response) => {
       const u = res.url();
       if (/static\.licdn\.com\/aero-v1\//.test(u)) {
         const len = parseInt(res.headers()["content-length"] ?? "0", 10);
@@ -110,7 +110,7 @@ async function discoverCandidates(cookieJar: unknown): Promise<string[]> {
       await page.waitForTimeout(1000);
     }
   } finally {
-    await browser.close().catch(() => {});
+    await session.close().catch(() => {});
   }
 
   // Fetch the biggest chunks (public CDN, no auth) and grep for candidates.

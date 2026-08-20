@@ -241,7 +241,10 @@ ALLMAN_STORE        Override default store path (default: ./.allman)
 ALLMAN_ACCOUNT      Default account slug
 ALLMAN_SEARCH_CLUSTERS_QID  Override the flagship people-search queryId (else auto-discovered)
 ALLMAN_PROFILE_DECORATION   Override the `enrich` profile decoration (else FullProfile default)
-PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH  Use existing Chromium
+ALLMAN_BROWSER              Browser channel for login/capture: chrome | msedge | chromium (default: auto Chrome → Edge → bundled)
+ALLMAN_BROWSER_PROFILE      Persistent browser profile dir (login --profile)
+ALLMAN_CDP_URL              Attach to a running browser over CDP (login --cdp); Chrome 136+ needs a non-default --user-data-dir
+PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH  Explicit browser executable (wins over channels)
 ```
 
 ## Development

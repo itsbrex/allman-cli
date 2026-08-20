@@ -1,13 +1,19 @@
 /**
- * LinkedIn authentication via headed Playwright browser.
+ * LinkedIn authentication via a headed browser.
  *
  * Because LinkedIn's login flow is highly interactive (2FA app notifications,
  * TOTP codes, email codes, captcha, device verification), we always use a
  * headed browser and let the human complete login manually.
  *
+ * The browser comes from `openBrowserContext` (see auth/browser.ts): the
+ * system Chrome/Edge by default (no Chromium download), a persistent
+ * `--profile` directory, or — with `--cdp` — the user's own already-running
+ * browser, whose live LinkedIn session usually skips the login form entirely.
+ *
  * The CLI:
- *   1. Opens a Chromium window (headed)
- *   2. Injects existing cookies if any (may skip login form entirely)
+ *   1. Opens a browser window (headed) or attaches to a running one
+ *   2. Injects existing cookies if any (may skip login form entirely;
+ *      never done to a --cdp browser — that session is not ours to mutate)
  *   3. Navigates to linkedin.com/login
  *   4. Waits for the user to complete login (URL becomes /feed or /in/)
  *   5. Intercepts voyagerIdentityDashProfiles API response to extract the profile URN
@@ -21,9 +27,10 @@
  * Timeout: 5 minutes (configurable via LOGIN_TIMEOUT_MS env var).
  */
 
-import { type BrowserContext, chromium, type Page } from "playwright";
+import type { BrowserContext, Page } from "playwright";
 import * as output from "../../utils/output.js";
 import { cookiesFromPlaywright, isAuthenticated, type PlaywrightCookie } from "../api/cookies.js";
+import { browserEnvDefaults, openBrowserContext } from "./browser.js";
 
 const LOGIN_URL = "https://www.linkedin.com/login";
 const FEED_URL_PATTERN = /linkedin\.com\/(feed|in\/|messaging)/;
@@ -45,35 +52,44 @@ export interface AuthResult {
 export interface AuthOptions {
   /** Existing cookies to inject before navigating (for re-auth). */
   existingCookieJar?: object | null;
-  /** Override executable path for Chromium. */
+  /** Override executable path for the browser. */
   executablePath?: string;
+  /** Playwright channel ("chrome", "msedge", "chromium" = bundled). */
+  channel?: string;
+  /** Persistent browser profile directory — the device LinkedIn learns to trust. */
+  profileDir?: string;
+  /** Attach to an already-running browser over CDP instead of launching one. */
+  cdpEndpoint?: string;
   /** Visit Sales Navigator to capture the seat cookie (optional; default true). */
   salesnav?: boolean;
 }
 
 /**
  * Run the interactive login flow.
- * Opens a headed Chromium window and waits for the user to authenticate.
+ * Opens a headed browser window (or attaches to a running browser) and waits
+ * for the user to authenticate.
  */
 export async function runLogin(options: AuthOptions = {}): Promise<AuthResult> {
-  const executablePath = options.executablePath ?? process.env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH;
-
-  output.info("Opening LinkedIn in browser — please complete login in the browser window.");
-
-  const browser = await chromium.launch({
+  const env = browserEnvDefaults();
+  const session = await openBrowserContext({
     headless: false,
-    ...(executablePath ? { executablePath } : {}),
-    args: ["--no-sandbox", "--disable-blink-features=AutomationControlled", "--disable-infobars"],
+    channel: options.channel ?? env.channel,
+    executablePath: options.executablePath ?? env.executablePath,
+    profileDir: options.profileDir ?? env.profileDir,
+    cdpEndpoint: options.cdpEndpoint ?? env.cdpEndpoint,
   });
+  const context = session.context;
 
-  const context = await browser.newContext({
-    userAgent:
-      "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-    viewport: { width: 1280, height: 800 },
-  });
+  output.info(
+    session.kind === "cdp"
+      ? `Attached to ${session.description} — complete login there if prompted.`
+      : `Opening LinkedIn via ${session.description} — please complete login in the browser window.`
+  );
 
-  // Inject existing cookies if provided (may let us skip login entirely)
-  if (options.existingCookieJar) {
+  // Inject existing cookies if provided (may let us skip login entirely).
+  // Never into a --cdp browser: that session belongs to the user, and writing
+  // our stored cookies into it could clobber whatever account they're using.
+  if (options.existingCookieJar && session.kind !== "cdp") {
     try {
       const cookieData = options.existingCookieJar as { cookies?: PlaywrightCookie[] };
       if (cookieData.cookies && Array.isArray(cookieData.cookies)) {
@@ -136,7 +152,8 @@ export async function runLogin(options: AuthOptions = {}): Promise<AuthResult> {
   try {
     await page.waitForURL(FEED_URL_PATTERN, { timeout: LOGIN_TIMEOUT_MS });
   } catch {
-    await browser.close();
+    await page.close().catch(() => {});
+    await session.close();
     return {
       success: false,
       profileUrn: null,
@@ -168,8 +185,11 @@ export async function runLogin(options: AuthOptions = {}): Promise<AuthResult> {
     await warmSalesNavSeat(page);
   }
 
-  // Extract all cookies from the browser context
-  const rawCookies = await context.cookies();
+  // Extract the LinkedIn cookies from the browser context. The domain filter
+  // matters most for --cdp and --profile: a real browser's context carries
+  // cookies for every site the user visits, and none of that belongs in the
+  // account's COOKIES.json.
+  const rawCookies = (await context.cookies()).filter((c) => c.domain.includes("linkedin.com"));
   const jar = await cookiesFromPlaywright(
     rawCookies.map((c) => ({
       name: c.name,
@@ -185,7 +205,8 @@ export async function runLogin(options: AuthOptions = {}): Promise<AuthResult> {
 
   const isAuth = await isAuthenticated(jar);
   if (!isAuth) {
-    await browser.close();
+    await page.close().catch(() => {});
+    await session.close();
     return {
       success: false,
       profileUrn: null,
@@ -206,7 +227,9 @@ export async function runLogin(options: AuthOptions = {}): Promise<AuthResult> {
   const profileUrl = domProfile.profileUrl;
   const imageUrl = domProfile.imageUrl;
 
-  await browser.close();
+  // Close only the tab we opened; session.close() disconnects (cdp) or quits.
+  await page.close().catch(() => {});
+  await session.close();
 
   const { serializeCookieJar } = await import("../api/cookies.js");
   const cookieJar = serializeCookieJar(jar);

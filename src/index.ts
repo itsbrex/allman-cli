@@ -59,6 +59,18 @@ program
   .option("-a, --account <slug>", "account name to create or re-authenticate")
   .option("-s, --store <path>", "store directory")
   .option("--proxy <host:port[:user:pass]>", "HTTP proxy for this account")
+  .option(
+    "--browser <channel>",
+    "browser to launch: chrome | msedge | chromium (bundled) — default: auto (Chrome → Edge → bundled)"
+  )
+  .option(
+    "--profile <dir>",
+    "persistent browser profile directory — LinkedIn remembers the device, so re-logins usually skip 2FA"
+  )
+  .option(
+    "--cdp <url|port>",
+    "attach to an already-running browser with --remote-debugging-port; uses its live session, never closes it"
+  )
   .option("--no-salesnav", "skip the optional Sales Navigator seat capture")
   .option("--json", "output as JSON")
   .action(async (opts, cmd) => {
@@ -67,6 +79,9 @@ program
       account: opts.account ?? globalOpts.account,
       store: opts.store ?? globalOpts.store,
       proxy: opts.proxy,
+      browser: opts.browser,
+      profile: opts.profile,
+      cdp: opts.cdp,
       salesnav: opts.salesnav,
       json: opts.json ?? globalOpts.json,
     });
@@ -560,7 +575,9 @@ program
 
 program
   .command("install-browsers")
-  .description("Install Playwright's Chromium browser (required for login)")
+  .description(
+    "Install Playwright's bundled Chromium (optional — an installed Google Chrome or Microsoft Edge is used automatically)"
+  )
   .action(async () => {
     const { execSync } = await import("node:child_process");
     process.stderr.write("Installing Chromium via Playwright...\n");
