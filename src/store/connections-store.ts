@@ -18,7 +18,10 @@
  */
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
-import type { ProfileRaw as ProfileRawPayload } from "../linkedin/api/endpoints/profile-detail.js";
+import type {
+  GeoGranularity,
+  ProfileRaw as ProfileRawPayload,
+} from "../linkedin/api/endpoints/profile-detail.js";
 import type { SalesnavPosition, SalesnavSpotlight } from "../linkedin/api/endpoints/salesnav.js";
 import { forceAlias } from "./alias.js";
 import type { StoreGit } from "./git.js";
@@ -112,6 +115,13 @@ export interface StoredConnection {
   country?: string | null;
   /** `urn:li:fsd_geo:<id>` — stable location identity, unlike the label. */
   geoUrn?: string | null;
+  /**
+   * LinkedIn's label for the geo entity behind `geoUrn` (ADR-0001). A declared
+   * back-compat mirror of the person record (ADR-0003), like `geoGranularity`.
+   */
+  geoName?: string | null;
+  /** Precision of `geoUrn` (ADR-0001). Absent on records written before it existed. */
+  geoGranularity?: GeoGranularity | null;
   /** The profile's "About" summary. */
   about?: string | null;
   /** LinkedIn's standardized industry label, e.g. "Management Consulting". */
@@ -169,6 +179,8 @@ export type ConnectionEnrichment = Pick<
   | "location"
   | "country"
   | "geoUrn"
+  | "geoName"
+  | "geoGranularity"
   | "about"
   | "industry"
   | "industryUrn"

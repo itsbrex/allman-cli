@@ -148,6 +148,41 @@ describe("parseProfileCore", () => {
     expect(d?.industryUrn).toBe("urn:li:fsd_industry:11");
   });
 
+  it("captures geoName and metro granularity from a metro + country Geo pair", () => {
+    // ADR-0001: a metro-level location ships TWO Geo entities (the chosen
+    // metro plus its country companion) — that structure IS the granularity.
+    const d = parseProfileCore({
+      included: [
+        profileEntry({ geoLocation: { "*geo": GEO_METRO }, location: { countryCode: "US" } }),
+        geo(GEO_COUNTRY, "United States"),
+        geo(GEO_METRO, "Austin, Texas Metropolitan Area"),
+      ],
+    });
+    expect(d?.geoName).toBe("Austin, Texas Metropolitan Area");
+    expect(d?.geoGranularity).toBe("metro");
+  });
+
+  it("marks a lone country Geo as country granularity", () => {
+    const d = parseProfileCore({
+      included: [
+        profileEntry({ geoLocation: { "*geo": GEO_COUNTRY }, location: { countryCode: "US" } }),
+        geo(GEO_COUNTRY, "United States"),
+      ],
+    });
+    expect(d?.geoName).toBe("United States");
+    expect(d?.geoGranularity).toBe("country");
+    expect(d?.geoUrn).toBe(GEO_COUNTRY);
+  });
+
+  it("reports unknown granularity and no geoName when only a plain string is present", () => {
+    const d = parseProfileCore({
+      included: [profileEntry({ geoLocationName: "Berlin, Germany" })],
+    });
+    expect(d?.location).toBe("Berlin, Germany");
+    expect(d?.geoName).toBeNull();
+    expect(d?.geoGranularity).toBe("unknown");
+  });
+
   it("keeps the geo URN alongside the location label", () => {
     const d = parseProfileCore({
       included: [

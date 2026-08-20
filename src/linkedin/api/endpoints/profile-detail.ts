@@ -91,6 +91,12 @@ export interface ProfileEducation {
   educationUrn: string | null;
 }
 
+/**
+ * Precision of a resolved geo entity (ADR-0001), derived from the response
+ * graph rather than string parsing — see `resolveGeo`.
+ */
+export type GeoGranularity = "metro" | "country" | "unknown";
+
 /** The fields carried by the core `profiles` resource. */
 export interface ProfileCore {
   /** `urn:li:fsd_profile:<id>` */
@@ -114,6 +120,13 @@ export interface ProfileCore {
   country: string | null;
   /** `urn:li:fsd_geo:<id>` — stable location identity, unlike the label. */
   geoUrn: string | null;
+  /**
+   * LinkedIn's label for the geo entity behind `geoUrn` — distinct from the
+   * freeform `location` string (ADR-0001). Null when no geo entity resolved.
+   */
+  geoName: string | null;
+  /** How precise `geoUrn` is (ADR-0001). "unknown" when no geo entity resolved. */
+  geoGranularity: GeoGranularity;
   /** The profile's "About" summary. */
   about: string | null;
   /** LinkedIn's standardized industry label, e.g. "Management Consulting". */
@@ -314,6 +327,8 @@ export function parseProfileCore(resp: RawResponse): ProfileCore | null {
     location: geo.name,
     country: str(location?.countryCode) ?? null,
     geoUrn: geo.urn,
+    geoName: geo.geoName,
+    geoGranularity: geo.granularity,
     about: text(profile.summary),
     industry: resolveIndustry(profile, included),
     industryUrn: str(profile.industryUrn) ?? str(profile["*industry"]) ?? null,
@@ -428,17 +443,28 @@ export function pickPrimaryPosition(positions: ProfilePosition[]): ProfilePositi
 // ---------------------------------------------------------------------------
 
 /**
- * Resolve the member's location label and the `fsd_geo` URN behind it.
+ * Resolve the member's location label, the `fsd_geo` URN behind it, and the
+ * structured geo fields (ADR-0001).
  *
  * The live shape is `profile.geoLocation = { "*geo": "urn:li:fsd_geo:<id>" }`,
  * resolved against `included`. We must NOT fall back to "any Geo in the graph":
  * the graph also carries a country-level Geo, so that fallback silently
  * downgrades "Austin, Texas Metropolitan Area" to "United States".
+ *
+ * Granularity comes from that same graph structure, not string parsing: a
+ * metro-level location ships TWO Geo entities (the chosen metro plus its
+ * country companion), while a country-level location ships only the country
+ * Geo itself. No resolved entity → "unknown".
  */
 function resolveGeo(
   profile: Record<string, unknown>,
   included: Array<Record<string, unknown>>
-): { name: string | null; urn: string | null } {
+): {
+  name: string | null;
+  urn: string | null;
+  geoName: string | null;
+  granularity: GeoGranularity;
+} {
   // Nested reference: geoLocation["*geo"] (current shape), or a direct ref.
   const geoLocation = profile.geoLocation as Record<string, unknown> | undefined;
   const geoRef =
@@ -446,21 +472,37 @@ function resolveGeo(
     str(profile["*geoLocation"]) ??
     str(profile["*geo"]);
 
+  const geoEntity = geoRef
+    ? included.find((i) => i.entityUrn === geoRef && matchesType(i, /\.common\.Geo$/))
+    : undefined;
+  const geoName = geoEntity
+    ? (str(geoEntity.defaultLocalizedName) ??
+      str(geoEntity.localizedName) ??
+      str(geoEntity.name) ??
+      null)
+    : null;
+  let granularity: GeoGranularity = "unknown";
+  if (geoEntity) {
+    const hasCompanionGeo = included.some(
+      (i) => matchesType(i, /\.common\.Geo$/) && i.entityUrn !== geoRef
+    );
+    granularity = hasCompanionGeo ? "metro" : "country";
+  }
+
   // Plain string forms, when a lighter decoration supplies them.
   const direct = str(profile.geoLocationName) ?? str(profile.locationName);
-  if (direct) return { name: direct, urn: geoRef ?? null };
+  if (direct) return { name: direct, urn: geoRef ?? null, geoName, granularity };
 
-  if (geoRef) {
-    const geo = included.find((i) => i.entityUrn === geoRef);
-    const name = geo
-      ? (str(geo.defaultLocalizedName) ?? str(geo.localizedName) ?? str(geo.name))
-      : undefined;
-    if (name) return { name, urn: geoRef };
-  }
+  if (geoName) return { name: geoName, urn: geoRef ?? null, geoName, granularity };
 
   // Localized name hung directly off `location`, when present.
   const loc = profile.location as Record<string, unknown> | undefined;
-  return { name: loc ? (str(loc.defaultLocalizedName) ?? null) : null, urn: geoRef ?? null };
+  return {
+    name: loc ? (str(loc.defaultLocalizedName) ?? null) : null,
+    urn: geoRef ?? null,
+    geoName,
+    granularity,
+  };
 }
 
 /**
