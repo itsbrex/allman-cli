@@ -179,6 +179,9 @@ export interface ConversationRecord {
   /** ADD_PARTICIPANT, REMOVE_PARTICIPANT, etc. */
   disabledFeatures: string[];
 
+  /** Local operator acknowledgment; never copied into remote read state. Unix ms. */
+  localAcknowledgedAt?: number;
+
   // === Sync metadata ===
   syncState: SyncState;
   /** ISO timestamp of last API fetch */

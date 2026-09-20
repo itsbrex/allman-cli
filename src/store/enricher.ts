@@ -45,6 +45,8 @@ export interface Provenance {
  */
 export interface Observation<T = unknown> {
   value: T | null;
+  /** Required to clear a value with null, an empty string, or an empty array. */
+  authoritative?: boolean;
   provenance: Provenance;
 }
 

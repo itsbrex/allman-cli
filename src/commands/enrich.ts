@@ -17,14 +17,15 @@
  */
 
 import type { LinkedInApiClient } from "../linkedin/api/client.js";
-import {
-  fetchProfileDetail,
-  type ProfileDetail,
-} from "../linkedin/api/endpoints/profile-detail.js";
+import type { ProfileDetail } from "../linkedin/api/endpoints/profile-detail.js";
 import { loadSession } from "../linkedin/api/session.js";
+import {
+  LinkedInProfileEnricher,
+  type ProfileObservationResult,
+} from "../linkedin/profile-enricher.js";
 import type { ConnectionEnrichment, ConnectionsStore } from "../store/connections-store.js";
-import type { Provenance } from "../store/enricher.js";
-import { observationsFrom, type PeopleStore, resolveStorePath, Store } from "../store/index.js";
+import type { ObservationSet } from "../store/enricher.js";
+import { type PeopleStore, resolveStorePath, Store } from "../store/index.js";
 import { AccountQuota } from "../utils/account-quota.js";
 import * as output from "../utils/output.js";
 import { describeWait, describeWindow } from "../utils/quota.js";
@@ -103,16 +104,16 @@ export async function enrichCommand(
       return;
     }
     output.info(`Fetching profile "${identity}"…`);
-    let detail: ProfileDetail | null;
+    let fetched: ProfileObservationResult | null;
     try {
-      detail = await fetchProfileDetail(session.apiClient, identity, {
-        deep: opts.deep,
-        raw: opts.raw,
-      });
+      fetched = await new LinkedInProfileEnricher(session.apiClient, depth, opts.raw).fetch(
+        identity
+      );
     } catch (err) {
       output.error(`Profile fetch failed: ${(err as Error).message}`, 1);
       return;
     }
+    const detail = fetched?.detail;
     if (!detail?.urn) {
       output.error(`Profile "${identity}" not found or not accessible.`, 1);
       return;
@@ -136,7 +137,7 @@ export async function enrichCommand(
       nowIso
     );
     await cstore.enrichConnection(flagshipId, toEnrichment(detail, depth), depth, nowIso);
-    await writePersonRecord(pstore, flagshipId, detail, depth, nowIso);
+    await writePersonRecord(pstore, flagshipId, fetched?.observations ?? {}, nowIso);
     cstore.git.scheduleCommit(`enrich: ${detail.publicIdentifier ?? flagshipId}`);
     await store.git.flush();
 
@@ -275,14 +276,15 @@ export async function enrichConnections(params: EnrichPassParams): Promise<Enric
     firstFetch = false;
 
     const identity = record.publicIdentifier ?? id;
-    let detail: ProfileDetail | null;
+    let fetched: ProfileObservationResult | null;
     try {
-      detail = await fetchProfileDetail(apiClient, identity, { deep: depth === "deep", raw });
+      fetched = await new LinkedInProfileEnricher(apiClient, depth, raw).fetch(identity);
     } catch (err) {
       output.warn(`  ${identity}: fetch failed (${(err as Error).message})`);
       failed += 1;
       continue;
     }
+    const detail = fetched?.detail;
     if (!detail) {
       output.warn(`  ${identity}: not found / not accessible`);
       failed += 1;
@@ -291,7 +293,7 @@ export async function enrichConnections(params: EnrichPassParams): Promise<Enric
 
     const nowIso = new Date().toISOString();
     await cstore.enrichConnection(id, toEnrichment(detail, depth), depth, nowIso);
-    await writePersonRecord(pstore, id, detail, depth, nowIso);
+    await writePersonRecord(pstore, id, fetched?.observations ?? {}, nowIso);
     enriched += 1;
 
     if (json) {
@@ -375,56 +377,14 @@ function toEnrichment(d: ProfileDetail, depth: "core" | "deep"): ConnectionEnric
 async function writePersonRecord(
   pstore: PeopleStore,
   flagshipId: string,
-  d: ProfileDetail,
-  depth: "core" | "deep",
+  observations: ObservationSet,
   nowIso: string
 ): Promise<void> {
-  const provenance: Provenance = {
-    source: depth === "deep" ? "linkedin/enrich-deep" : "linkedin/enrich-core",
-    observedAt: nowIso,
-  };
   await pstore.applyObservations(
-    { flagshipId, memberUrn: d.urn },
-    observationsFrom(personFactsFrom(d, depth), provenance),
+    { flagshipId, memberUrn: `urn:li:fsd_profile:${flagshipId}` },
+    observations,
     nowIso
   );
-}
-
-/** The person-fact projection of a fetched profile — what `people/` owns. */
-function personFactsFrom(d: ProfileDetail, depth: "core" | "deep") {
-  const base = {
-    memberUrn: d.urn,
-    objectUrn: d.objectUrn,
-    memberId: d.memberId,
-    publicIdentifier: d.publicIdentifier,
-    firstName: d.firstName,
-    lastName: d.lastName,
-    headline: d.headline,
-    title: d.title,
-    company: d.company,
-    companyUrn: d.companyUrn,
-    location: d.location,
-    country: d.country,
-    geoUrn: d.geoUrn,
-    geoName: d.geoName,
-    geoGranularity: d.geoUrn ? d.geoGranularity : null,
-    about: d.about,
-    industry: d.industry,
-    industryUrn: d.industryUrn,
-    address: d.address,
-    pronoun: d.pronoun,
-    premium: d.premium,
-    memorialized: d.memorialized,
-    profilePictureUrl: d.profilePictureUrl,
-    primaryLocale: d.primaryLocale,
-  };
-  if (depth !== "deep") return base;
-  return {
-    ...base,
-    positions: d.positions.length > 0 ? d.positions : null,
-    education: d.education.length > 0 ? d.education : null,
-    skills: d.skills.length > 0 ? d.skills : null,
-  };
 }
 
 function displayName(d: ProfileDetail): string {

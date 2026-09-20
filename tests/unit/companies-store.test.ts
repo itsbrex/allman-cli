@@ -84,6 +84,31 @@ describe("company store", () => {
     expect(second?.lastSeenAt).not.toBe(first?.firstSeenAt);
   });
 
+  it("preserves user-curated values, nonempty arrays and newer observations", async () => {
+    await cstore.upsertCompany(company(), {
+      name: {
+        value: "Curated company",
+        provenance: { source: "user", observedAt: "2026-01-01T00:00:00Z" },
+      },
+    });
+    await cstore.upsertCompany(
+      company({ industries: ["Lab"], staffCount: 500, fetchedAt: "2026-04-01T00:00:00Z" })
+    );
+    await cstore.upsertCompany(
+      company({
+        name: "Remote name",
+        industries: [],
+        staffCount: 200,
+        fetchedAt: "2026-02-01T00:00:00Z",
+      })
+    );
+    const stored = await cstore.readCompany("11850");
+    expect(stored?.name).toBe("Curated company");
+    expect(stored?.industries).toEqual(["Lab"]);
+    expect(stored?.staffCount).toBe(500);
+    expect(stored?.domains).toEqual(["marketbridge.com"]);
+  });
+
   it("returns an empty list before anything is stored", async () => {
     expect(await cstore.listCompanyIds()).toEqual([]);
     expect(await cstore.readCompany("nope")).toBeNull();

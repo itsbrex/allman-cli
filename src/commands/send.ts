@@ -3,7 +3,10 @@
  */
 
 import { type LinkedInApiClient, LinkedInError } from "../linkedin/api/client.js";
-import { findConversationByRecipient } from "../linkedin/api/endpoints/conversations.js";
+import {
+  type ConversationData,
+  findConversationByRecipient,
+} from "../linkedin/api/endpoints/conversations.js";
 import {
   fetchMessages,
   sendFirstMessage,
@@ -11,6 +14,7 @@ import {
 } from "../linkedin/api/endpoints/messages.js";
 import { getProfileUrnBySlug } from "../linkedin/api/endpoints/profiles.js";
 import { loadSession } from "../linkedin/api/session.js";
+import { conversationRecordFrom } from "../store/conversation-record.js";
 import type { ConversationStore } from "../store/index.js";
 import { resolveStorePath, Store } from "../store/index.js";
 import type { ConversationRecord, StoredMessage } from "../store/types.js";
@@ -61,7 +65,20 @@ export async function sendCommand(
 
   // Pre-send sync — abort if new inbound messages arrived since last sync
   if (bareConvId && !isNewConversation) {
-    const newInbounds = await preSendSync(apiClient, conversations, bareConvId, myProfileUrn);
+    let newInbounds: StoredMessage[];
+    try {
+      newInbounds = await preSendSync(
+        apiClient,
+        conversations,
+        bareConvId,
+        myProfileUrn,
+        resolved.remote,
+        contactSlug
+      );
+    } catch (err) {
+      output.error(`Pre-send verification failed: ${(err as Error).message}`, 1);
+      return;
+    }
     if (newInbounds.length > 0) {
       output.warn(`${newInbounds.length} new message(s) received before send — aborting.`);
       output.warn("Read them before deciding whether to send:\n");
@@ -69,7 +86,9 @@ export async function sendCommand(
         const time = new Date(m.timestamp).toLocaleTimeString();
         process.stderr.write(`  [${time}] ${m.fromName || m.fromUrn}: ${m.body}\n`);
       }
-      process.stderr.write("\nRe-run the send command when you're ready.\n");
+      process.stderr.write(
+        "\nRead the thread in LinkedIn or explicitly acknowledge it locally before sending.\n"
+      );
       process.exit(1);
     }
   }
@@ -127,7 +146,7 @@ export async function sendCommand(
         ...existing,
         slug: contactSlug && !existing.slug ? contactSlug : existing.slug,
         lastActivityAt: new Date(result.deliveredAt).toISOString(),
-        lastReadAt: new Date(result.deliveredAt).toISOString(),
+        localAcknowledgedAt: result.deliveredAt,
         syncState: {
           ...existing.syncState,
           newestMessageAt: Math.max(existing.syncState?.newestMessageAt ?? 0, result.deliveredAt),
@@ -199,6 +218,7 @@ export async function sendCommand(
 // ---------------------------------------------------------------------------
 
 interface ResolvedTarget {
+  remote?: ConversationData;
   bareConvId?: string;
   contactProfileUrn?: string;
   contactSlug?: string;
@@ -267,6 +287,7 @@ async function resolveTarget(
   if (liConv) {
     const bare = extractBareConvId(liConv.backendUrn || liConv.urn);
     return {
+      remote: liConv,
       bareConvId: bare,
       contactProfileUrn: contactUrn,
       contactSlug,
@@ -287,58 +308,68 @@ async function resolveTarget(
 // Pre-send sync
 // ---------------------------------------------------------------------------
 
-async function preSendSync(
+export async function preSendSync(
   apiClient: LinkedInApiClient,
   conversations: ConversationStore,
   bareConvId: string,
-  myProfileUrn: string
+  myProfileUrn: string,
+  remote?: ConversationData,
+  slug?: string
 ): Promise<StoredMessage[]> {
   const existing = await conversations.read(bareConvId);
-  const knownNewestAt = existing?.syncState.newestMessageAt ?? 0;
-  const convUrn = existing?.backendUrn ?? existing?.convUrn ?? bareConvId;
-
-  try {
-    const { messages } = await fetchMessages(apiClient, convUrn, myProfileUrn, Date.now(), 10);
-
-    // Store all new messages (inbound + outbound) since last sync
-    const newMessages = messages.filter((m) => m.deliveredAt > knownNewestAt);
-
-    if (newMessages.length > 0) {
-      const myId = profileUrnId(myProfileUrn);
-      const stored: StoredMessage[] = newMessages.map((m) => ({
-        urn: m.urn,
-        timestamp: m.deliveredAt,
-        fromUrn: m.fromUrn,
-        fromName: m.fromName ?? "",
-        isFromMe: m.fromUrn.includes(myId),
-        body: m.body,
-        reactions: m.reactions,
-        attachments: m.attachments.map((a) => ({
-          type: a.type as StoredMessage["attachments"][number]["type"],
-          url: a.url,
-          name: a.name,
-          mimeType: a.mimeType,
-          raw: a.raw,
-        })),
-        originToken: null,
-      }));
-      await conversations.appendMessages(bareConvId, stored);
-      await conversations.updateSyncState(bareConvId, {
-        newestMessageAt: Math.max(...newMessages.map((m) => m.deliveredAt)),
-      });
-
-      // Only flag inbound messages that are newer than the most recent outbound.
-      // If the user already replied after the inbounds, they've seen the context.
-      const newestOutboundAt = Math.max(
-        knownNewestAt,
-        ...newMessages.filter((m) => m.fromUrn.includes(myId)).map((m) => m.deliveredAt),
-        0
-      );
-      const unseenInbounds = stored.filter((m) => !m.isFromMe && m.timestamp > newestOutboundAt);
-      return unseenInbounds;
-    }
-    return [];
-  } catch {
-    return [];
+  const recipient = existing?.profileUrn;
+  const fresh =
+    remote ??
+    (recipient ? await findConversationByRecipient(apiClient, recipient, myProfileUrn) : null);
+  if (!fresh) throw new Error("Could not refresh the conversation's read state; nothing sent.");
+  const record = conversationRecordFrom(fresh, myProfileUrn, existing, slug);
+  if (record.convId !== bareConvId)
+    throw new Error("Refreshed conversation does not match the send target");
+  // Persist metadata first: messages must never be orphaned without RECORD.json.
+  await conversations.upsert(bareConvId, record);
+  const { messages } = await fetchMessages(
+    apiClient,
+    record.backendUrn ?? record.convUrn,
+    myProfileUrn,
+    Date.now(),
+    10
+  );
+  const myId = profileUrnId(myProfileUrn);
+  const stored: StoredMessage[] = messages.map((m) => ({
+    urn: m.urn,
+    timestamp: m.deliveredAt,
+    fromUrn: m.fromUrn,
+    fromName: m.fromName ?? "",
+    isFromMe: profileUrnId(m.fromUrn) === myId,
+    body: m.body,
+    reactions: m.reactions,
+    attachments: m.attachments.map((a) => ({
+      ...a,
+      type: a.type as StoredMessage["attachments"][number]["type"],
+    })),
+    originToken: null,
+  }));
+  if (stored.length) {
+    await conversations.appendMessages(bareConvId, stored);
+    await conversations.updateSyncState(bareConvId, {
+      newestMessageAt: Math.max(
+        existing?.syncState.newestMessageAt ?? 0,
+        ...stored.map((m) => m.timestamp)
+      ),
+    });
   }
+  const remoteReadThrough = Math.max(
+    fresh.lastReadAt ?? 0,
+    fresh.read && fresh.unreadCount === 0 ? (fresh.lastActivityAt ?? 0) : 0
+  );
+  const acknowledgedThrough = Math.max(
+    remoteReadThrough,
+    existing?.localAcknowledgedAt ?? 0,
+    ...stored.filter((m) => m.isFromMe).map((m) => m.timestamp),
+    0
+  );
+  const unread = stored.filter((m) => !m.isFromMe && m.timestamp > acknowledgedThrough);
+  if (fresh.unreadCount > 0 && !stored.length)
+    throw new Error("Unread state has no message evidence; nothing sent.");
+  return unread;
 }
