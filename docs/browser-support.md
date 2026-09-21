@@ -76,6 +76,14 @@ For an allman-owned persistent browser, the Shield package is checked before lau
 
 For Chrome 136+, remote debugging requires a non-default `--user-data-dir`. Never point allman at a daily browser's live profile directory. Use a dedicated profile or attach to an already-running browser. Chromium extensions still need installation in that exact profile.
 
+### Duplicate-tab extensions and apparent login failures
+
+On 2026-09-21, Clutter Free's duplicate-tab prevention redirected an allman-created LinkedIn tab back to `about:blank` after `/feed/` returned HTTP 200. Both raw CDP and Playwright observed the navigation, while a local control page worked. Clutter Free's own duplicate history recorded `/feed/` at 14:48:38 PDT, matching a CLI login timeout. This was a browser extension conflict, not evidence of LinkedIn rejecting that login.
+
+Allow duplicate tabs for `https://www.linkedin.com/` in Clutter Free when sharing an authenticated browser with allman. A LinkedIn-only allow-list exception resolved the observed failure without disabling Shield. The previous allow-list was backed up privately before this local configuration change. CLI login then succeeded without another manual sign-in; saved and browser session cookies matched in memory, the cookie file remained Git-ignored with mode `0600`, and a one-record direct API read passed in 0.510 seconds. No cookie values were logged.
+
+An earlier session rejection remains unexplained. Browser history showed `/authwall` at 14:17 PDT, before the later compiled benchmark timeout. The user reported a normal sign-in screen, with no unusual-activity notice or verification challenge. The saved authentication cookie's expiry date was in 2027; no logout or checkpoint navigation was found in the inspected history. These observations do not reveal LinkedIn's internal reason or rule out silent session invalidation. A later CLI read updated a Cloudflare cookie, not the saved `li_at` value. Treat the earlier rejection and the confirmed duplicate-tab conflict as separate events.
+
 ## Import connections through Neo MCP
 
 An authenticated Neo session can populate a local store without exporting browser cookies. This route uses Neo's local MCP server and does not require Playwright CDP attachment:
