@@ -18,7 +18,14 @@ export async function statusCommand(options: StatusOptions): Promise<void> {
     : await store.accounts.list();
 
   if (profileIds.length === 0) {
-    info("No accounts found. Run `allman login` to get started.");
+    if (options.json) {
+      printData([]);
+      return;
+    }
+    info(`No accounts found in ${storePath}.`);
+    info(
+      "Select an existing store with `allman store use <path>`, or run `allman login` to save a CLI session here."
+    );
     return;
   }
 
@@ -35,6 +42,7 @@ export async function statusCommand(options: StatusOptions): Promise<void> {
         name: record.name,
         status: record.status,
         cookiesValid: hasValidCookies,
+        cookiesSaved: record.cookieJar !== null,
         cookiesUpdatedAt: record.cookiesUpdatedAt,
         lastSyncAt: record.lastSyncAt,
         proxy: config.proxy ? `${config.proxy.host}:${config.proxy.port}` : null,
@@ -52,7 +60,11 @@ export async function statusCommand(options: StatusOptions): Promise<void> {
 
   for (const s of results) {
     if (!s) continue;
-    const cookieStatus = s.cookiesValid ? "✓ valid" : "✗ expired";
+    const cookieStatus = s.cookiesValid
+      ? "✓ present (local check)"
+      : s.cookiesSaved
+        ? "✗ missing or invalid session — run `allman login`"
+        : "not saved — run `allman login` to authorize CLI access";
     process.stdout.write(`Account: ${s.slug ?? s.profileId}\n`);
     process.stdout.write(`  Name:    ${s.name ?? "unknown"}\n`);
     process.stdout.write(`  ID:      ${s.profileId}\n`);

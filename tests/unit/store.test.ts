@@ -1,4 +1,4 @@
-import { mkdtemp, readlink, rm } from "node:fs/promises";
+import { chmod, mkdtemp, readlink, rm, stat } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it } from "vitest";
@@ -29,6 +29,14 @@ afterEach(async () => {
 // ---------------------------------------------------------------------------
 
 describe("AccountStore", () => {
+  it("writes cookies privately and repairs overly broad existing permissions", async () => {
+    const path = join(tempDir, MY_PROFILE_ID, "COOKIES.json");
+    await store.accounts.writeCookies(MY_PROFILE_ID, { cookieJar: {}, cookiesUpdatedAt: null });
+    expect((await stat(path)).mode & 0o777).toBe(0o600);
+    await chmod(path, 0o644);
+    await store.accounts.writeCookies(MY_PROFILE_ID, { cookieJar: {}, cookiesUpdatedAt: null });
+    expect((await stat(path)).mode & 0o777).toBe(0o600);
+  });
   const record: AccountRecord = {
     urn: `urn:li:fsd_profile:${MY_PROFILE_ID}`,
     profileSlug: "test-user",

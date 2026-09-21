@@ -22,6 +22,7 @@
 import { access, mkdir } from "node:fs/promises";
 import { join, resolve } from "node:path";
 import { AccountStore } from "./accounts.js";
+import { readStoreDefault } from "./config.js";
 import { ConnectionsStore } from "./connections-store.js";
 import { ConversationStore } from "./conversations.js";
 import { ensureGitignore, StoreGit } from "./git.js";
@@ -81,10 +82,11 @@ export class Store {
  * Resolve the store path from (in priority order):
  *   1. --store CLI flag value
  *   2. ALLMAN_STORE environment variable
- *   3. Default: ./.allman
+ *   3. Saved default selected with `allman store use`
+ *   4. Default: ./.allman
  */
 export function resolveStorePath(flagValue?: string): string {
-  return resolve(flagValue ?? process.env.ALLMAN_STORE ?? ".allman");
+  return resolve(flagValue || process.env.ALLMAN_STORE || readStoreDefault() || ".allman");
 }
 
 async function ensureStoreDir(dirPath: string): Promise<void> {

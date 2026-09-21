@@ -1,206 +1,215 @@
-/**
- * Shared browser acquisition for every flow that needs a real browser
- * (interactive login, headless queryId capture).
- *
- * Nothing here requires `playwright install chromium` any more. Three ways to
- * get a context, in priority order:
- *
- *   1. `cdpEndpoint` (`--cdp` / ALLMAN_CDP_URL) — attach to a browser the user
- *      is ALREADY running (started with `--remote-debugging-port=<n>`). Their
- *      real session, profile, and extensions. We only read from it and
- *      disconnect: never close it, never inject cookies into it.
- *   2. `profileDir` (`--profile` / ALLMAN_BROWSER_PROFILE) — a persistent
- *      profile directory of our own. LinkedIn learns to trust the device, so
- *      re-logins usually skip the 2FA dance.
- *   3. Plain launch, trying: the explicit channel (`--browser` /
- *      ALLMAN_BROWSER), else system Chrome → Microsoft Edge → Playwright's
- *      bundled Chromium. Only when none exists do we point at
- *      `allman install-browsers` (or just installing Chrome).
- *
- * Why there is no "use my daily Chrome profile" option: a running Chrome
- * locks its user-data-dir, and Chrome 136+ refuses remote debugging on the
- * DEFAULT profile outright. `--cdp` (the user launches Chrome themselves,
- * with a side user-data-dir) and `--profile` (a dedicated dir that becomes a
- * known device) are the two honest ways to reuse a known browser.
- */
-
+/** Persistent browser acquisition shared by login and queryId capture. */
+import { existsSync } from "node:fs";
+import { mkdir } from "node:fs/promises";
 import { resolve } from "node:path";
 import type { BrowserContext } from "playwright";
+import {
+  type BrowserConfig,
+  browserEnvDefaults,
+  browserProfilePath,
+  browserWorkspace,
+  mergeBrowserConfig,
+  readBrowserConfig,
+} from "./browser-config.js";
+import { createScopedCdp } from "./cdp.js";
+import { readShieldPackage, type ShieldVerification, verifyShield } from "./shield.js";
 
-/** Flags shared by launched and persistent contexts. */
-const LAUNCH_ARGS = [
-  "--no-sandbox",
-  "--disable-blink-features=AutomationControlled",
-  "--disable-infobars",
-];
+export { browserEnvDefaults } from "./browser-config.js";
 
-/**
- * UA mask for the bundled Chromium only — a real branded browser presents its
- * own (masking it would just create a UA/fingerprint mismatch).
- */
-const BUNDLED_UA =
-  "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36";
-
-const VIEWPORT = { width: 1280, height: 800 };
-
-export interface BrowserSessionOptions {
+export interface BrowserSessionOptions extends BrowserConfig {
   headless: boolean;
-  /** Playwright channel: "chrome", "msedge", "chrome-beta", … ("chromium" = bundled). */
-  channel?: string;
-  /** Explicit browser executable — wins over any channel. */
-  executablePath?: string;
-  /** Persistent profile directory → launchPersistentContext. */
-  profileDir?: string;
-  /** CDP endpoint (or bare port) of an already-running browser → connectOverCDP. */
-  cdpEndpoint?: string;
+  workspace?: string;
+  purpose?: "login" | "capture";
+  identity?: string;
 }
 
-export type BrowserSessionKind = "cdp" | "persistent" | "launched";
+export type BrowserSessionKind = "cdp" | "persistent";
 
 export interface BrowserSession {
   context: BrowserContext;
   kind: BrowserSessionKind;
-  /** What we attached to / launched, for user-facing logging. */
+  browser: string;
   description: string;
-  /** Disconnects for "cdp" (the user's browser stays open); closes otherwise. */
+  profileDir?: string;
+  shield: ShieldVerification;
+  /** Disconnects for CDP; closes only browsers launched by allman. */
   close(): Promise<void>;
-}
-
-/** Environment fallbacks, so non-login flows pick the same browser up. */
-export function browserEnvDefaults(
-  env: Record<string, string | undefined> = process.env
-): Pick<BrowserSessionOptions, "channel" | "executablePath" | "profileDir" | "cdpEndpoint"> {
-  return {
-    channel: env.ALLMAN_BROWSER || undefined,
-    executablePath: env.PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH || undefined,
-    profileDir: env.ALLMAN_BROWSER_PROFILE || undefined,
-    cdpEndpoint: env.ALLMAN_CDP_URL || undefined,
-  };
 }
 
 export interface LaunchAttempt {
   channel?: string;
   executablePath?: string;
   label: string;
+  browser: string;
 }
 
-/**
- * The ordered launch attempts for the given options. Pure — exposed for tests.
- * An explicit executable or channel is authoritative (one attempt, so a typo
- * fails loudly instead of silently landing in a different browser).
- */
+/** Explicit choices never fall back. Auto selects installed Neo, then bundled Chromium. */
 export function launchAttempts(
-  opts: Pick<BrowserSessionOptions, "channel" | "executablePath">
+  opts: Pick<BrowserConfig, "channel" | "executablePath">,
+  platform = process.platform
 ): LaunchAttempt[] {
   if (opts.executablePath) {
-    return [{ executablePath: opts.executablePath, label: `executable ${opts.executablePath}` }];
+    return [
+      { executablePath: resolve(opts.executablePath), label: "custom Chromium", browser: "custom" },
+    ];
+  }
+  if (opts.channel === "browseros-neo" || opts.channel === "browseros") {
+    if (platform !== "darwin")
+      throw new Error(
+        "Set PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH to your BrowserOS executable on this platform."
+      );
+    const app = opts.channel === "browseros-neo" ? "BrowserOS neo" : "BrowserOS";
+    return [
+      {
+        executablePath: `/Applications/${app}.app/Contents/MacOS/${app}`,
+        label: app,
+        browser: opts.channel,
+      },
+    ];
+  }
+  if (["viewforge", "obscura", "camoufox", "invisible_playwright"].includes(opts.channel ?? "")) {
+    throw new Error(
+      `${opts.channel} has no verified Chromium MV3 Shield adapter. Use BrowserOS neo, bundled Chromium, or an extension-capable Chromium CDP endpoint.`
+    );
   }
   if (opts.channel) {
-    if (opts.channel === "chromium") return [{ label: "bundled Chromium" }];
-    return [{ channel: opts.channel, label: `${opts.channel} (system)` }];
+    return [
+      {
+        channel: opts.channel,
+        label: opts.channel === "chromium" ? "bundled Chromium" : opts.channel,
+        browser: opts.channel,
+      },
+    ];
   }
   return [
-    { channel: "chrome", label: "Google Chrome (system)" },
-    { channel: "msedge", label: "Microsoft Edge (system)" },
-    { label: "bundled Chromium" },
+    ...(platform === "darwin" ? launchAttempts({ channel: "browseros-neo" }, platform) : []),
+    { channel: "chromium", label: "bundled Chromium", browser: "chromium" },
   ];
 }
 
-/** `"9222"` → `http://127.0.0.1:9222`; full URLs pass through untouched. */
 export function normalizeCdpEndpoint(endpoint: string): string {
-  return /^\d+$/.test(endpoint) ? `http://127.0.0.1:${endpoint}` : endpoint;
+  const normalized = /^\d+$/.test(endpoint) ? `http://127.0.0.1:${endpoint}` : endpoint;
+  const url = new URL(normalized);
+  if (
+    !["http:", "https:", "ws:", "wss:"].includes(url.protocol) ||
+    url.username ||
+    url.password ||
+    url.search ||
+    url.hash
+  ) {
+    throw new Error(
+      "Use an HTTP(S) or WS(S) CDP endpoint without embedded credentials, query parameters, or fragments."
+    );
+  }
+  return normalized;
 }
 
-/** Acquire a browser context per the resolution order in the file header. */
+/** No caller receives a context until the exact Shield build and blocking rules pass. */
 export async function openBrowserContext(options: BrowserSessionOptions): Promise<BrowserSession> {
+  const workspace = resolve(options.workspace ?? browserWorkspace());
+  const config = mergeBrowserConfig(readBrowserConfig(workspace), browserEnvDefaults(), options);
+  const shield = await readShieldPackage(config.shieldPath);
   const { chromium } = await import("playwright");
 
-  if (options.cdpEndpoint) {
-    const endpoint = normalizeCdpEndpoint(options.cdpEndpoint);
+  if (config.cdpEndpoint) {
+    const bun = process.versions.bun;
+    if (bun) {
+      const [major = 0, minor = 0, patch = 0] = bun.split(".").map(Number);
+      if (major < 1 || (major === 1 && (minor < 4 || (minor === 4 && patch < 2))))
+        throw new Error(
+          `CDP requires Bun 1.4.2 or newer (running ${bun}), or the Node entry point. Older Bun WebSocket transports can hang during browser attachment.`
+        );
+    }
+    const endpoint = normalizeCdpEndpoint(config.cdpEndpoint);
+    const url = new URL(endpoint);
     let browser: Awaited<ReturnType<typeof chromium.connectOverCDP>>;
+    let scoped: Awaited<ReturnType<typeof createScopedCdp>> | undefined;
     try {
-      browser = await chromium.connectOverCDP(endpoint);
-    } catch (err) {
+      scoped = await createScopedCdp(endpoint);
+      browser = await chromium.connectOverCDP(scoped.endpoint, { timeout: 15_000 });
+    } catch (error) {
+      await scoped?.close();
       throw new Error(
-        `Could not attach to a browser at ${endpoint}. Start one with remote debugging first, e.g.\n` +
-          `  /Applications/Google\\ Chrome.app/Contents/MacOS/Google\\ Chrome --remote-debugging-port=9222 --user-data-dir="$HOME/.allman/chrome-debug"\n` +
-          `(Chrome 136+ refuses debugging on its default profile — the --user-data-dir override is required.)\n` +
-          `Underlying error: ${(err as Error).message}`
+        `Could not attach to CDP at ${url.protocol}//${url.host}.\n${error instanceof Error ? error.message : String(error)}`,
+        { cause: error }
       );
     }
-    const context = browser.contexts()[0] ?? (await browser.newContext());
-    return {
-      context,
-      kind: "cdp",
-      description: `existing browser over CDP at ${endpoint}`,
-      // close() on a CDP connection disconnects; it never kills the browser.
-      close: async () => {
-        await browser.close().catch(() => {});
-      },
-    };
-  }
-
-  const attempts = launchAttempts(options);
-  const failures: string[] = [];
-
-  if (options.profileDir) {
-    const dir = resolve(options.profileDir);
-    for (const attempt of attempts) {
+    const disconnect = async () => {
       try {
-        const context = await chromium.launchPersistentContext(dir, {
-          headless: options.headless,
-          ...(attempt.channel ? { channel: attempt.channel } : {}),
-          ...(attempt.executablePath ? { executablePath: attempt.executablePath } : {}),
-          ...(attempt.channel ? {} : { userAgent: BUNDLED_UA }),
-          args: LAUNCH_ARGS,
-          viewport: VIEWPORT,
-        });
-        return {
-          context,
-          kind: "persistent",
-          description: `${attempt.label}, profile ${dir}`,
-          close: () => context.close(),
-        };
-      } catch (err) {
-        failures.push(`${attempt.label}: ${firstLine((err as Error).message)}`);
+        await browser.close();
+      } finally {
+        await scoped.close();
       }
-    }
-    throw noBrowserError(failures);
-  }
-
-  for (const attempt of attempts) {
+    };
     try {
-      const browser = await chromium.launch({
-        headless: options.headless,
-        ...(attempt.channel ? { channel: attempt.channel } : {}),
-        ...(attempt.executablePath ? { executablePath: attempt.executablePath } : {}),
-        args: LAUNCH_ARGS,
-      });
-      const context = await browser.newContext({
-        viewport: VIEWPORT,
-        ...(attempt.channel ? {} : { userAgent: BUNDLED_UA }),
-      });
+      // Incognito/new contexts do not inherit the installed extension.
+      const context = browser.contexts()[0];
+      if (!context)
+        throw new Error(
+          "CDP browser has no persistent default context. Start a persistent, extension-capable Chromium profile first."
+        );
+      const protection = await verifyShield(context, shield);
       return {
         context,
-        kind: "launched",
-        description: attempt.label,
-        close: () => browser.close(),
+        kind: "cdp",
+        browser: "cdp",
+        shield: protection,
+        description: `existing browser at ${url.protocol}//${url.host}, Shield ${protection.version}`,
+        close: disconnect,
       };
-    } catch (err) {
-      failures.push(`${attempt.label}: ${firstLine((err as Error).message)}`);
+    } catch (error) {
+      await disconnect().catch(() => {});
+      throw error;
     }
   }
-  throw noBrowserError(failures);
-}
 
-function noBrowserError(failures: string[]): Error {
-  return new Error(
-    "No usable browser found. Install Google Chrome (or Microsoft Edge) and re-run — " +
-      "no download needed — or run `allman install-browsers` for the bundled Chromium.\n" +
-      `Tried:\n  ${failures.join("\n  ")}`
+  const attempts = launchAttempts(config);
+  const explicit = Boolean(config.channel || config.executablePath);
+  const attempt = attempts.find(
+    (a) => explicit || !a.executablePath || existsSync(a.executablePath)
   );
-}
-
-function firstLine(message: string): string {
-  return message.split("\n", 1)[0] ?? message;
+  if (!attempt)
+    throw new Error(
+      "No supported browser found. Install BrowserOS neo or run `allman install-browsers`."
+    );
+  // Choose the profile using the resolved browser, so auto and explicit selection agree.
+  const resolved = { ...config, channel: attempt.browser };
+  const profileDir = browserProfilePath(
+    resolved,
+    workspace,
+    options.purpose ?? "login",
+    options.identity
+  );
+  await mkdir(profileDir, { recursive: true, mode: 0o700 });
+  let context: BrowserContext;
+  try {
+    context = await chromium.launchPersistentContext(profileDir, {
+      headless: options.headless,
+      ...(attempt.channel ? { channel: attempt.channel } : {}),
+      ...(attempt.executablePath ? { executablePath: attempt.executablePath } : {}),
+      ignoreDefaultArgs: ["--disable-extensions"],
+      args: [`--load-extension=${shield.path}`],
+      viewport: { width: 1280, height: 800 },
+      timeout: 15_000,
+    });
+  } catch (error) {
+    throw new Error(
+      `Could not launch ${attempt.label} with profile ${profileDir}. Close any process using this dedicated profile, or check the browser installation. No fallback was attempted.\n${(error as Error).message.split("\n")[0]}`
+    );
+  }
+  try {
+    const protection = await verifyShield(context, shield);
+    return {
+      context,
+      kind: "persistent",
+      browser: attempt.browser,
+      profileDir,
+      shield: protection,
+      description: `${attempt.label}, profile ${profileDir}, Shield ${protection.version}`,
+      close: () => context.close(),
+    };
+  } catch (error) {
+    await context.close().catch(() => {});
+    throw error;
+  }
 }

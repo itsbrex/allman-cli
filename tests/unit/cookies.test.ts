@@ -131,6 +131,13 @@ describe("mergeCookies", () => {
 });
 
 describe("cookiesFromPlaywright", () => {
+  it.each([
+    ".notlinkedin.com",
+    ".linkedin.com.example.test",
+  ])("never exports lookalike-domain cookies (%s)", async (domain) => {
+    const jar = await cookiesFromPlaywright([{ name: "private", value: "fixture", domain }]);
+    expect(await jar.store.getAllCookies()).toHaveLength(0);
+  });
   it("converts Playwright cookies to a CookieJar", async () => {
     const playwrightCookies = [
       {
@@ -172,6 +179,21 @@ describe("cookiesFromPlaywright", () => {
 });
 
 describe("isAuthenticated", () => {
+  it("does not send or authenticate with lookalike-domain cookies from an older store", async () => {
+    const jar = newCookieJar();
+    await jar.setCookie(
+      new Cookie({
+        key: "JSESSIONID",
+        value: "unrelated",
+        domain: ".linkedin.com.example.test",
+        path: "/",
+      }),
+      "https://linkedin.com.example.test"
+    );
+    expect(await buildCookieHeader(jar)).toBe("");
+    expect(await getCsrfToken(jar)).toBeNull();
+    expect(await isAuthenticated(jar)).toBe(false);
+  });
   it("returns true when JSESSIONID present", async () => {
     const jar = await makeJarWithJsessionid('"valid"');
     expect(await isAuthenticated(jar)).toBe(true);

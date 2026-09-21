@@ -16,6 +16,7 @@ export interface LoginOptions {
   profile?: string;
   /** CDP endpoint (or bare port) of an already-running browser to attach to. */
   cdp?: string;
+  shield?: string;
   /** Warm + capture the Sales Navigator seat cookie during login. Default true;
    *  set false (via --no-salesnav) to skip the optional SalesNav visit. */
   salesnav?: boolean;
@@ -45,10 +46,12 @@ export async function loginCommand(options: LoginOptions): Promise<void> {
   // Check for existing account to inject cookies (re-auth flow)
   // If --account is provided, try resolving it to an existing profile ID
   let existingCookieJar: object | null = null;
+  let expectedProfileId: string | null = null;
 
   if (options.account) {
     const resolved = await store.accounts.resolveId(options.account);
     if (resolved) {
+      expectedProfileId = resolved;
       const existing = await store.accounts.read(resolved);
       existingCookieJar = existing?.cookieJar ?? null;
       if (existingCookieJar) {
@@ -68,6 +71,8 @@ export async function loginCommand(options: LoginOptions): Promise<void> {
     channel: options.browser,
     profileDir: options.profile,
     cdpEndpoint: options.cdp,
+    shieldPath: options.shield,
+    identity: options.account ?? process.env.ALLMAN_ACCOUNT,
   });
 
   if (!result.success) {
@@ -79,7 +84,7 @@ export async function loginCommand(options: LoginOptions): Promise<void> {
   let profileId = result.profileUrn?.replace("urn:li:fsd_profile:", "") ?? null;
 
   // Extract profile slug from the URL (e.g. "jamie-rivera" from linkedin.com/in/jamie-rivera)
-  const profileSlug = result.profileUrl?.match(/linkedin\.com\/in\/([^/?]+)/)?.[1] ?? null;
+  let profileSlug = result.profileUrl?.match(/linkedin\.com\/in\/([^/?]+)/)?.[1] ?? null;
 
   // If we didn't get a URN from the browser, try the API
   if (!profileId && profileSlug) {
@@ -118,6 +123,16 @@ export async function loginCommand(options: LoginOptions): Promise<void> {
   }
 
   const profileUrn = `urn:li:fsd_profile:${profileId}`;
+  if (expectedProfileId && profileId !== expectedProfileId)
+    throw new Error(
+      "LinkedIn browser account mismatch. No cookies or account aliases were changed."
+    );
+
+  // Login may capture a valid session without returning the profile's display fields.
+  // Preserve facts already stored for this exact identity, including sync progress.
+  const existing = await store.accounts.readAuth(profileId);
+  profileSlug ??= existing?.profileSlug ?? null;
+  const name = result.name ?? existing?.name ?? null;
 
   // Save account record
   await store.accounts.write(
@@ -125,18 +140,18 @@ export async function loginCommand(options: LoginOptions): Promise<void> {
     {
       urn: profileUrn,
       profileSlug,
-      name: result.name,
-      headline: result.headline,
-      profileUrl: result.profileUrl,
-      imageUrl: result.imageUrl,
-      userType: null,
-      networkSize: null,
+      name,
+      headline: result.headline ?? existing?.headline ?? null,
+      profileUrl: result.profileUrl ?? existing?.profileUrl ?? null,
+      imageUrl: result.imageUrl ?? existing?.imageUrl ?? null,
+      userType: existing?.userType ?? null,
+      networkSize: existing?.networkSize ?? null,
       status: "authenticated",
       cookieJar: result.cookieJar,
       cookiesUpdatedAt: new Date().toISOString(),
-      lastSyncAt: null,
+      lastSyncAt: existing?.lastSyncAt ?? null,
     },
-    `login: ${profileId.slice(0, 12)}`
+    `🔐 fix(auth): save LinkedIn session for ${profileId.slice(0, 12)}`
   );
 
   // Save proxy config if provided
@@ -163,11 +178,11 @@ export async function loginCommand(options: LoginOptions): Promise<void> {
       profileId,
       profileSlug,
       status: "authenticated",
-      name: result.name,
+      name,
       storePath,
     });
   } else {
-    output.success(`Logged in as: ${result.name ?? profileSlug ?? profileId}`);
+    output.success(`Logged in as: ${name ?? profileSlug ?? profileId}`);
     output.info(`  Profile ID: ${profileId}`);
     if (profileSlug) output.info(`  Slug:       ${profileSlug}`);
     output.info(`  Store:      ${storePath}`);

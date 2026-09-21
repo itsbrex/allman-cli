@@ -28,7 +28,11 @@ export interface ResolveQueryIdOptions {
   /** Skip the cache and force a fresh headless capture (stale-hash recovery). */
   force?: boolean;
   /** Injected for tests; defaults to the real headless capture. */
-  capture?: (cookieJar: unknown, apiClient: LinkedInApiClient) => Promise<string | null>;
+  capture?: (
+    cookieJar: unknown,
+    apiClient: LinkedInApiClient,
+    identity: string
+  ) => Promise<string | null>;
 }
 
 export async function resolveSearchClustersQueryId(
@@ -48,7 +52,7 @@ export async function resolveSearchClustersQueryId(
 
   // 3. headless capture + persist
   const capture = opts.capture ?? captureSearchClustersQueryId;
-  const captured = await capture(opts.cookieJar, opts.apiClient);
+  const captured = await capture(opts.cookieJar, opts.apiClient, opts.profileId);
   if (captured && QID_RX.test(captured)) {
     await opts.accounts.writeQueryCache(opts.profileId, {
       searchClustersQueryId: captured,

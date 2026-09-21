@@ -1,0 +1,136 @@
+import { mkdtemp, rm } from "node:fs/promises";
+import { tmpdir } from "node:os";
+import { join } from "node:path";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { runLogin } from "@/linkedin/auth/playwright-auth.js";
+
+const mocks = vi.hoisted(() => ({ launch: vi.fn(), attach: vi.fn(), verify: vi.fn() }));
+vi.mock("playwright", () => ({
+  chromium: { launchPersistentContext: mocks.launch, connectOverCDP: mocks.attach },
+}));
+vi.mock("@/linkedin/auth/shield.js", () => ({
+  readShieldPackage: async () => ({ path: "/shield", version: "3.4.0" }),
+  verifyShield: mocks.verify,
+}));
+vi.mock("@/linkedin/auth/cdp.js", () => ({
+  createScopedCdp: async () => ({ endpoint: "ws://127.0.0.1:1234", close: vi.fn() }),
+}));
+vi.mock("@/utils/output.js", () => ({ info: vi.fn(), debug: vi.fn(), success: vi.fn() }));
+
+let root: string;
+const saved = {
+  cookies: [
+    { key: "li_at", value: "fixture-session", domain: ".linkedin.com" },
+    { key: "unrelated", value: "private-fixture", domain: ".linkedin.com.example.test" },
+  ],
+};
+const protection = { id: "shield", version: "3.4.0", rulesets: ["linkedin_blocklist"] };
+function browserContext() {
+  let response: ((value: unknown) => Promise<void>) | undefined;
+  const page = {
+    on: vi.fn((_event, callback) => {
+      response = callback;
+    }),
+    goto: vi.fn(async () => {
+      await response?.({
+        url: () => "https://www.linkedin.com/voyagerIdentityDashProfiles",
+        request: () => ({ method: () => "GET" }),
+        status: () => 200,
+        json: async () => ({ entityUrn: "urn:li:fsd_profile:ACoFixture" }),
+      });
+    }),
+    waitForURL: vi.fn().mockResolvedValue(undefined),
+    evaluate: vi.fn().mockResolvedValue({
+      name: "Fixture",
+      headline: null,
+      profileUrl: "https://www.linkedin.com/in/fixture",
+      imageUrl: null,
+    }),
+    close: vi.fn().mockResolvedValue(undefined),
+  };
+  const context = {
+    addCookies: vi.fn().mockResolvedValue(undefined),
+    newPage: vi.fn().mockResolvedValue(page),
+    cookies: vi.fn().mockResolvedValue([
+      { name: "JSESSIONID", value: '"fixture"', domain: ".linkedin.com", path: "/", expires: -1 },
+      {
+        name: "unrelated",
+        value: "private-fixture",
+        domain: ".linkedin.com.example.test",
+        path: "/",
+        expires: -1,
+      },
+    ]),
+    close: vi.fn().mockResolvedValue(undefined),
+  };
+  return { page, context };
+}
+beforeEach(async () => {
+  vi.clearAllMocks();
+  root = await mkdtemp(join(tmpdir(), "allman-login-shield-"));
+  vi.stubEnv("ALLMAN_BROWSER_WORKSPACE", root);
+  for (const key of [
+    "ALLMAN_BROWSER",
+    "ALLMAN_CDP_URL",
+    "ALLMAN_BROWSER_PROFILE",
+    "PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH",
+    "ALLMAN_SHIELD_PATH",
+  ])
+    vi.stubEnv(key, "");
+  mocks.verify.mockResolvedValue(protection);
+});
+afterEach(async () => {
+  vi.unstubAllEnvs();
+  await rm(root, { recursive: true, force: true });
+});
+
+describe("login protection ordering", () => {
+  it("waits for live Shield verification before injecting cookies or creating a LinkedIn page", async () => {
+    const { context, page } = browserContext();
+    mocks.launch.mockResolvedValue(context);
+    let approve!: (value: typeof protection) => void;
+    mocks.verify.mockReturnValue(
+      new Promise((resolve) => {
+        approve = resolve;
+      })
+    );
+    const pending = runLogin({ channel: "chromium", existingCookieJar: saved, salesnav: false });
+    await vi.waitFor(() => expect(mocks.verify).toHaveBeenCalledOnce());
+    expect(context.addCookies).not.toHaveBeenCalled();
+    expect(context.newPage).not.toHaveBeenCalled();
+    expect(context.cookies).not.toHaveBeenCalled();
+    approve(protection);
+    const result = await pending;
+    expect(result.success).toBe(true);
+    expect(context.addCookies.mock.calls[0]?.[0]).toEqual([
+      expect.objectContaining({ name: "li_at", domain: ".linkedin.com" }),
+    ]);
+    expect(page.goto).toHaveBeenCalledWith("https://www.linkedin.com/login", expect.any(Object));
+    expect(JSON.stringify(result.cookieJar)).not.toContain("private-fixture");
+    expect(context.close).toHaveBeenCalledOnce();
+  });
+  it("stops before cookie access or LinkedIn navigation when Shield verification fails", async () => {
+    const { context } = browserContext();
+    mocks.launch.mockResolvedValue(context);
+    mocks.verify.mockRejectedValueOnce(new Error("Shield disabled"));
+    await expect(
+      runLogin({ channel: "chromium", existingCookieJar: saved, salesnav: false })
+    ).rejects.toThrow("Shield disabled");
+    expect(context.addCookies).not.toHaveBeenCalled();
+    expect(context.cookies).not.toHaveBeenCalled();
+    expect(context.newPage).not.toHaveBeenCalled();
+    expect(context.close).toHaveBeenCalledOnce();
+  });
+  it("never injects stored cookies into an attached browser", async () => {
+    const { context } = browserContext();
+    const close = vi.fn().mockResolvedValue(undefined);
+    mocks.attach.mockResolvedValue({ contexts: () => [context], close });
+    expect(
+      (await runLogin({ cdpEndpoint: "9222", existingCookieJar: saved, salesnav: false })).success
+    ).toBe(true);
+    expect(mocks.verify).toHaveBeenCalledOnce();
+    expect(context.addCookies).not.toHaveBeenCalled();
+    expect(context.close).not.toHaveBeenCalled();
+    expect(close).toHaveBeenCalledOnce();
+  });
+});

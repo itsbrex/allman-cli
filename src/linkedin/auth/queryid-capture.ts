@@ -18,11 +18,11 @@
  * Flagship-only; unrelated to the Sales Navigator seat.
  */
 
-import type { Response } from "playwright";
+import type { Page, Response } from "playwright";
 import * as output from "../../utils/output.js";
 import type { LinkedInApiClient } from "../api/client.js";
 import { isPeopleSearchClustersQueryId } from "../api/endpoints/people-search.js";
-import { browserEnvDefaults, openBrowserContext } from "./browser.js";
+import { openBrowserContext } from "./browser.js";
 
 const HASH_RX = /voyagerSearchDashClusters\.[a-f0-9]{32}/g;
 const SEARCH_URL = "https://www.linkedin.com/search/results/people/?keywords=a";
@@ -52,7 +52,7 @@ function jarToPlaywrightCookies(cookieJar: unknown): Array<Record<string, unknow
   };
   const now = Date.now();
   return cookies
-    .filter((c) => c.domain?.includes("linkedin.com"))
+    .filter((c) => c.domain === "linkedin.com" || c.domain?.endsWith(".linkedin.com"))
     .filter((c) => !c.expires || c.expires === "Infinity" || new Date(c.expires).getTime() > now)
     .map((c) => ({
       name: c.key,
@@ -73,23 +73,39 @@ function jarToPlaywrightCookies(cookieJar: unknown): Array<Record<string, unknow
  * Discover the candidate `voyagerSearchDashClusters.<hash>` queryIds by loading
  * people-search headlessly and grepping the large query-manifest chunk(s).
  */
-async function discoverCandidates(cookieJar: unknown): Promise<string[]> {
-  // System Chrome/Edge → bundled Chromium, same fallback as login — but always
-  // a plain ephemeral launch: this is headless cookie-injected work, so the
-  // user's --profile / --cdp browser is deliberately NOT used here.
-  const env = browserEnvDefaults();
+export async function discoverCandidates(
+  cookieJar: unknown,
+  identity = "default"
+): Promise<string[]> {
+  // Same configured browser and mandatory Shield, with a separate durable
+  // capture profile per account. Never inject cookies into an attached browser.
   const session = await openBrowserContext({
     headless: true,
-    channel: env.channel,
-    executablePath: env.executablePath,
+    purpose: "capture",
+    identity,
   });
   const chunks = new Map<string, number>(); // url -> content-length
+  let page: Page | undefined;
   try {
     const context = session.context;
-    await context.addCookies(
-      jarToPlaywrightCookies(cookieJar) as unknown as Parameters<typeof context.addCookies>[0]
-    );
-    const page = await context.newPage();
+    if (session.kind === "cdp") {
+      const expected = jarToPlaywrightCookies(cookieJar).find((c) => c.name === "li_at")?.value;
+      const actual = (await context.cookies("https://www.linkedin.com")).find(
+        (c) => c.name === "li_at"
+      )?.value;
+      if (!expected || expected !== actual) {
+        throw new Error(
+          "The attached browser has a different or unknown LinkedIn session. Use the account's dedicated allman profile for queryId capture."
+        );
+      }
+    } else {
+      // Only this account's owned capture profile is changed.
+      await context.clearCookies();
+      await context.addCookies(
+        jarToPlaywrightCookies(cookieJar) as unknown as Parameters<typeof context.addCookies>[0]
+      );
+    }
+    page = await context.newPage();
     page.on("response", (res: Response) => {
       const u = res.url();
       if (/static\.licdn\.com\/aero-v1\//.test(u)) {
@@ -110,6 +126,7 @@ async function discoverCandidates(cookieJar: unknown): Promise<string[]> {
       await page.waitForTimeout(1000);
     }
   } finally {
+    await page?.close().catch(() => {});
     await session.close().catch(() => {});
   }
 
@@ -138,12 +155,13 @@ async function discoverCandidates(cookieJar: unknown): Promise<string[]> {
  */
 export async function captureSearchClustersQueryId(
   cookieJar: unknown,
-  apiClient: LinkedInApiClient
+  apiClient: LinkedInApiClient,
+  identity = "default"
 ): Promise<string | null> {
   output.info("Discovering flagship people-search queryId (headless, one-time)...");
   let candidates: string[];
   try {
-    candidates = await discoverCandidates(cookieJar);
+    candidates = await discoverCandidates(cookieJar, identity);
   } catch (err) {
     output.debug(`queryId discovery failed: ${String((err as Error).message)}`);
     return null;

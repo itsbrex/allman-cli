@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "bun run src/index.ts",
     "build": "bun scripts/build.ts",
+    "build:node": "bun build src/index.ts --target=node --packages=external --outfile=dist/allman-node.mjs",
     "test": "vitest run",
     "test:watch": "vitest",
     "test:coverage": "vitest run --coverage",
@@ -28,6 +29,7 @@
     "@types/node": "^25.5.0",
     "@types/tough-cookie": "^4.0.5",
     "@types/tunnel": "^0.0.7",
+    "@types/ws": "8.18.1",
     "@vitest/coverage-v8": "^4.1.2",
     "husky": "^9.1.7",
     "lint-staged": "^17.3.0",
@@ -41,6 +43,7 @@
     "playwright": "^1.58.2",
     "simple-git": "^3.33.0",
     "tough-cookie": "^6.0.1",
-    "tunnel": "^0.0.6"
+    "tunnel": "^0.0.6",
+    "ws": "8.21.3"
   }
 }

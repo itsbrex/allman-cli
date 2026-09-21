@@ -6,9 +6,9 @@
  * headed browser and let the human complete login manually.
  *
  * The browser comes from `openBrowserContext` (see auth/browser.ts): the
- * system Chrome/Edge by default (no Chromium download), a persistent
- * `--profile` directory, or — with `--cdp` — the user's own already-running
- * browser, whose live LinkedIn session usually skips the login form entirely.
+ * configured persistent browser with mandatory LinkedIn Shield, or — with
+ * `--cdp` — an existing persistent Chromium context whose Shield build must
+ * pass the same verification before any LinkedIn navigation.
  *
  * The CLI:
  *   1. Opens a browser window (headed) or attaches to a running one
@@ -29,8 +29,13 @@
 
 import type { BrowserContext, Page } from "playwright";
 import * as output from "../../utils/output.js";
-import { cookiesFromPlaywright, isAuthenticated, type PlaywrightCookie } from "../api/cookies.js";
-import { browserEnvDefaults, openBrowserContext } from "./browser.js";
+import {
+  cookiesFromPlaywright,
+  isAuthenticated,
+  isLinkedInCookieDomain,
+  type PlaywrightCookie,
+} from "../api/cookies.js";
+import { openBrowserContext } from "./browser.js";
 
 const LOGIN_URL = "https://www.linkedin.com/login";
 const FEED_URL_PATTERN = /linkedin\.com\/(feed|in\/|messaging)/;
@@ -60,6 +65,8 @@ export interface AuthOptions {
   profileDir?: string;
   /** Attach to an already-running browser over CDP instead of launching one. */
   cdpEndpoint?: string;
+  shieldPath?: string;
+  identity?: string;
   /** Visit Sales Navigator to capture the seat cookie (optional; default true). */
   salesnav?: boolean;
 }
@@ -70,13 +77,14 @@ export interface AuthOptions {
  * for the user to authenticate.
  */
 export async function runLogin(options: AuthOptions = {}): Promise<AuthResult> {
-  const env = browserEnvDefaults();
   const session = await openBrowserContext({
     headless: false,
-    channel: options.channel ?? env.channel,
-    executablePath: options.executablePath ?? env.executablePath,
-    profileDir: options.profileDir ?? env.profileDir,
-    cdpEndpoint: options.cdpEndpoint ?? env.cdpEndpoint,
+    channel: options.channel,
+    executablePath: options.executablePath,
+    profileDir: options.profileDir,
+    cdpEndpoint: options.cdpEndpoint,
+    shieldPath: options.shieldPath,
+    identity: options.identity,
   });
   const context = session.context;
 
@@ -189,7 +197,7 @@ export async function runLogin(options: AuthOptions = {}): Promise<AuthResult> {
   // matters most for --cdp and --profile: a real browser's context carries
   // cookies for every site the user visits, and none of that belongs in the
   // account's COOKIES.json.
-  const rawCookies = (await context.cookies()).filter((c) => c.domain.includes("linkedin.com"));
+  const rawCookies = (await context.cookies()).filter((c) => isLinkedInCookieDomain(c.domain));
   const jar = await cookiesFromPlaywright(
     rawCookies.map((c) => ({
       name: c.name,
@@ -386,7 +394,7 @@ async function extractProfileFromDom(page: Page): Promise<DomProfileData> {
 /** Convert a tough-cookie JSON object to Playwright's cookie format. */
 function toughCookieToPlaywright(c: Record<string, unknown>): object | null {
   const domain = (c.domain as string | undefined) ?? "";
-  if (!domain.includes("linkedin.com")) return null;
+  if (!isLinkedInCookieDomain(domain)) return null;
 
   const expiresRaw = c.expires;
   let expires: number | undefined;

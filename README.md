@@ -56,11 +56,14 @@ An `allman` installed by `install.sh` is kept at `allman.pre-dev-link` and resto
 [`allman-tui`](https://github.com/tarkaai/allman-tui) has the same `link` script, and its shim
 prefers a sibling checkout of this repo — link both and the dev TUI drives the dev CLI.
 
-Login uses your installed Google Chrome or Microsoft Edge automatically. Only when neither exists does it need Playwright's bundled Chromium:
+Browser sessions require LinkedIn Shield and use a persistent workspace. Configure once with your runtime-only Shield build:
 
 ```bash
-allman install-browsers      # optional — only without a system Chrome/Edge
-# or: bunx playwright install chromium
+allman browser configure --browser browseros-neo --shield /path/to/linkedin-shield/dist
+allman browser doctor --json
+# Without BrowserOS neo: install the bundled browser, then configure it.
+allman install-browsers
+allman browser configure --browser chromium --shield /path/to/linkedin-shield/dist
 ```
 
 ---
@@ -87,7 +90,7 @@ All commands accept these flags:
 | Flag | Description |
 |------|-------------|
 | `-a, --account <slug>` | Account to use (default: `$ALLMAN_ACCOUNT`, or the only account if there is one) |
-| `-s, --store <path>` | Store directory (default: `$ALLMAN_STORE`, or `./.allman`) |
+| `-s, --store <path>` | Store directory (default: `$ALLMAN_STORE`, then saved `allman store use` selection, then `./.allman`) |
 | `--json` | Output as machine-readable JSON (stdout) |
 | `--debug` | Verbose debug output to stderr |
 
@@ -95,21 +98,21 @@ All commands accept these flags:
 
 ### `allman login`
 
-Authenticate with LinkedIn. Opens a headed browser — your installed Google Chrome (or Edge) by default, falling back to Playwright's bundled Chromium only when neither exists, so no download is required. Complete the login in the browser window; LinkedIn cookies are captured automatically.
+Authenticate with LinkedIn in the configured persistent browser. LinkedIn Shield must pass verification before the CLI opens LinkedIn. Complete login in the headed window; LinkedIn cookies are captured automatically. See [browser support and setup](docs/browser-support.md).
 
 ```bash
 allman login
 allman login --account your-account
 allman login --proxy host:port
 allman login --proxy host:port:username:password
-allman login --profile ~/.allman/browser   # persistent profile: LinkedIn remembers the device, re-logins usually skip 2FA
+allman login --profile ~/.allman/dedicated-login  # optional explicit persistent profile
 allman login --cdp 9222                    # attach to a browser you already have running (see below)
-allman login --browser msedge              # pick the browser channel explicitly
+allman login --browser browseros-neo       # override the saved browser
 ```
 
 On success, writes `AUTH.json` and `COOKIES.json` to the store and creates a slug symlink for the account.
 
-**Reusing an existing browser session (`--cdp`).** Start a browser yourself with remote debugging, log in (or already be logged in), then attach — the CLI reads the live session's LinkedIn cookies and disconnects without closing your browser or writing anything into it:
+**Reusing an existing browser session (`--cdp`).** Start a browser yourself with remote debugging, log in (or already be logged in), install the configured Shield build in that profile, then attach. The CLI verifies Shield, uses its own tabs, reads the live LinkedIn cookies, and disconnects without closing your browser or injecting cookies:
 
 ```bash
 "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome" \
@@ -117,7 +120,7 @@ On success, writes `AUTH.json` and `COOKIES.json` to the store and creates a slu
 allman login --cdp 9222
 ```
 
-Chrome 136+ refuses remote debugging on its *default* profile (and a running Chrome locks it), so the `--user-data-dir` override is required — you can't point at your daily profile directly. Log into LinkedIn once in that side profile and it stays a known device from then on. `--profile` is the simpler managed version of the same idea.
+On Bun 1.3.14, use the [Node entry for CDP](docs/browser-support.md#existing-browsers-and-cdp); its Playwright WebSocket transport fails in Bun. Chrome 136+ refuses remote debugging on its *default* profile (and a running Chrome locks it), so the `--user-data-dir` override is required — you can't point at your daily profile directly. Log into LinkedIn once in that side profile and it stays a known device from then on. `--profile` is the simpler managed version of the same idea.
 
 **Options:**
 
@@ -125,8 +128,9 @@ Chrome 136+ refuses remote debugging on its *default* profile (and a running Chr
 |------|-------------|
 | `--account <slug>` | Account name to create or re-authenticate |
 | `--proxy <host:port[:user:pass]>` | HTTP proxy for this account (saved to `config.json`) |
-| `--browser <channel>` | `chrome` \| `msedge` \| `chromium` (bundled) — default: auto (Chrome → Edge → bundled) |
-| `--profile <dir>` | Persistent browser profile directory (a device LinkedIn learns to trust) |
+| `--browser <channel>` | `browseros-neo` \| `browseros` \| `chromium` or a Playwright channel; explicit choices never fall back |
+| `--profile <dir>` | Override the dedicated persistent login profile |
+| `--shield <dir>` | Override the saved LinkedIn Shield runtime build |
 | `--cdp <url\|port>` | Attach to an already-running browser with `--remote-debugging-port`; never closes it |
 
 ---
@@ -152,7 +156,18 @@ allman status --account your-account
 allman status --json
 ```
 
-Output includes: profile slug, name, auth status, cookie validity, last sync time, proxy, and store path.
+Output includes: profile slug, name, auth status, local cookie presence, last sync time, proxy, and store path. This is a local check; a successful API read proves the remote session still works.
+
+Browser sign-in and CLI login are separate. A Neo MCP import can create an account without saving cookies; `allman login` authorizes direct CLI access and stores LinkedIn-only cookies in a Git-ignored `0600` file. Every browser login or cookie reuse verifies the exact Shield build, active blocking rules, site access, and background worker first. An attached browser uses its own session and never receives saved-cookie injection.
+
+To use one existing store from any directory:
+
+```sh
+allman store use /absolute/path/to/.allman
+allman status
+```
+
+The selected absolute path is saved in `$XDG_CONFIG_HOME/allman/default-store.json` (normally `~/.config/allman/default-store.json`). Explicit `--store` and `ALLMAN_STORE` settings still take precedence. Without a selection, the upstream `./.allman` default remains.
 
 ---
 
@@ -796,10 +811,12 @@ Per-conversation: if you sent a message in a conversation, that conversation's r
 
 | Variable | Description |
 |----------|-------------|
-| `ALLMAN_STORE` | Override default store path (default: `./.allman`) |
+| `ALLMAN_STORE` | Override the saved store selection (fallback: `./.allman`) |
 | `ALLMAN_ACCOUNT` | Default account slug (used when `--account` is not specified) |
 | `ALLMAN_SEARCH_CLUSTERS_QID` | Override the flagship people-search queryId (otherwise auto-discovered + cached) |
-| `ALLMAN_BROWSER` | Browser channel for login/capture: `chrome` \| `msedge` \| `chromium` (default: auto) |
+| `ALLMAN_BROWSER` | Browser for login/capture, overriding saved settings (auto: installed Neo on macOS, else bundled Chromium) |
+| `ALLMAN_BROWSER_WORKSPACE` | Persistent browser workspace (default: `~/.allman/browser-workspace`) |
+| `ALLMAN_SHIELD_PATH` | Required runtime-only LinkedIn Shield build, overriding the saved path |
 | `ALLMAN_BROWSER_PROFILE` | Persistent browser profile directory (same as `login --profile`) |
 | `ALLMAN_CDP_URL` | CDP endpoint/port of an already-running browser (same as `login --cdp`) |
 | `PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH` | Use an explicit browser executable (wins over channels) |

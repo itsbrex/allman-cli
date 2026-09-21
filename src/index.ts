@@ -6,12 +6,13 @@
  *
  * Global flags (all commands):
  *   --account <slug>   Account to use (default: first found, or $ALLMAN_ACCOUNT)
- *   --store <path>     Store directory (default: ./.allman, or $ALLMAN_STORE)
+ *   --store <path>     Store directory ($ALLMAN_STORE, saved selection, or ./.allman)
  *   --json             Output machine-readable JSON
  *   --debug            Verbose debug output to stderr
  */
 
 import { Command } from "commander";
+import { browserConfigureCommand, browserDoctorCommand } from "./commands/browser.js";
 import { companiesCommand } from "./commands/companies.js";
 import { connectCommand } from "./commands/connect.js";
 import { connectionsCommand } from "./commands/connections.js";
@@ -29,7 +30,12 @@ import { searchCommand } from "./commands/search.js";
 import { sendCommand } from "./commands/send.js";
 import { startCommand } from "./commands/start.js";
 import { statusCommand } from "./commands/status.js";
-import { storeCommitCommand, storePathCommand, storeStatusCommand } from "./commands/store-cmd.js";
+import {
+  storeCommitCommand,
+  storePathCommand,
+  storeStatusCommand,
+  storeUseCommand,
+} from "./commands/store-cmd.js";
 import { syncCommand } from "./commands/sync.js";
 import { setDebugMode, setJsonMode } from "./utils/output.js";
 
@@ -40,7 +46,7 @@ program
   .description("LinkedIn messenger from the CLI")
   .version("0.3.2")
   .option("-a, --account <slug>", "account to use ($ALLMAN_ACCOUNT)")
-  .option("-s, --store <path>", "store directory ($ALLMAN_STORE)")
+  .option("-s, --store <path>", "store directory ($ALLMAN_STORE, saved selection, or ./.allman)")
   .option("--json", "output as JSON")
   .option("--debug", "enable debug output")
   .hook("preAction", (thisCommand) => {
@@ -61,7 +67,7 @@ program
   .option("--proxy <host:port[:user:pass]>", "HTTP proxy for this account")
   .option(
     "--browser <channel>",
-    "browser to launch: chrome | msedge | chromium (bundled) — default: auto (Chrome → Edge → bundled)"
+    "browseros-neo | browseros | chromium | Playwright channel (saved default, else Neo → Chromium)"
   )
   .option(
     "--profile <dir>",
@@ -72,6 +78,10 @@ program
     "attach to an already-running browser with --remote-debugging-port; uses its live session, never closes it"
   )
   .option("--no-salesnav", "skip the optional Sales Navigator seat capture")
+  .option(
+    "--shield <dir>",
+    "LinkedIn Shield runtime build (required; defaults to saved configuration)"
+  )
   .option("--json", "output as JSON")
   .action(async (opts, cmd) => {
     const globalOpts = cmd.parent?.opts() ?? {};
@@ -82,10 +92,44 @@ program
       browser: opts.browser,
       profile: opts.profile,
       cdp: opts.cdp,
+      shield: opts.shield,
       salesnav: opts.salesnav,
       json: opts.json ?? globalOpts.json,
     });
   });
+
+const browserCommands = program
+  .command("browser")
+  .description("Configure and verify the persistent browser workspace");
+for (const [name, description, action] of [
+  [
+    "configure",
+    "Verify and save the default browser and required Shield build",
+    browserConfigureCommand,
+  ],
+  [
+    "doctor",
+    "Verify the browser, exact Shield build, site access, and blocking rules",
+    browserDoctorCommand,
+  ],
+] as const) {
+  browserCommands
+    .command(name)
+    .description(description)
+    .option("--browser <name>", "browseros-neo | browseros | chromium | Playwright channel")
+    .option("--executable <path>", "explicit Chromium-compatible executable")
+    .option("--profile <dir>", "dedicated persistent login profile")
+    .option("--cdp <url|port>", "attach to an existing persistent browser with Shield installed")
+    .option("--shield <dir>", "path to the LinkedIn Shield runtime-only build")
+    .option("--account <identity>", "account identity for the dedicated profile")
+    .option("--headed", "show the browser while verifying")
+    .option("--json", "output as JSON")
+    .action(async (opts, cmd) => {
+      const globals = cmd.optsWithGlobals();
+      if (globals.json) setJsonMode(true);
+      await action({ ...opts, account: globals.account, json: globals.json });
+    });
+}
 
 // ---------------------------------------------------------------------------
 // start
@@ -369,6 +413,11 @@ program
 const storeCmd = program.command("store").description("Manage the local file store");
 
 storeCmd
+  .command("use <path>")
+  .description("Persist an existing account store as the default across working directories")
+  .action(storeUseCommand);
+
+storeCmd
   .command("path")
   .description("Print the store path")
   .option("-s, --store <path>", "store directory")
@@ -405,6 +454,12 @@ program
     "Export your 1st-degree LinkedIn connections into the store (per-connection files + slug symlinks)"
   )
   .option("-a, --account <slug>", "account to use")
+  .option(
+    "--browseros-mcp <url>",
+    "read a bounded batch through Neo MCP (default limit: 25, max: 100)"
+  )
+  .option("--shield <dir>", "Shield runtime build for the Neo MCP verification")
+  .option("--start <n>", "Neo MCP batch offset (default: 0)")
   .option("-s, --store <path>", "store directory")
   .option("--csv <path>", "also export a CSV to this path")
   .option("--no-save", "don't write to the store (use with --csv for a pure export)")
@@ -432,12 +487,15 @@ program
   .action(async (opts, cmd) => {
     const globalOpts = cmd.parent?.opts() ?? {};
     await connectionsCommand({
+      browserosMcp: opts.browserosMcp,
+      shield: opts.shield,
+      start: opts.start !== undefined ? Number(opts.start) : undefined,
       account: opts.account ?? globalOpts.account,
       store: opts.store ?? globalOpts.store,
       json: opts.json ?? globalOpts.json,
       csv: opts.csv,
       noStore: opts.save === false,
-      limit: opts.limit ? parseInt(opts.limit, 10) : undefined,
+      limit: opts.limit !== undefined ? Number(opts.limit) : undefined,
       pageSize: opts.pageSize ? parseInt(opts.pageSize, 10) : undefined,
       includeHeadline: opts.includeHeadline === true,
       enrich: opts.enrich === true,
@@ -576,7 +634,7 @@ program
 program
   .command("install-browsers")
   .description(
-    "Install Playwright's bundled Chromium (optional — an installed Google Chrome or Microsoft Edge is used automatically)"
+    "Install Playwright's bundled Chromium with extension support (optional when using BrowserOS neo)"
   )
   .action(async () => {
     const { execSync } = await import("node:child_process");

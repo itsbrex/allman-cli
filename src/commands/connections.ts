@@ -43,6 +43,9 @@ const DEFAULT_PAGE_SIZE = 100;
 const SAFETY_MAX = 35_000;
 
 export interface ConnectionsOptions {
+  browserosMcp?: string;
+  shield?: string;
+  start?: number;
   account?: string;
   store?: string;
   /** Stream NDJSON to stdout (ephemeral — does not write to the store). */
@@ -76,6 +79,13 @@ export interface ConnectionsOptions {
 }
 
 export async function connectionsCommand(opts: ConnectionsOptions): Promise<void> {
+  if (opts.browserosMcp) {
+    const { connectionsNeoCommand } = await import("./connections-neo.js");
+    await connectionsNeoCommand(opts);
+    return;
+  }
+  if (opts.start !== undefined || opts.shield !== undefined)
+    throw new Error("--start and --shield require --browseros-mcp on connections.");
   // Geo mode is a pure local query — no session, no network (ADR-0001).
   if ((opts.geo && opts.geo.length > 0) || opts.geoGranularity) {
     await connectionsGeoQuery({

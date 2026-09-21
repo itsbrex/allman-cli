@@ -8,7 +8,7 @@
  *   {root}/{slug} -> {profileId}       — symlink: friendly name → profile ID
  */
 
-import { readdir, readFile, writeFile } from "node:fs/promises";
+import { chmod, readdir, readFile, writeFile } from "node:fs/promises";
 import { join } from "node:path";
 import { ensureDir, forceAlias, resolveAlias } from "./alias.js";
 import type { StoreGit } from "./git.js";
@@ -141,11 +141,14 @@ export class AccountStore {
   /** Write COOKIES.json (cookie jar). No git commit — cookies are gitignored. */
   async writeCookies(profileId: string, cookies: AccountCookies): Promise<void> {
     await ensureDir(this.root, profileId);
-    await writeFile(
-      join(this.dir(profileId), COOKIES_FILE),
-      `${JSON.stringify(cookies, null, 2)}\n`,
-      "utf8"
-    );
+    const path = join(this.dir(profileId), COOKIES_FILE);
+    await chmod(path, 0o600).catch((error: NodeJS.ErrnoException) => {
+      if (error.code !== "ENOENT") throw error;
+    });
+    await writeFile(path, `${JSON.stringify(cookies, null, 2)}\n`, {
+      encoding: "utf8",
+      mode: 0o600,
+    });
   }
 
   /** Write both AUTH + COOKIES (convenience for login). */

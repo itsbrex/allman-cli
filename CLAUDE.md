@@ -237,11 +237,13 @@ before touching either:
 ## Environment variables
 
 ```
-ALLMAN_STORE        Override default store path (default: ./.allman)
+ALLMAN_STORE        Override saved `allman store use` selection (fallback: ./.allman)
 ALLMAN_ACCOUNT      Default account slug
 ALLMAN_SEARCH_CLUSTERS_QID  Override the flagship people-search queryId (else auto-discovered)
 ALLMAN_PROFILE_DECORATION   Override the `enrich` profile decoration (else FullProfile default)
-ALLMAN_BROWSER              Browser channel for login/capture: chrome | msedge | chromium (default: auto Chrome → Edge → bundled)
+ALLMAN_BROWSER              Browser for login/capture: browseros-neo | browseros | chromium | Playwright channel
+ALLMAN_BROWSER_WORKSPACE    Persistent browser config and profiles (default: ~/.allman/browser-workspace)
+ALLMAN_SHIELD_PATH          Mandatory LinkedIn Shield runtime build (or set with browser configure)
 ALLMAN_BROWSER_PROFILE      Persistent browser profile dir (login --profile)
 ALLMAN_CDP_URL              Attach to a running browser over CDP (login --cdp); Chrome 136+ needs a non-default --user-data-dir
 PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH  Explicit browser executable (wins over channels)
@@ -309,3 +311,7 @@ The five canonical roles, label string equal to role name (`needs-triage`, `need
 ### Domain docs
 
 Single-context: one `CONTEXT.md` at the repo root plus ADRs in `docs/adr/`. See `docs/agents/domain.md`.
+
+### Persistent browser protection
+
+`allman browser configure --browser browseros-neo --shield /path/to/linkedin-shield/dist` verifies and saves browser defaults. `allman browser doctor --json` checks the running extension. Every login/capture uses a persistent profile and must verify Shield before LinkedIn navigation; no unprotected fallback or ephemeral context is allowed. Capture profiles are separate per account. CDP uses the existing default context, never injects cookies, and capture requires a matching LinkedIn session. See `docs/browser-support.md`.

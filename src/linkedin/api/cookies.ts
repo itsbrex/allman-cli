@@ -21,6 +21,12 @@ import type { AccountRecord } from "../../store/types.js";
 export const LINKEDIN_DOMAIN = ".www.linkedin.com";
 export const CSRF_COOKIE_NAME = "JSESSIONID";
 
+/** Cookie domains must match LinkedIn at a DNS label boundary. */
+export function isLinkedInCookieDomain(domain: string | null | undefined): boolean {
+  const host = domain?.replace(/^\./, "").toLowerCase();
+  return Boolean(host && (host === "linkedin.com" || host.endsWith(".linkedin.com")));
+}
+
 /**
  * CookieJar options for LinkedIn.
  * rejectPublicSuffixes: false — required in tough-cookie v6 for .linkedin.com domain
@@ -66,7 +72,7 @@ export async function buildCookieHeader(jar: CookieJar): Promise<string> {
 
   // Sort: broader domains first (.linkedin.com before .www.linkedin.com),
   // so more specific cookies overwrite on collision
-  const linkedinCookies = all.filter((c) => c.domain?.includes("linkedin.com"));
+  const linkedinCookies = all.filter((c) => isLinkedInCookieDomain(c.domain));
   linkedinCookies.sort((a, b) => (a.domain ?? "").length - (b.domain ?? "").length);
 
   for (const c of linkedinCookies) {
@@ -89,9 +95,7 @@ export async function buildCookieHeader(jar: CookieJar): Promise<string> {
  */
 export async function getCsrfToken(jar: CookieJar): Promise<string | null> {
   const all = await jar.store.getAllCookies();
-  const cookie = all.find(
-    (c) => c.key === CSRF_COOKIE_NAME && c.domain && c.domain.includes("linkedin.com")
-  );
+  const cookie = all.find((c) => c.key === CSRF_COOKIE_NAME && isLinkedInCookieDomain(c.domain));
   if (!cookie) return null;
   return cookie.value.replace(/"/g, "");
 }
@@ -136,7 +140,7 @@ export async function cookiesFromPlaywright(
 ): Promise<CookieJar> {
   const jar = new CookieJar(undefined, JAR_OPTIONS);
   for (const pc of playwrightCookies) {
-    if (!pc.domain.includes("linkedin.com")) continue;
+    if (!isLinkedInCookieDomain(pc.domain)) continue;
 
     const cookie = new Cookie({
       key: pc.name,
