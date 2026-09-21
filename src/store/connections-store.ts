@@ -24,7 +24,9 @@ import type {
 } from "../linkedin/api/endpoints/profile-detail.js";
 import type { SalesnavPosition, SalesnavSpotlight } from "../linkedin/api/endpoints/salesnav.js";
 import { forceAlias } from "./alias.js";
+import type { ObservationSet, Provenance } from "./enricher.js";
 import type { StoreGit } from "./git.js";
+import { applyFieldObservations, meaningful } from "./observations.js";
 
 /** A single role in a connection's work history. */
 export interface StoredPosition {
@@ -252,6 +254,10 @@ export interface StoredSalesnavConnection {
  * available without guessing a domain from the company name.
  */
 export interface StoredCompany {
+  canonicalName?: string | null;
+  domains?: string[];
+  funding?: string | null;
+  provenance?: Record<string, Provenance>;
   /** Numeric LinkedIn company id — the filename key. */
   id: string;
   companyUrn: string;
@@ -387,19 +393,58 @@ export class ConnectionsStore {
    * Merges like `upsertConnection` — a later fetch never downgrades a known
    * value to null — so a partial response can't erase good data.
    */
-  async upsertCompany(c: Omit<StoredCompany, "firstSeenAt" | "lastSeenAt">): Promise<void> {
+  async upsertCompany(
+    c: Omit<StoredCompany, "firstSeenAt" | "lastSeenAt">,
+    observations?: ObservationSet
+  ): Promise<void> {
     const dir = this.companiesDir();
     await mkdir(dir, { recursive: true });
     const nowIso = new Date().toISOString();
     const file = `${c.id}.json`;
     const path = join(dir, file);
     const prev = await this.readCompany(c.id);
-    const merged = { ...(prev ?? {}) } as Record<string, unknown>;
-    for (const [k, v] of Object.entries(c)) {
-      if (v !== undefined && v !== null) merged[k] = v;
+    const defaults = { ...c, canonicalName: c.canonicalName ?? c.name, domains: c.domains ?? [] };
+    if (c.website && !c.domains) {
+      try {
+        defaults.domains = [new URL(c.website).hostname.toLowerCase().replace(/^www\./, "")];
+      } catch {
+        /* invalid website is not an identity */
+      }
     }
-    merged.firstSeenAt = prev?.firstSeenAt ?? nowIso;
-    merged.lastSeenAt = nowIso;
+    const fields = new Set(
+      Object.keys(defaults).filter(
+        (k) =>
+          !["id", "companyUrn", "firstSeenAt", "lastSeenAt", "fetchedAt", "provenance"].includes(k)
+      )
+    );
+    const incoming: ObservationSet =
+      observations ??
+      Object.fromEntries(
+        [...fields]
+          .filter((k) => meaningful((defaults as unknown as Record<string, unknown>)[k]))
+          .map((k) => [
+            k,
+            {
+              value: (defaults as unknown as Record<string, unknown>)[k],
+              provenance: { source: "linkedin/company", observedAt: c.fetchedAt },
+            },
+          ])
+      );
+    const applied = applyFieldObservations(
+      (prev ?? defaults) as unknown as Record<string, unknown>,
+      prev?.provenance ?? {},
+      incoming,
+      fields
+    );
+    const merged = {
+      ...applied.facts,
+      id: c.id,
+      companyUrn: c.companyUrn,
+      provenance: applied.provenance,
+      firstSeenAt: prev?.firstSeenAt ?? nowIso,
+      lastSeenAt: nowIso,
+      fetchedAt: c.fetchedAt,
+    };
     await writeFile(path, `${JSON.stringify(merged, null, 2)}\n`, "utf8");
     if (c.universalName) await forceAlias(dir, c.universalName, file);
   }
@@ -427,7 +472,7 @@ export class ConnectionsStore {
     const prev = await this.readConnection(c.flagshipId);
     const merged = { ...(prev ?? {}) } as Record<string, unknown>;
     for (const [k, v] of Object.entries(c)) {
-      if (v !== undefined && v !== null) merged[k] = v;
+      if (meaningful(v)) merged[k] = v;
     }
     // A confirmed connection never gets downgraded to "enrich" by a later
     // ad-hoc enrichment of the same person.
@@ -515,8 +560,10 @@ export class ConnectionsStore {
     await mkdir(dir, { recursive: true });
     const key = c.memberId || c.salesnavId;
     const path = join(dir, `${key}.json`);
-    const firstSeenAt = (await readFirstSeen(path)) ?? nowIso;
-    const rec: StoredSalesnavConnection = { ...c, firstSeenAt, lastSeenAt: nowIso };
+    const prev = await readJson<StoredSalesnavConnection>(path);
+    const merged = { ...prev } as Record<string, unknown>;
+    for (const [key, value] of Object.entries(c)) if (meaningful(value)) merged[key] = value;
+    const rec = { ...merged, firstSeenAt: prev?.firstSeenAt ?? nowIso, lastSeenAt: nowIso };
     await writeFile(path, `${JSON.stringify(rec, null, 2)}\n`, "utf8");
   }
 
@@ -547,7 +594,7 @@ export class ConnectionsStore {
     // (e.g. don't wipe deep fields when re-running a core enrich).
     const merged = { ...existing } as StoredConnection & Record<string, unknown>;
     for (const [k, v] of Object.entries(patch)) {
-      if (v !== undefined && v !== null) merged[k] = v;
+      if (meaningful(v)) merged[k] = v;
     }
     merged.enrichedAt = nowIso;
     merged.enrichDepth = depth;
@@ -593,7 +640,7 @@ export class ConnectionsStore {
     const prev = await readJson<StoredConnectionOfResult>(path);
     const merged = { ...(prev ?? {}) } as Record<string, unknown>;
     for (const [k, v] of Object.entries(r)) {
-      if (v !== undefined && v !== null) merged[k] = v;
+      if (meaningful(v)) merged[k] = v;
     }
     merged.firstSeenAt = prev?.firstSeenAt ?? nowIso;
     merged.lastSeenAt = nowIso;
@@ -605,10 +652,6 @@ export class ConnectionsStore {
   static targetKeyFromUrn(targetUrn: string): string {
     return targetUrn.replace(/^urn:li:fsd_profile:/, "");
   }
-}
-
-async function readFirstSeen(path: string): Promise<string | null> {
-  return (await readJson<{ firstSeenAt?: string }>(path))?.firstSeenAt ?? null;
 }
 
 async function readJson<T>(path: string): Promise<T | null> {

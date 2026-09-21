@@ -12,6 +12,7 @@
  */
 
 import { Command } from "commander";
+import { attioCommand } from "./commands/attio.js";
 import { browserConfigureCommand, browserDoctorCommand } from "./commands/browser.js";
 import { companiesCommand } from "./commands/companies.js";
 import { connectCommand } from "./commands/connect.js";
@@ -24,8 +25,10 @@ import { inboxCommand } from "./commands/inbox.js";
 import { listenCommand } from "./commands/listen.js";
 import { loginCommand } from "./commands/login.js";
 import { logoutCommand } from "./commands/logout.js";
+import { mailCommand } from "./commands/mail.js";
 import { messagesCommand } from "./commands/messages.js";
 import { reactCommand } from "./commands/react.js";
+import { relationshipsCommand } from "./commands/relationships.js";
 import { searchCommand } from "./commands/search.js";
 import { sendCommand } from "./commands/send.js";
 import { startCommand } from "./commands/start.js";
@@ -578,6 +581,7 @@ program
 
 program
   .command("companies [target]")
+  .option("--local", "query stored companies, affiliations, and recent threads without network")
   .description(
     "Resolve the companies behind stored positions (website, headcount, industry).\n" +
       "  With no <target>, resolves every employer referenced by stored connections.\n" +
@@ -592,6 +596,7 @@ program
   .action(async (target: string | undefined, opts, cmd) => {
     const globalOpts = cmd.parent?.opts() ?? {};
     await companiesCommand(target, {
+      local: opts.local === true,
       account: opts.account ?? globalOpts.account,
       store: opts.store ?? globalOpts.store,
       json: opts.json ?? globalOpts.json,
@@ -646,6 +651,44 @@ program
 // ---------------------------------------------------------------------------
 // Parse & run
 // ---------------------------------------------------------------------------
+
+program
+  .command("mail <action>")
+  .description("Read-only Apple Mail ingestion: accounts | configure | sync | status")
+  .option("--all-accounts", "enable every visible Apple Mail account")
+  .option("--mail-account <name...>", "mail accounts to enable")
+  .option("--days <n>", "initial history window (default: 90)", Number)
+  .option("--command <path>", "Apple Mail MCP server executable")
+  .option("--server-arg <args...>", "server arguments")
+  .option("--python-path <path>", "source directory for a Python MCP checkout")
+  .option("--reconcile", "rescan the full configured window after source index changes")
+  .option("--max-pages <n>", "bound this run per account, preserving resume cursors", Number)
+  .action(async (action, opts, cmd) => mailCommand(action, { ...cmd.optsWithGlobals(), ...opts }));
+
+program
+  .command("relationships <action> [target] [values...]")
+  .description(
+    "Local contacts, timeline, followups, refresh, tag/untag, save-list, link/unlink, cadence, snooze/dismiss/acknowledge, review"
+  )
+  .option("--tag <tag>", "filter by tag")
+  .option("--company <name>", "filter by employer")
+  .option("--geo <name|urn>", "filter by location")
+  .option("--channel <channel>", "linkedin or email")
+  .option("--list <name>", "use a saved prospect list")
+  .option("--flagship <id>", "confirmed LinkedIn identity to link")
+  .option("--days <n>", "snooze calendar days", Number)
+  .action(async (action, target, values, opts, cmd) =>
+    relationshipsCommand(action, target, values, { ...cmd.optsWithGlobals(), ...opts })
+  );
+
+program
+  .command("attio <action> [target]")
+  .description(
+    "Read-only Attio LinkedIn matching: candidates | lookup <url> | sync | import <file> | status"
+  )
+  .action(async (action, target, opts, cmd) =>
+    attioCommand(action, target, { ...cmd.optsWithGlobals(), ...opts })
+  );
 
 program.parseAsync(process.argv).catch((err: unknown) => {
   process.stderr.write(`Error: ${String(err)}\n`);

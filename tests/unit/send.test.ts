@@ -9,7 +9,7 @@ import { mkdtemp, readlink, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { sendCommand } from "@/commands/send.js";
+import { preSendSync, sendCommand } from "@/commands/send.js";
 import { Store } from "@/store/index.js";
 import type { AccountRecord, ConversationRecord } from "@/store/types.js";
 
@@ -131,6 +131,30 @@ const convRecord: ConversationRecord = {
   fetchedAt: "2026-03-30T00:00:00Z",
 };
 
+const remoteConversation = () => ({
+  urn: convRecord.convUrn,
+  backendUrn: convRecord.backendUrn,
+  isGroup: false,
+  title: null,
+  lastActivityAt: 1743360000003,
+  unreadCount: 0,
+  lastReadAt: null,
+  createdAt: null,
+  read: false,
+  notificationStatus: null,
+  categories: [],
+  conversationUrl: null,
+  disabledFeatures: [],
+  participants: [
+    {
+      entityUrn: `urn:li:fsd_profile:${CONTACT_PROFILE_ID}`,
+      name: "James Foo",
+      profilePictures: [],
+    },
+    { entityUrn: `urn:li:fsd_profile:${MY_PROFILE_ID}`, name: "Test User", profilePictures: [] },
+  ],
+});
+
 // ---------------------------------------------------------------------------
 // Tests
 // ---------------------------------------------------------------------------
@@ -141,6 +165,7 @@ describe("send command — pre-send sync abort", () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
+    mockFindConversationByRecipient.mockResolvedValue(remoteConversation());
     tempDir = await mkdtemp(join(tmpdir(), "allman-send-test-"));
     store = new Store({ path: tempDir, gitDebounceMs: 0 });
     await store.init();
@@ -156,6 +181,74 @@ describe("send command — pre-send sync abort", () => {
 
   afterEach(async () => {
     await rm(tempDir, { recursive: true, force: true });
+  });
+
+  it("sync watermark does not acknowledge unread messages; read state does", async () => {
+    const messages = [
+      {
+        urn: "urn:li:msg_message:old",
+        deliveredAt: 100,
+        fromUrn: `urn:li:fsd_profile:${CONTACT_PROFILE_ID}`,
+        fromName: "Contact",
+        body: "Old unread",
+        reactions: [],
+        attachments: [],
+      },
+    ];
+    mockFetchMessages.mockResolvedValue({ messages, hasMore: false });
+    const conversations = store.forAccount(MY_PROFILE_ID);
+    const remote = { ...remoteConversation(), lastActivityAt: 100, unreadCount: 1 };
+    mockFindConversationByRecipient.mockResolvedValue(remote);
+    expect(
+      await preSendSync(
+        {} as never,
+        conversations,
+        CONV_BARE_ID,
+        `urn:li:fsd_profile:${MY_PROFILE_ID}`
+      )
+    ).toHaveLength(1);
+    expect(
+      await preSendSync(
+        {} as never,
+        conversations,
+        CONV_BARE_ID,
+        `urn:li:fsd_profile:${MY_PROFILE_ID}`
+      )
+    ).toHaveLength(1);
+    mockFindConversationByRecipient.mockResolvedValue({
+      ...remote,
+      read: true,
+      unreadCount: 0,
+      lastReadAt: 100,
+    });
+    expect(
+      await preSendSync(
+        {} as never,
+        conversations,
+        CONV_BARE_ID,
+        `urn:li:fsd_profile:${MY_PROFILE_ID}`
+      )
+    ).toHaveLength(0);
+  });
+
+  it("hydrates a missing record before storing messages and fails closed on fetch errors", async () => {
+    await rm(join(tempDir, MY_PROFILE_ID, CONV_BARE_ID), { recursive: true });
+    const conversations = store.forAccount(MY_PROFILE_ID);
+    mockFetchMessages.mockResolvedValue({ messages: [], hasMore: false });
+    await preSendSync(
+      {} as never,
+      conversations,
+      CONV_BARE_ID,
+      `urn:li:fsd_profile:${MY_PROFILE_ID}`,
+      remoteConversation() as never,
+      "example-user-1"
+    );
+    expect(await conversations.read(CONV_BARE_ID)).not.toBeNull();
+    mockFetchMessages.mockRejectedValue(new Error("network unavailable"));
+    await expect(
+      preSendSync({} as never, conversations, CONV_BARE_ID, `urn:li:fsd_profile:${MY_PROFILE_ID}`)
+    ).rejects.toThrow("network unavailable");
+    expect(mockSendMessage).not.toHaveBeenCalled();
   });
 
   it("aborts send and prints new messages when inbound messages arrived since last sync", async () => {
@@ -315,6 +408,7 @@ describe("send command — slug persistence", () => {
 
   beforeEach(async () => {
     vi.clearAllMocks();
+    mockFindConversationByRecipient.mockResolvedValue(remoteConversation());
     tempDir = await mkdtemp(join(tmpdir(), "allman-send-slug-"));
     store = new Store({ path: tempDir, gitDebounceMs: 0 });
     await store.init();
@@ -339,10 +433,7 @@ describe("send command — slug persistence", () => {
       deliveredAt: Date.now(),
     });
     // findConversationByRecipient returns the existing conversation
-    mockFindConversationByRecipient.mockResolvedValue({
-      urn: convRecord.convUrn,
-      backendUrn: convRecord.backendUrn,
-    });
+    mockFindConversationByRecipient.mockResolvedValue(remoteConversation());
 
     await sendCommand("example-user-1", "Hello!", { store: tempDir });
 
@@ -382,9 +473,9 @@ describe("send command — slug persistence", () => {
 
     await sendCommand("example-user-1", "Second message", { store: tempDir });
 
-    // Should NOT have called profile lookup or conversation search
+    // Resolution stays local; read-state verification still refreshes remotely.
     expect(mockGetProfileUrnBySlug).not.toHaveBeenCalled();
-    expect(mockFindConversationByRecipient).not.toHaveBeenCalled();
+    expect(mockFindConversationByRecipient).toHaveBeenCalledOnce();
   });
 
   it("stores slug on new conversation created via send", async () => {

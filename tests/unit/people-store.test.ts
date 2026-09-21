@@ -281,7 +281,7 @@ describe("PeopleStore.applyObservations", () => {
         { convId: { value: "2-nope", provenance: stamp("linkedin/enrich-core", T1) } },
         T1
       )
-    ).rejects.toThrow(/Unknown person field/);
+    ).rejects.toThrow(/Unknown field/);
   });
 });
 

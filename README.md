@@ -8,6 +8,10 @@ Messages are stored locally as JSONL files in a git repository. All reads come f
 
 ---
 
+## Relationship workspace (development branch)
+
+Read-only Apple Mail ingestion, Attio LinkedIn-URL matching, local relationship timelines, tags, saved lists, follow-up review, and company affiliations are documented in [Relationship workspace](docs/relationship-workspace.md). Mail and CRM evidence stay outside the Git-backed LinkedIn store.
+
 ## Installation
 
 ### From GitHub Releases (Linux and macOS, x64 and arm64)

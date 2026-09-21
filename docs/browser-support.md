@@ -102,15 +102,15 @@ Successful local observations, not a controlled speed ratio:
 | Operation | Elapsed |
 | --- | ---: |
 | Official upstream binary, direct API, 25 records as JSON | 4.786 s |
-| Current source CLI, same account and 25-record API read | 0.899 s |
+| Current source CLI, same account and 25-record API read | 0.899 s; 0.669 s after re-login |
 | Current source CLI, Neo MCP import of the next 25 records | 7.722 s |
 | Current compiled CLI, local browser/Shield doctor | 5.794 s |
 
-The MCP route adds extension verification, browser-page setup, owner validation, and local import work. Its timing is not evidence that ordinary CLI reads became slower. A later compiled API attempt timed out after 45 seconds; subsequent source and upstream reads both reported an expired session, and Neo also showed its sign-in page. A sustained paired benchmark could not be completed. Synthetic loopback HTTP success and authentication-error responses passed through both source and compiled clients. No fixed speed multiplier or uninterrupted live-session guarantee is established.
+The MCP route adds extension verification, browser-page setup, owner validation, and local import work. Its timing is not evidence that ordinary CLI reads became slower. A later compiled API attempt timed out after 45 seconds; subsequent source and upstream reads both reported an expired session, and Neo also showed its sign-in page. A sustained paired benchmark could not be completed. Protected re-login restored the session, and the source CLI read 25 records successfully in 0.669 seconds. Synthetic loopback HTTP success and authentication-error responses passed through both source and compiled clients. No fixed speed multiplier or uninterrupted live-session guarantee is established.
 
 ## Validation
 
-502 unit tests passed with two workers; typecheck, Biome, native and Node builds, and the CodeDB refresh gate passed. An installer test exceeded its timeout during a concurrent full-build run; it passed in isolation and in the full two-worker run. Login regressions cover Shield verification before cookie access/navigation, rejection when verification fails, no cookie injection into attached browsers, exact cookie-domain filtering, private cookie permissions, account mismatch, and metadata preservation.
+533 unit tests passed after integrating the relationship workspace; typecheck, Biome, native and Node builds, and the CodeDB refresh gate passed. An installer test exceeded its timeout during a concurrent full-build run; it passed in isolation and in subsequent complete runs. Login regressions cover Shield verification before cookie access/navigation, rejection when verification fails, no cookie injection into attached browsers, exact cookie-domain filtering, private cookie permissions, account mismatch, and metadata preservation.
 
 The linked development CLI and compiled executable passed `browser doctor --json` using saved defaults. The compiled MCP command read a 25-record batch successfully with `--no-save`; the source CLI imported two bounded batches totaling 50 connections. Authenticated CLI login and direct HTTP reads also passed after explicit local-cookie authorization. The private cookie file was verified as `0600` and Git-ignored.
 

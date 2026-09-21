@@ -27,6 +27,7 @@ import { ConnectionsStore } from "./connections-store.js";
 import { ConversationStore } from "./conversations.js";
 import type { ObservationSet, Provenance } from "./enricher.js";
 import type { StoreGit } from "./git.js";
+import { applyFieldObservations, meaningful } from "./observations.js";
 import type { ConversationRecord, ProfilePicture } from "./types.js";
 
 /**
@@ -134,17 +135,6 @@ const PERSON_FACT_FIELDS: ReadonlySet<string> = new Set(MERGED_FIELDS);
  * "user" > enrich-deep > enrich-core > sweep > everything else.
  * New namespaces slot below the LinkedIn tiers until an ADR says otherwise.
  */
-const SOURCE_RANK: Record<string, number> = {
-  user: 4,
-  "linkedin/enrich-deep": 3,
-  "linkedin/enrich-core": 2,
-  "linkedin/sweep": 1,
-};
-
-function sourceRank(source: string): number {
-  return SOURCE_RANK[source] ?? 0;
-}
-
 /**
  * Build an `ObservationSet` from resolved person facts, all stamped with one
  * provenance. Null and undefined facts are dropped: a partial fetch says
@@ -154,7 +144,7 @@ function sourceRank(source: string): number {
 export function observationsFrom(facts: PersonFacts, provenance: Provenance): ObservationSet {
   const out: ObservationSet = {};
   for (const [field, value] of Object.entries(facts)) {
-    if (value === undefined || value === null) continue;
+    if (!meaningful(value)) continue;
     out[field] = { value, provenance };
   }
   return out;
@@ -247,20 +237,13 @@ export class PeopleStore {
       firstSeenAt: nowIso,
       lastSeenAt: nowIso,
     };
-    const provenance = rec.provenance ?? {};
-    rec.provenance = provenance;
-    const target = rec as unknown as Record<string, unknown>;
-
-    for (const [field, obs] of Object.entries(observations)) {
-      if (!PERSON_FACT_FIELDS.has(field)) {
-        throw new Error(`Unknown person field in observation set: "${field}"`);
-      }
-      const existing = provenance[field];
-      if (existing?.source === "user") continue;
-      if (existing && sourceRank(existing.source) > sourceRank(obs.provenance.source)) continue;
-      target[field] = obs.value;
-      provenance[field] = obs.provenance;
-    }
+    const applied = applyFieldObservations(
+      rec as unknown as Record<string, unknown>,
+      rec.provenance ?? {},
+      observations,
+      PERSON_FACT_FIELDS
+    );
+    Object.assign(rec, applied.facts, { provenance: applied.provenance });
 
     rec.firstSeenAt = prev?.firstSeenAt ?? nowIso;
     rec.lastSeenAt = nowIso;

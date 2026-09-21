@@ -57,6 +57,13 @@ describe("upsertConnection", () => {
     expect(rec.lastSeenAt).toBe("2026-05-20T00:00:00.000Z");
   });
 
+  it("retains rich arrays when a sparse sweep or enrichment returns empty arrays", async () => {
+    await cstore.upsertConnection({ ...base, skills: ["Operations"] }, "2026-05-01T00:00:00Z");
+    await cstore.upsertConnection({ ...base, skills: [] }, "2026-05-02T00:00:00Z");
+    await cstore.enrichConnection(base.flagshipId, { skills: [] }, "deep", "2026-05-03T00:00:00Z");
+    expect((await cstore.readConnection(base.flagshipId))?.skills).toEqual(["Operations"]);
+  });
+
   it("omits the symlink when there's no public identifier", async () => {
     await cstore.upsertConnection({ ...base, publicIdentifier: null }, "2026-05-01T00:00:00.000Z");
     await expect(readlink(join(accountDir, "connections", "example-user-1"))).rejects.toThrow();
@@ -121,5 +128,49 @@ describe("connections-of storage", () => {
       "ACwAAB0000000000000000000000000000000005.json"
     );
     expect((await stat(file)).isFile()).toBe(true);
+  });
+});
+
+describe("sparse SalesNav refresh", () => {
+  it("retains existing rich fields when later responses omit values", async () => {
+    const row = {
+      salesnavId: "ACwExample",
+      memberId: "123",
+      memberUrn: "urn:li:member:123",
+      firstName: "Example",
+      lastName: "Person",
+      fullName: "Example Person",
+      location: "San Diego",
+      degree: 1,
+      title: "Director",
+      company: "Example Co",
+      companyUrn: null,
+      companyIndustry: "Lab",
+      companyLocation: null,
+      about: "Rich profile",
+      pendingInvitation: false,
+      premium: true,
+      openLink: true,
+      memorialized: false,
+      saved: true,
+      viewed: false,
+      profilePictureUrl: null,
+      currentPositions: [],
+      pastPositions: [],
+      spotlights: [],
+    };
+    await cstore.upsertSalesnavConnection(row, "2026-01-01T00:00:00Z");
+    await cstore.upsertSalesnavConnection(
+      { ...row, about: null, companyIndustry: null, firstName: null, premium: false },
+      "2026-02-01T00:00:00Z"
+    );
+    const saved = JSON.parse(
+      await readFile(join(accountDir, "connections-salesnav", "123.json"), "utf8")
+    );
+    expect(saved.about).toBe("Rich profile");
+    expect(saved.companyIndustry).toBe("Lab");
+    expect(saved.firstName).toBe("Example");
+    expect(saved.premium).toBe(false);
+    expect(saved.firstSeenAt).toBe("2026-01-01T00:00:00Z");
   });
 });

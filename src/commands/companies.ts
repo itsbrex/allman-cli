@@ -22,8 +22,10 @@
  * eat the budget for enriching people.
  */
 
-import { type Company, companyId, fetchCompany } from "../linkedin/api/endpoints/companies.js";
+import { type Company, companyId } from "../linkedin/api/endpoints/companies.js";
 import { loadSession } from "../linkedin/api/session.js";
+import { LinkedInCompanyEnricher } from "../linkedin/company-enricher.js";
+import { companyRollups } from "../store/company-view.js";
 import type { ConnectionsStore, StoredCompany } from "../store/connections-store.js";
 import { resolveStorePath, Store } from "../store/index.js";
 import { AccountQuota } from "../utils/account-quota.js";
@@ -37,6 +39,7 @@ import {
 import { hasSalesNavSeat } from "./connections-of.js";
 
 export interface CompaniesOptions {
+  local?: boolean;
   account?: string;
   store?: string;
   json?: boolean;
@@ -96,6 +99,21 @@ export async function companiesCommand(
   opts: CompaniesOptions
 ): Promise<void> {
   const store = new Store({ path: resolveStorePath(opts.store) });
+  if (opts.local) {
+    const account = await store.accounts.getDefault(opts.account);
+    const result = await companyRollups(store, account, target, opts.currentOnly);
+    if (opts.json) output.printData(result);
+    else
+      for (const row of result.companies)
+        output.info(
+          `${row.name} (${row.id}) — ${row.people.length} people, ${row.affiliations.length} roles`
+        );
+    if (result.mergeReview.length)
+      output.warn(
+        `${result.mergeReview.length} name/domain collisions need review; no records merged.`
+      );
+    return;
+  }
   await store.init();
 
   let session: Awaited<ReturnType<typeof loadSession>>;
@@ -122,12 +140,13 @@ export async function companiesCommand(
       );
       return;
     }
-    const company = await fetchCompany(session.apiClient, target);
+    const fetched = await new LinkedInCompanyEnricher(session.apiClient).fetch(target);
+    const company = fetched?.company;
     if (!company) {
       output.error(`No company found for "${target}".`, 1);
       return;
     }
-    await cstore.upsertCompany(toStored(company));
+    await cstore.upsertCompany(toStored(company), fetched?.observations);
     if (opts.json) output.printData(company);
     else
       output.success(`Resolved ${company.name ?? company.id} — ${company.website ?? "no website"}`);
@@ -164,7 +183,7 @@ export async function companiesCommand(
     if (!first && !opts.noDelay) await randomPageSleep(delayConfig);
     first = false;
     try {
-      const company = await fetchCompany(session.apiClient, id);
+      const company = (await new LinkedInCompanyEnricher(session.apiClient).fetch(id))?.company;
       if (!company) {
         failed++;
         continue;
