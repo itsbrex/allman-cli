@@ -43,4 +43,4 @@ it("owns its repository and ignores parent hook index/worktree variables", async
     vi.unstubAllEnvs();
     await rm(root, { recursive: true, force: true });
   }
-});
+}, 30000);

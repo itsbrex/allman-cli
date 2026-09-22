@@ -759,6 +759,7 @@ program
   )
   .option("--file <path>", "JSON definition or qualification input")
   .option("--contact <id>", "select one contact")
+  .option("--list <name>", "export contacts selected by a saved group")
   .option("--limit <n>", "batch size, 1–100", Number)
   .option("--offset <n>", "batch offset", Number)
   .option("--stale-only", "qualify/export missing or stale results")

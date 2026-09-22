@@ -131,6 +131,12 @@ it("runs groups, rank, ICP lifecycle and introductions through real CLI without 
       freshness: "fresh",
       method: "rules",
     });
+    const groupHandoff = cli("icp", "export", "fixture", "--list", "Fixture buyers");
+    expect(groupHandoff).toMatchObject({ contacts: 1, total: 1, nextOffset: null });
+    const groupPayload = JSON.parse(await readFile(groupHandoff.path, "utf8"));
+    expect(groupPayload.contacts.map((c: { contactId: string }) => c.contactId)).toEqual([
+      target.id,
+    ]);
     const handoff = cli("icp", "export", "fixture", "--contact", target.id);
     expect(handoff.contacts).toBe(1);
     expect((await stat(handoff.path)).mode & 0o777).toBe(0o600);

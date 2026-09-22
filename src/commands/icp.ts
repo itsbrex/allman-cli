@@ -9,13 +9,14 @@ import {
 } from "../relationships/qualification.js";
 import { resolveStorePath, Store } from "../store/index.js";
 import { withWorkspaceLock, workspaceRoot, writePrivate } from "../store/private-workspace.js";
-import { relationshipSnapshot } from "../store/relationships.js";
+import { relationshipSnapshot, selectContacts } from "../store/relationships.js";
 import * as output from "../utils/output.js";
 export interface IcpOptions {
   store?: string;
   json?: boolean;
   file?: string;
   contact?: string;
+  list?: string;
   limit?: number;
   offset?: number;
   staleOnly?: boolean;
@@ -31,7 +32,7 @@ export async function icpCommand(action: string, id: string | undefined, opts: I
     define: ["file"],
     results: ["contact"],
     qualify: ["contact", "limit", "offset", "staleOnly"],
-    export: ["contact", "limit", "offset", "staleOnly"],
+    export: ["contact", "list", "limit", "offset", "staleOnly"],
     import: ["file", "contact"],
     override: ["contact", "match", "reason", "clear"],
   };
@@ -65,7 +66,9 @@ export async function icpCommand(action: string, id: string | undefined, opts: I
         new Store({ path: resolveStorePath(opts.store) }),
         root
       );
-      let contacts = snapshot.contacts.filter((c) => !opts.contact || c.id === opts.contact);
+      let contacts = selectContacts(snapshot, { list: opts.list }).filter(
+        (c) => !opts.contact || c.id === opts.contact
+      );
       if (opts.contact && !contacts.length) throw new Error("Contact not found; use a contact id");
       if (action === "results")
         return output.printData(
