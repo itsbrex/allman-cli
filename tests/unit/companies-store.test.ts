@@ -5,7 +5,7 @@
 import { mkdtemp, readlink, rm } from "node:fs/promises";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
-import { afterEach, beforeEach, describe, expect, it } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ConnectionsStore, type StoredCompany } from "@/store/connections-store.js";
 import type { StoreGit } from "@/store/git.js";
 
@@ -19,6 +19,7 @@ beforeEach(async () => {
   cstore = new ConnectionsStore(accountDir, NOOP_GIT);
 });
 afterEach(async () => {
+  vi.useRealTimers();
   await rm(accountDir, { recursive: true, force: true });
 });
 
@@ -75,8 +76,11 @@ describe("company store", () => {
   });
 
   it("applies real updates and preserves firstSeenAt", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-01-01T00:00:00Z"));
     await cstore.upsertCompany(company());
     const first = await cstore.readCompany("11850");
+    vi.setSystemTime(new Date("2026-01-02T00:00:00Z"));
     await cstore.upsertCompany(company({ staffCount: 400 }));
     const second = await cstore.readCompany("11850");
     expect(second?.staffCount).toBe(400);

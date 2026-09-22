@@ -15,6 +15,7 @@ import {
   saveSnapshot,
 } from "../store/relationships.js";
 import * as output from "../utils/output.js";
+import { selectedFilters, validateLocalName } from "./groups.js";
 export interface RelationshipOptions extends RelationshipFilters {
   store?: string;
   json?: boolean;
@@ -48,7 +49,12 @@ export async function relationshipsCommand(
       });
       return;
     }
-    const filter = opts.list ? snapshot.lists[opts.list] : opts;
+    const filter =
+      opts.list && Object.hasOwn(snapshot.lists, opts.list)
+        ? snapshot.lists[opts.list]
+        : opts.list
+          ? undefined
+          : opts;
     if (!filter) throw new Error("Unknown saved list");
     const contacts = filterContacts(snapshot, filter);
     if (action === "list") {
@@ -90,14 +96,8 @@ export async function relationshipsCommand(
       { threads: {}, lists: {} }
     );
     if (action === "save-list") {
-      if (!target) throw new Error("Supply a list name");
-      settings.lists[target] = {
-        tag: opts.tag,
-        company: opts.company,
-        geo: opts.geo,
-        channel: opts.channel,
-        account: opts.account,
-      };
+      validateLocalName(target);
+      settings.lists[target] = selectedFilters(opts);
       await writePrivate(join(root, "relationship-settings.json"), settings);
     } else if (["snooze", "dismiss", "acknowledge"].includes(action)) {
       const event = snapshot.timeline.filter((e) => e.thread === target).at(-1);

@@ -38,6 +38,9 @@ export interface ThreadAction {
 }
 export interface RelationshipFilters {
   tag?: string;
+  anyTag?: string[];
+  allTags?: string[];
+  withoutTags?: string[];
   company?: string;
   geo?: string;
   channel?: string;
@@ -311,6 +314,9 @@ export function filterContacts(
   return snapshot.contacts.filter(
     (c) =>
       (!filter.tag || c.tags.includes(filter.tag)) &&
+      (!filter.anyTag?.length || filter.anyTag.some((t) => c.tags.includes(t))) &&
+      (!filter.allTags?.length || filter.allTags.every((t) => c.tags.includes(t))) &&
+      (!filter.withoutTags?.length || !filter.withoutTags.some((t) => c.tags.includes(t))) &&
       (!filter.company || c.company?.toLowerCase().includes(filter.company.toLowerCase())) &&
       (!filter.geo ||
         c.geoUrn === filter.geo ||

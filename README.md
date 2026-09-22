@@ -931,3 +931,20 @@ icon is embedded. `PLAYWRIGHT_BROWSERS_PATH=0` resolves to
 explicit browser paths keep Playwright semantics. Browser binaries are separate
 installations. Playwright trace-viewer/report UI assets are not allman features
 and are not packaged.
+
+### Local tag groups
+
+Tags remain contact annotations (`allman relationships tag <contact-id> buyer west`).
+Groups are saved filters, reevaluated against the current local workspace:
+
+```bash
+allman group set prospects --any-tag buyer investor --all-tags west --without-tags paused
+allman group list
+allman group show prospects
+allman relationships list --list prospects
+allman group delete prospects
+```
+
+`--any-tag` is OR, `--all-tags` is AND, and `--without-tags` is NOT. These predicates
+compose with employer, location, channel, account, and the original `--tag`.
+Deleting a group does not remove contacts or their tags.

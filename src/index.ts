@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { groupsCommand } from "./commands/groups.js";
 /**
  * allman — LinkedIn messenger from the CLI
  *
@@ -687,6 +688,9 @@ program
     "Local relationships: list, show, timeline, followups, status, refresh, tag/untag, save-list, link/unlink, cadence, snooze/dismiss/acknowledge, review"
   )
   .option("--tag <tag>", "filter by tag")
+  .option("--any-tag <tags...>", "match any tag (OR)")
+  .option("--all-tags <tags...>", "require every tag (AND)")
+  .option("--without-tags <tags...>", "exclude any tag (NOT)")
   .option("--company <name>", "filter by employer")
   .option("--geo <name|urn>", "filter by location")
   .option("--channel <channel>", "linkedin or email")
@@ -704,6 +708,20 @@ program
   )
   .action(async (action, target, opts, cmd) =>
     attioCommand(action, target, { ...cmd.optsWithGlobals(), ...opts })
+  );
+
+program
+  .command("group <action> [name]")
+  .description("Local saved filters: set, list, show, delete")
+  .option("--tag <tag>", "require tag")
+  .option("--any-tag <tags...>", "match any tag (OR)")
+  .option("--all-tags <tags...>", "require every tag (AND)")
+  .option("--without-tags <tags...>", "exclude any tag (NOT)")
+  .option("--company <name>", "filter by employer")
+  .option("--geo <name|urn>", "filter by location")
+  .option("--channel <channel>", "linkedin or email")
+  .action(async (action, name, opts, cmd) =>
+    groupsCommand(action, name, { ...cmd.optsWithGlobals(), ...opts })
   );
 
 program.parseAsync(process.argv).catch((err: unknown) => {

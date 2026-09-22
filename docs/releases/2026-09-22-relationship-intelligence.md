@@ -23,7 +23,7 @@ Open upstream issues are not proof of missing local code. In particular, some co
 
 1. **Complete:** upstream issue/PR/comment audit above.
 2. **Complete:** Portable-build hardening against ambient configuration, builder paths and failed artifacts.
-3. Composable tag groups with local CLI commands.
+3. **Complete:** Composable tag groups with local CLI commands.
 4. Explainable, history-derived relationship scoring; no fit/seniority blending.
 5. Auditable manual score overrides and pinning.
 6. Multiple private, versioned natural-language/structured ICP definitions.
