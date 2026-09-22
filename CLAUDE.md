@@ -330,3 +330,6 @@ Single-context: one `CONTEXT.md` at the repo root plus ADRs in `docs/adr/`. See 
 - Use one observation timestamp for fetched person facts and their stored enrichment metadata. Do not take a second clock reading while applying the same fetch.
 - Sales Navigator exports core fields inline into their own namespace. Full `--deep` enrichment requires flagship identities; reject flags that would otherwise silently skip requested work.
 - Apple Mail ingestion requires the server's `export_emails_page` tool. An older global launcher can list accounts but cannot ingest; select the capable checkout with `mail configure --command` before testing.
+
+- Latest bounded live command coverage and limitations: [2026-09-22 validation](docs/qa/2026-09-22-command-validation.md). Receipts contain counts only, not credentials or contact data.
+- Preserve case in opaque LinkedIn IDs; only vanity handles may be lowercased. CLI limits/page sizes must fail before store or network access when not positive safe integers.

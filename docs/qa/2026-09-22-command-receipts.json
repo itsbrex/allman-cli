@@ -1,0 +1,1102 @@
+{
+  "date": "2026-09-22",
+  "testedCode": "3c2d72d",
+  "scope": "Bounded CLI QA; no live communication or CRM mutations. HTTP receipts count Axios only; browser and Mail MCP checks are separate.",
+  "total": {
+    "checks": 89,
+    "requests": 61,
+    "blocked": 0,
+    "methods": {
+      "GET": 60,
+      "POST": 1
+    },
+    "statuses": {
+      "200": 59,
+      "404": 2
+    }
+  },
+  "checks": [
+    {
+      "label": "attio-candidates",
+      "exitCode": 0,
+      "elapsedMs": 750,
+      "network": {
+        "requests": 0,
+        "blocked": 0,
+        "methods": {},
+        "statuses": {}
+      }
+    },
+    {
+      "label": "attio-import-synthetic",
+      "exitCode": 0,
+      "elapsedMs": 486,
+      "network": {
+        "requests": 0,
+        "blocked": 0,
+        "methods": {},
+        "statuses": {}
+      }
+    },
+    {
+      "label": "attio-lookup-no-credential",
+      "exitCode": 1,
+      "elapsedMs": 495,
+      "network": {
+        "requests": 0,
+        "blocked": 0,
+        "methods": {},
+        "statuses": {}
+      }
+    },
+    {
+      "label": "attio-status",
+      "exitCode": 0,
+      "elapsedMs": 676,
+      "network": {
+        "requests": 0,
+        "blocked": 0,
+        "methods": {},
+        "statuses": {}
+      }
+    },
+    {
+      "label": "attio-sync-no-credential",
+      "exitCode": 1,
+      "elapsedMs": 602,
+      "network": {
+        "requests": 0,
+        "blocked": 0,
+        "methods": {},
+        "statuses": {}
+      }
+    },
+    {
+      "label": "browser-configure",
+      "exitCode": 0,
+      "elapsedMs": 2008,
+      "network": {
+        "requests": 0,
+        "blocked": 0,
+        "methods": {},
+        "statuses": {}
+      }
+    },
+    {
+      "label": "browser-doctor",
+      "exitCode": 0,
+      "elapsedMs": 5624,
+      "network": {
+        "requests": 0,
+        "blocked": 0,
+        "methods": {},
+        "statuses": {}
+      }
+    },
+    {
+      "label": "companies-bulk-current",
+      "exitCode": 0,
+      "elapsedMs": 4547,
+      "network": {
+        "requests": 1,
+        "blocked": 0,
+        "methods": {
+          "GET": 1
+        },
+        "statuses": {
+          "200": 1
+        }
+      }
+    },
+    {
+      "label": "companies-force",
+      "exitCode": 0,
+      "elapsedMs": 1743,
+      "network": {
+        "requests": 1,
+        "blocked": 0,
+        "methods": {
+          "GET": 1
+        },
+        "statuses": {
+          "200": 1
+        }
+      }
+    },
+    {
+      "label": "companies-local",
+      "exitCode": 0,
+      "elapsedMs": 789,
+      "network": {
+        "requests": 0,
+        "blocked": 0,
+        "methods": {},
+        "statuses": {}
+      }
+    },
+    {
+      "label": "company-single",
+      "exitCode": 0,
+      "elapsedMs": 1741,
+      "network": {
+        "requests": 1,
+        "blocked": 0,
+        "methods": {
+          "GET": 1
+        },
+        "statuses": {
+          "200": 1
+        }
+      }
+    },
+    {
+      "label": "compiled-help",
+      "exitCode": 0,
+      "localOnly": true
+    },
+    {
+      "label": "compiled-status",
+      "exitCode": 0,
+      "localOnly": true
+    },
+    {
+      "label": "connections-csv",
+      "exitCode": 0,
+      "elapsedMs": 1221,
+      "network": {
+        "requests": 1,
+        "blocked": 0,
+        "methods": {
+          "GET": 1
+        },
+        "statuses": {
+          "200": 1
+        }
+      }
+    },
+    {
+      "label": "connections-deep-rejected",
+      "exitCode": 1,
+      "elapsedMs": 355,
+      "network": {
+        "requests": 0,
+        "blocked": 0,
+        "methods": {},
+        "statuses": {}
+      }
+    },
+    {
+      "label": "connections-flags-rejected",
+      "exitCode": 1,
+      "elapsedMs": 302,
+      "network": {
+        "requests": 0,
+        "blocked": 0,
+        "methods": {},
+        "statuses": {}
+      }
+    },
+    {
+      "label": "connections-flagship",
+      "exitCode": 0,
+      "elapsedMs": 7100,
+      "network": {
+        "requests": 2,
+        "blocked": 0,
+        "methods": {
+          "GET": 2
+        },
+        "statuses": {
+          "200": 2
+        }
+      }
+    },
+    {
+      "label": "connections-geo",
+      "exitCode": 0,
+      "elapsedMs": 2090,
+      "network": {
+        "requests": 0,
+        "blocked": 0,
+        "methods": {},
+        "statuses": {}
+      }
+    },
+    {
+      "label": "connections-inline-deep",
+      "exitCode": 0,
+      "elapsedMs": 3983,
+      "network": {
+        "requests": 5,
+        "blocked": 0,
+        "methods": {
+          "GET": 5
+        },
+        "statuses": {
+          "200": 5
+        }
+      }
+    },
+    {
+      "label": "connections-of-flagship",
+      "exitCode": 0,
+      "elapsedMs": 21596,
+      "network": {
+        "requests": 6,
+        "blocked": 0,
+        "methods": {
+          "GET": 6
+        },
+        "statuses": {
+          "200": 6
+        }
+      }
+    },
+    {
+      "label": "connections-of-salesnav",
+      "exitCode": 0,
+      "elapsedMs": 5482,
+      "network": {
+        "requests": 3,
+        "blocked": 0,
+        "methods": {
+          "GET": 3
+        },
+        "statuses": {
+          "200": 3
+        }
+      }
+    },
+    {
+      "label": "connections-salesnav-after-login",
+      "exitCode": 0,
+      "elapsedMs": 12252,
+      "network": {
+        "requests": 2,
+        "blocked": 0,
+        "methods": {
+          "GET": 2
+        },
+        "statuses": {
+          "200": 2
+        }
+      }
+    },
+    {
+      "label": "connections-salesnav-csv",
+      "exitCode": 0,
+      "elapsedMs": 2270,
+      "network": {
+        "requests": 1,
+        "blocked": 0,
+        "methods": {
+          "GET": 1
+        },
+        "statuses": {
+          "200": 1
+        }
+      }
+    },
+    {
+      "label": "connections-salesnav-deep-rejected",
+      "exitCode": 1,
+      "elapsedMs": 386,
+      "network": {
+        "requests": 0,
+        "blocked": 0,
+        "methods": {},
+        "statuses": {}
+      }
+    },
+    {
+      "label": "connections-salesnav",
+      "exitCode": 1,
+      "elapsedMs": 987,
+      "network": {
+        "requests": 0,
+        "blocked": 0,
+        "methods": {},
+        "statuses": {}
+      }
+    },
+    {
+      "label": "conversations-json",
+      "exitCode": 0,
+      "elapsedMs": 757,
+      "network": {
+        "requests": 0,
+        "blocked": 0,
+        "methods": {},
+        "statuses": {}
+      }
+    },
+    {
+      "label": "convs-alias",
+      "exitCode": 0,
+      "elapsedMs": 862,
+      "network": {
+        "requests": 0,
+        "blocked": 0,
+        "methods": {},
+        "statuses": {}
+      }
+    },
+    {
+      "label": "enrich-bulk-core",
+      "exitCode": 0,
+      "elapsedMs": 6540,
+      "network": {
+        "requests": 3,
+        "blocked": 0,
+        "methods": {
+          "GET": 3
+        },
+        "statuses": {
+          "200": 2,
+          "404": 1
+        }
+      }
+    },
+    {
+      "label": "enrich-bulk-deep",
+      "exitCode": 0,
+      "elapsedMs": 9702,
+      "network": {
+        "requests": 5,
+        "blocked": 0,
+        "methods": {
+          "GET": 5
+        },
+        "statuses": {
+          "200": 4,
+          "404": 1
+        }
+      }
+    },
+    {
+      "label": "enrich-core",
+      "exitCode": 0,
+      "elapsedMs": 2466,
+      "network": {
+        "requests": 2,
+        "blocked": 0,
+        "methods": {
+          "GET": 2
+        },
+        "statuses": {
+          "200": 2
+        }
+      }
+    },
+    {
+      "label": "enrich-deep-raw",
+      "exitCode": 0,
+      "elapsedMs": 4090,
+      "network": {
+        "requests": 4,
+        "blocked": 0,
+        "methods": {
+          "GET": 4
+        },
+        "statuses": {
+          "200": 4
+        }
+      }
+    },
+    {
+      "label": "enrich-force",
+      "exitCode": 0,
+      "elapsedMs": 4673,
+      "network": {
+        "requests": 2,
+        "blocked": 0,
+        "methods": {
+          "GET": 2
+        },
+        "statuses": {
+          "200": 2
+        }
+      }
+    },
+    {
+      "label": "enrich-opaque-id",
+      "exitCode": 0,
+      "elapsedMs": 2002,
+      "network": {
+        "requests": 2,
+        "blocked": 0,
+        "methods": {
+          "GET": 2
+        },
+        "statuses": {
+          "200": 2
+        }
+      }
+    },
+    {
+      "label": "grep-local",
+      "exitCode": 0,
+      "elapsedMs": 834,
+      "network": {
+        "requests": 0,
+        "blocked": 0,
+        "methods": {},
+        "statuses": {}
+      }
+    },
+    {
+      "label": "help",
+      "exitCode": 0,
+      "elapsedMs": 318,
+      "network": {
+        "requests": 0,
+        "blocked": 0,
+        "methods": {},
+        "statuses": {}
+      }
+    },
+    {
+      "label": "inbox-mark-qa-only",
+      "exitCode": 0,
+      "elapsedMs": 2134,
+      "network": {
+        "requests": 1,
+        "blocked": 0,
+        "methods": {
+          "GET": 1
+        },
+        "statuses": {
+          "200": 1
+        }
+      }
+    },
+    {
+      "label": "inbox-no-mark",
+      "exitCode": 0,
+      "elapsedMs": 3275,
+      "network": {
+        "requests": 1,
+        "blocked": 0,
+        "methods": {
+          "GET": 1
+        },
+        "statuses": {
+          "200": 1
+        }
+      }
+    },
+    {
+      "label": "installer-mocked",
+      "exitCode": 0,
+      "mockedInstaller": true
+    },
+    {
+      "label": "limit-rejected",
+      "exitCode": 1,
+      "elapsedMs": 666,
+      "network": {
+        "requests": 0,
+        "blocked": 0,
+        "methods": {},
+        "statuses": {}
+      }
+    },
+    {
+      "label": "listen-live",
+      "exitCode": 0,
+      "elapsedMs": 45017,
+      "expectedStop": true,
+      "network": {
+        "requests": 1,
+        "blocked": 0,
+        "methods": {
+          "GET": 1
+        },
+        "statuses": {
+          "200": 1
+        }
+      }
+    },
+    {
+      "label": "login-no-salesnav",
+      "exitCode": 0,
+      "elapsedMs": 11135,
+      "network": {
+        "requests": 2,
+        "blocked": 0,
+        "methods": {
+          "GET": 2
+        },
+        "statuses": {
+          "200": 2
+        }
+      }
+    },
+    {
+      "label": "login-salesnav-default",
+      "exitCode": 0,
+      "elapsedMs": 17933,
+      "network": {
+        "requests": 3,
+        "blocked": 0,
+        "methods": {
+          "GET": 3
+        },
+        "statuses": {
+          "200": 3
+        }
+      }
+    },
+    {
+      "label": "logout-qa-only",
+      "exitCode": 0,
+      "elapsedMs": 706,
+      "network": {
+        "requests": 0,
+        "blocked": 0,
+        "methods": {},
+        "statuses": {}
+      }
+    },
+    {
+      "label": "mail-accounts",
+      "exitCode": 0,
+      "elapsedMs": 4616,
+      "network": {
+        "requests": 0,
+        "blocked": 0,
+        "methods": {},
+        "statuses": {}
+      }
+    },
+    {
+      "label": "mail-configure-checkout",
+      "exitCode": 0,
+      "elapsedMs": 3819,
+      "network": {
+        "requests": 0,
+        "blocked": 0,
+        "methods": {},
+        "statuses": {}
+      }
+    },
+    {
+      "label": "mail-configure",
+      "exitCode": 0,
+      "elapsedMs": 4973,
+      "network": {
+        "requests": 0,
+        "blocked": 0,
+        "methods": {},
+        "statuses": {}
+      }
+    },
+    {
+      "label": "mail-reconcile",
+      "exitCode": 0,
+      "elapsedMs": 5322,
+      "network": {
+        "requests": 0,
+        "blocked": 0,
+        "methods": {},
+        "statuses": {}
+      }
+    },
+    {
+      "label": "mail-resume",
+      "exitCode": 0,
+      "elapsedMs": 7111,
+      "network": {
+        "requests": 0,
+        "blocked": 0,
+        "methods": {},
+        "statuses": {}
+      }
+    },
+    {
+      "label": "mail-status",
+      "exitCode": 0,
+      "elapsedMs": 717,
+      "network": {
+        "requests": 0,
+        "blocked": 0,
+        "methods": {},
+        "statuses": {}
+      }
+    },
+    {
+      "label": "mail-sync-checkout",
+      "exitCode": 0,
+      "elapsedMs": 9320,
+      "network": {
+        "requests": 0,
+        "blocked": 0,
+        "methods": {},
+        "statuses": {}
+      }
+    },
+    {
+      "label": "mail-sync",
+      "exitCode": 1,
+      "elapsedMs": 5634,
+      "network": {
+        "requests": 0,
+        "blocked": 0,
+        "methods": {},
+        "statuses": {}
+      }
+    },
+    {
+      "label": "main-session-and-quota",
+      "verified": true,
+      "seatPresent": true,
+      "cookieMode": "600",
+      "authUnchanged": true,
+      "quotaAdded": {
+        "enrichmentTimestamps": 9,
+        "companyTimestamps": 3
+      }
+    },
+    {
+      "label": "messages-live",
+      "exitCode": 0,
+      "elapsedMs": 803,
+      "network": {
+        "requests": 0,
+        "blocked": 0,
+        "methods": {},
+        "statuses": {}
+      }
+    },
+    {
+      "label": "messages-local",
+      "exitCode": 0,
+      "elapsedMs": 1709,
+      "network": {
+        "requests": 0,
+        "blocked": 0,
+        "methods": {},
+        "statuses": {}
+      }
+    },
+    {
+      "label": "messages-refresh",
+      "exitCode": 0,
+      "elapsedMs": 1371,
+      "network": {
+        "requests": 1,
+        "blocked": 0,
+        "methods": {
+          "GET": 1
+        },
+        "statuses": {
+          "200": 1
+        }
+      }
+    },
+    {
+      "label": "messages-url",
+      "exitCode": 0,
+      "elapsedMs": 502,
+      "network": {
+        "requests": 0,
+        "blocked": 0,
+        "methods": {},
+        "statuses": {}
+      }
+    },
+    {
+      "label": "neo-mcp-connections",
+      "exitCode": 0,
+      "elapsedMs": 7069,
+      "network": {
+        "requests": 0,
+        "blocked": 0,
+        "methods": {},
+        "statuses": {}
+      }
+    },
+    {
+      "label": "relationships-acknowledge",
+      "exitCode": 0,
+      "elapsedMs": 749,
+      "network": {
+        "requests": 0,
+        "blocked": 0,
+        "methods": {},
+        "statuses": {}
+      }
+    },
+    {
+      "label": "relationships-cadence",
+      "exitCode": 0,
+      "elapsedMs": 869,
+      "network": {
+        "requests": 0,
+        "blocked": 0,
+        "methods": {},
+        "statuses": {}
+      }
+    },
+    {
+      "label": "relationships-dismiss",
+      "exitCode": 0,
+      "elapsedMs": 919,
+      "network": {
+        "requests": 0,
+        "blocked": 0,
+        "methods": {},
+        "statuses": {}
+      }
+    },
+    {
+      "label": "relationships-filter",
+      "exitCode": 0,
+      "elapsedMs": 370,
+      "network": {
+        "requests": 0,
+        "blocked": 0,
+        "methods": {},
+        "statuses": {}
+      }
+    },
+    {
+      "label": "relationships-followups",
+      "exitCode": 0,
+      "elapsedMs": 708,
+      "network": {
+        "requests": 0,
+        "blocked": 0,
+        "methods": {},
+        "statuses": {}
+      }
+    },
+    {
+      "label": "relationships-link",
+      "exitCode": 0,
+      "elapsedMs": 858,
+      "network": {
+        "requests": 0,
+        "blocked": 0,
+        "methods": {},
+        "statuses": {}
+      }
+    },
+    {
+      "label": "relationships-list",
+      "exitCode": 0,
+      "elapsedMs": 879,
+      "network": {
+        "requests": 0,
+        "blocked": 0,
+        "methods": {},
+        "statuses": {}
+      }
+    },
+    {
+      "label": "relationships-refresh",
+      "exitCode": 0,
+      "elapsedMs": 1337,
+      "network": {
+        "requests": 0,
+        "blocked": 0,
+        "methods": {},
+        "statuses": {}
+      }
+    },
+    {
+      "label": "relationships-review",
+      "exitCode": 0,
+      "elapsedMs": 825,
+      "network": {
+        "requests": 0,
+        "blocked": 0,
+        "methods": {},
+        "statuses": {}
+      }
+    },
+    {
+      "label": "relationships-save-list",
+      "exitCode": 0,
+      "elapsedMs": 752,
+      "network": {
+        "requests": 0,
+        "blocked": 0,
+        "methods": {},
+        "statuses": {}
+      }
+    },
+    {
+      "label": "relationships-saved-list",
+      "exitCode": 0,
+      "elapsedMs": 649,
+      "network": {
+        "requests": 0,
+        "blocked": 0,
+        "methods": {},
+        "statuses": {}
+      }
+    },
+    {
+      "label": "relationships-show",
+      "exitCode": 0,
+      "elapsedMs": 871,
+      "network": {
+        "requests": 0,
+        "blocked": 0,
+        "methods": {},
+        "statuses": {}
+      }
+    },
+    {
+      "label": "relationships-snooze",
+      "exitCode": 0,
+      "elapsedMs": 1154,
+      "network": {
+        "requests": 0,
+        "blocked": 0,
+        "methods": {},
+        "statuses": {}
+      }
+    },
+    {
+      "label": "relationships-status",
+      "exitCode": 0,
+      "elapsedMs": 740,
+      "network": {
+        "requests": 0,
+        "blocked": 0,
+        "methods": {},
+        "statuses": {}
+      }
+    },
+    {
+      "label": "relationships-tag",
+      "exitCode": 0,
+      "elapsedMs": 427,
+      "network": {
+        "requests": 0,
+        "blocked": 0,
+        "methods": {},
+        "statuses": {}
+      }
+    },
+    {
+      "label": "relationships-timeline",
+      "exitCode": 0,
+      "elapsedMs": 568,
+      "network": {
+        "requests": 0,
+        "blocked": 0,
+        "methods": {},
+        "statuses": {}
+      }
+    },
+    {
+      "label": "relationships-unlink",
+      "exitCode": 0,
+      "elapsedMs": 884,
+      "network": {
+        "requests": 0,
+        "blocked": 0,
+        "methods": {},
+        "statuses": {}
+      }
+    },
+    {
+      "label": "relationships-untag",
+      "exitCode": 0,
+      "elapsedMs": 1204,
+      "network": {
+        "requests": 0,
+        "blocked": 0,
+        "methods": {},
+        "statuses": {}
+      }
+    },
+    {
+      "label": "salesnav-main-verified",
+      "exitCode": 0,
+      "elapsedMs": 1928,
+      "network": {
+        "requests": 1,
+        "blocked": 0,
+        "methods": {
+          "GET": 1
+        },
+        "statuses": {
+          "200": 1
+        }
+      }
+    },
+    {
+      "label": "search-local",
+      "exitCode": 0,
+      "elapsedMs": 1103,
+      "network": {
+        "requests": 0,
+        "blocked": 0,
+        "methods": {},
+        "statuses": {}
+      }
+    },
+    {
+      "label": "start-live",
+      "exitCode": 0,
+      "elapsedMs": 90041,
+      "expectedStop": true,
+      "network": {
+        "requests": 3,
+        "blocked": 0,
+        "methods": {
+          "GET": 2,
+          "POST": 1
+        },
+        "statuses": {
+          "200": 3
+        }
+      }
+    },
+    {
+      "label": "status-final-qa",
+      "exitCode": 0,
+      "elapsedMs": 1296,
+      "network": {
+        "requests": 1,
+        "blocked": 0,
+        "methods": {
+          "GET": 1
+        },
+        "statuses": {
+          "200": 1
+        }
+      }
+    },
+    {
+      "label": "status-live",
+      "exitCode": 0,
+      "elapsedMs": 3848,
+      "network": {
+        "requests": 1,
+        "blocked": 0,
+        "methods": {
+          "GET": 1
+        },
+        "statuses": {
+          "200": 1
+        }
+      }
+    },
+    {
+      "label": "status-local",
+      "exitCode": 0,
+      "elapsedMs": 535,
+      "network": {
+        "requests": 0,
+        "blocked": 0,
+        "methods": {},
+        "statuses": {}
+      }
+    },
+    {
+      "label": "status-main-verified",
+      "exitCode": 0,
+      "elapsedMs": 1911,
+      "network": {
+        "requests": 1,
+        "blocked": 0,
+        "methods": {
+          "GET": 1
+        },
+        "statuses": {
+          "200": 1
+        }
+      }
+    },
+    {
+      "label": "store-commit",
+      "exitCode": 0,
+      "elapsedMs": 615,
+      "network": {
+        "requests": 0,
+        "blocked": 0,
+        "methods": {},
+        "statuses": {}
+      }
+    },
+    {
+      "label": "store-path",
+      "exitCode": 0,
+      "elapsedMs": 992,
+      "network": {
+        "requests": 0,
+        "blocked": 0,
+        "methods": {},
+        "statuses": {}
+      }
+    },
+    {
+      "label": "store-status",
+      "exitCode": 0,
+      "elapsedMs": 857,
+      "network": {
+        "requests": 0,
+        "blocked": 0,
+        "methods": {},
+        "statuses": {}
+      }
+    },
+    {
+      "label": "store-use",
+      "exitCode": 0,
+      "elapsedMs": 354,
+      "network": {
+        "requests": 0,
+        "blocked": 0,
+        "methods": {},
+        "statuses": {}
+      }
+    },
+    {
+      "label": "sync-inbox",
+      "exitCode": 0,
+      "elapsedMs": 4176,
+      "network": {
+        "requests": 3,
+        "blocked": 0,
+        "methods": {
+          "GET": 3
+        },
+        "statuses": {
+          "200": 3
+        }
+      }
+    },
+    {
+      "label": "sync-single",
+      "exitCode": 0,
+      "elapsedMs": 3489,
+      "network": {
+        "requests": 1,
+        "blocked": 0,
+        "methods": {
+          "GET": 1
+        },
+        "statuses": {
+          "200": 1
+        }
+      }
+    },
+    {
+      "label": "version",
+      "exitCode": 0,
+      "elapsedMs": 408,
+      "network": {
+        "requests": 0,
+        "blocked": 0,
+        "methods": {},
+        "statuses": {}
+      }
+    }
+  ]
+}

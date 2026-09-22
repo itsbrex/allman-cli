@@ -914,3 +914,8 @@ bun run lint
 MIT — see [LICENSE](./LICENSE).
 
 `allman` is named in tribute to [Eric Allman](https://en.wikipedia.org/wiki/Eric_Allman), author of sendmail.
+
+
+## Read-only validation
+
+See the [2026-09-22 command coverage report](docs/qa/2026-09-22-command-validation.md) for bounded live tests, fixed defects, synthetic-only outbound tests, and remaining coverage gaps. No live communications or CRM writes were performed.
