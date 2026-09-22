@@ -46,6 +46,7 @@ export function coalesceTimeline(events: TimelineEvent[]): TimelineEvent[] {
     previous.coverage =
       previous.coverage === "partial" || event.coverage === "partial" ? "partial" : "stored";
     previous.eligible = previous.eligible && event.eligible;
+    previous.direct = previous.direct !== false && event.direct !== false;
   }
   const aliases = new Map<string, Set<string>>();
   for (const e of events) {

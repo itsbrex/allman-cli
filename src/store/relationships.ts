@@ -1,7 +1,15 @@
 import { join } from "node:path";
 import { type AttioAssociation, correlateAttio } from "../attio/correlation.js";
 import { normalizeLinkedInUrl, readAttioCache } from "../attio/people.js";
+import { companyId } from "../linkedin/api/endpoints/companies.js";
 import { type Contact, contactId, emailAddress, MailStore, stableId } from "../mail/store.js";
+import { type ContactFact, personFacts } from "../relationships/facts.js";
+import { readIcps } from "../relationships/icp.js";
+import {
+  type QualificationView,
+  qualificationView,
+  readQualifications,
+} from "../relationships/qualification.js";
 import { type RelationshipScore, relationshipScore } from "../relationships/rank.js";
 import { applyRankOverride, readRankOverrides } from "../relationships/rank-overrides.js";
 import { companyRollups } from "./company-view.js";
@@ -10,6 +18,8 @@ import { readJson, writePrivate } from "./private-workspace.js";
 import { coalesceTimeline } from "./timeline.js";
 export interface RelationshipContact extends Contact {
   rank?: RelationshipScore;
+  facts?: ContactFact[];
+  qualifications?: Record<string, QualificationView>;
   linkedinUrls?: string[];
   attio?: AttioAssociation;
   company?: string | null;
@@ -175,6 +185,7 @@ export async function relationshipSnapshot(
       const linkedinUrl = person.publicIdentifier
         ? normalizeLinkedInUrl(`https://www.linkedin.com/in/${person.publicIdentifier}`)
         : null;
+      const employerId = person.companyUrn ? companyId(person.companyUrn) : null;
       contacts.set(cid, {
         id: cid,
         name:
@@ -194,6 +205,14 @@ export async function relationshipSnapshot(
         ],
         inboundDays: previous?.inboundDays,
         outboundDays: previous?.outboundDays,
+        facts: [
+          ...(previous?.facts ?? []),
+          ...personFacts(
+            account,
+            person,
+            employerId ? await store.connectionsFor(account).readCompany(employerId) : null
+          ),
+        ],
         company: person.company,
         geo: person.geoName ?? person.location,
         geoUrn: person.geoUrn,
@@ -301,6 +320,17 @@ export async function relationshipSnapshot(
       relationshipScore(byContact.get(contact.id) ?? [], now),
       rankOverrides.contacts[contact.id]
     );
+  const definitions = await readIcps(root),
+    qualifications = await readQualifications(root);
+  for (const contact of activeContacts) {
+    contact.qualifications = {};
+    for (const [id, versions] of Object.entries(definitions.definitions)) {
+      const definition = versions.at(-1),
+        result = qualifications.results[id]?.[contact.id];
+      if (definition && result)
+        contact.qualifications[id] = qualificationView(result, definition, contact, now);
+    }
+  }
   const runValues = Object.values(runs);
   return {
     schemaVersion: 1,

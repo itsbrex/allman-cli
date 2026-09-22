@@ -987,3 +987,34 @@ For deterministic rules, supply `criteria` with unique `id`, `description`, `fie
 `equals-any`. Numeric `gte`/`lte` rules apply to `companySize`. Criteria without a
 field retain natural-language requirements. `maxAgeDays` defaults to 90 and controls
 qualification freshness; it does not define customer fit.
+
+### Qualification and offline LLM handoff
+
+```bash
+allman icp qualify sales --stale-only --limit 100
+allman icp results sales
+allman icp export sales --limit 25
+allman icp import sales --file /private/path/model-results.json
+allman icp override sales --contact CONTACT_ID --match yes --reason 'Reviewed independently'
+allman icp override sales --contact CONTACT_ID --clear --reason 'Use structured rules again'
+```
+
+`qualify` evaluates structured rules locally. Required criteria compose with AND;
+missing, conflicting, old, or natural-language evidence yields `match:null` unless
+another criterion already establishes a rejection. Rule confidence is deterministic
+rule certainty, not a probability of customer fit. Text matching is literal and
+case-insensitive; write criteria accordingly. No LLM/provider is called.
+
+`export` writes a private bounded JSON handoff with criteria, current profile/company
+facts, provenance, and an import response template. It excludes email bodies and
+addresses. You choose any external model use separately. Model imports must cite
+fresh supplied fact IDs for every non-unknown criterion, cover every criterion, agree
+with structured rules, and retain the evidence fingerprint and ICP version. Import
+validates the whole batch before writing. Model explanations remain model assertions,
+not independently verified truth.
+
+Results become stale after definition changes, fact changes, or the freshness window.
+User overrides are journaled and never replaced automatically, including stale ones;
+clear or renew them explicitly. `--contact` scopes one ID. Batch outputs expose
+`nextOffset`; with `qualify --stale-only`, the next offset is zero because successfully
+qualified contacts leave that selection. `export` is a stable read and advances normally.

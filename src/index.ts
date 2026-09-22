@@ -740,8 +740,17 @@ program
 
 program
   .command("icp <action> [id]")
-  .description("Private ICP definitions: define, list, show, history")
-  .option("--file <path>", "JSON definition input")
+  .description(
+    "Private ICPs: define, list, show, history, qualify, export, import, results, override"
+  )
+  .option("--file <path>", "JSON definition or qualification input")
+  .option("--contact <id>", "select one contact")
+  .option("--limit <n>", "batch size, 1–100", Number)
+  .option("--offset <n>", "batch offset", Number)
+  .option("--stale-only", "qualify/export missing or stale results")
+  .option("--match <yes|no|unknown>", "manual qualification override")
+  .option("--reason <text>", "required override explanation")
+  .option("--clear", "clear override and recompute rules")
   .action(async (action, id, opts, cmd) =>
     icpCommand(action, id, { ...cmd.optsWithGlobals(), ...opts })
   );
