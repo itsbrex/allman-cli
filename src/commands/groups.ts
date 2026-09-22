@@ -17,7 +17,22 @@ import * as output from "../utils/output.js";
 
 export function selectedFilters(opts: RelationshipFilters): RelationshipFilters {
   return Object.fromEntries(
-    ["tag", "anyTag", "allTags", "withoutTags", "company", "geo", "channel", "account"]
+    [
+      "tag",
+      "anyTag",
+      "allTags",
+      "withoutTags",
+      "icp",
+      "fit",
+      "minConfidence",
+      "minRank",
+      "sort",
+      "hasFacts",
+      "company",
+      "geo",
+      "channel",
+      "account",
+    ]
       .filter((key) => opts[key as keyof RelationshipFilters] !== undefined)
       .map((key) => [key, opts[key as keyof RelationshipFilters]])
   );
@@ -42,8 +57,11 @@ export async function groupsCommand(
   await withWorkspaceLock(root, async () => {
     const path = join(root, "relationship-settings.json");
     const settings = await readJson<RelationshipSettings>(path, { threads: {}, lists: {} });
-    if (action === "set") settings.lists[name] = selectedFilters(opts);
-    else {
+    if (action === "set") {
+      const filter = selectedFilters(opts);
+      filterContacts(await relationshipSnapshot(store, root), filter);
+      settings.lists[name] = filter;
+    } else {
       if (!Object.hasOwn(settings.lists, name)) throw new Error("Unknown group");
       delete settings.lists[name];
     }

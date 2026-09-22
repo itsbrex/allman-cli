@@ -13,6 +13,7 @@ import {
   type RelationshipSettings,
   relationshipSnapshot,
   saveSnapshot,
+  selectContacts,
 } from "../store/relationships.js";
 import { validateLocalName } from "../utils/local-name.js";
 import * as output from "../utils/output.js";
@@ -50,14 +51,7 @@ export async function relationshipsCommand(
       });
       return;
     }
-    const filter =
-      opts.list && Object.hasOwn(snapshot.lists, opts.list)
-        ? snapshot.lists[opts.list]
-        : opts.list
-          ? undefined
-          : opts;
-    if (!filter) throw new Error("Unknown saved list");
-    const contacts = filterContacts(snapshot, filter);
+    const contacts = selectContacts(snapshot, opts);
     if (action === "list") {
       output.printData(contacts);
       return;
@@ -98,6 +92,7 @@ export async function relationshipsCommand(
     );
     if (action === "save-list") {
       validateLocalName(target);
+      filterContacts(snapshot, opts);
       settings.lists[target] = selectedFilters(opts);
       await writePrivate(join(root, "relationship-settings.json"), settings);
     } else if (["snooze", "dismiss", "acknowledge"].includes(action)) {

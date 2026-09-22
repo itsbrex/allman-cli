@@ -56,6 +56,12 @@ export interface RelationshipFilters {
   anyTag?: string[];
   allTags?: string[];
   withoutTags?: string[];
+  icp?: string;
+  fit?: "yes" | "no" | "unknown" | "stale";
+  minConfidence?: number;
+  minRank?: number;
+  sort?: "name" | "rank" | "fit" | "recent";
+  hasFacts?: boolean;
   company?: string;
   geo?: string;
   channel?: string;
@@ -92,6 +98,7 @@ export interface RelationshipSnapshot {
     warnings: string[];
   };
   lists: Record<string, RelationshipFilters>;
+  icps?: { id: string; version: number; name: string }[];
 }
 export function businessDaysSince(
   timestamp: number,
@@ -341,6 +348,10 @@ export async function relationshipSnapshot(
     companies,
     mergeReview,
     lists: settings.lists,
+    icps: Object.values(definitions.definitions).flatMap((versions) => {
+      const d = versions.at(-1);
+      return d ? [{ id: d.id, version: d.version, name: d.name }] : [];
+    }),
     coverage: {
       mailAccounts: runValues.length,
       mailIndexedComplete: runValues.filter((r) => r.indexedComplete).length,
@@ -357,8 +368,40 @@ export function filterContacts(
   snapshot: RelationshipSnapshot,
   filter: RelationshipFilters
 ): RelationshipContact[] {
-  return snapshot.contacts.filter(
+  if (
+    filter.minRank !== undefined &&
+    (!Number.isFinite(filter.minRank) || filter.minRank < 0 || filter.minRank > 100)
+  )
+    throw new Error("--min-rank must be 0–100");
+  if (
+    filter.minConfidence !== undefined &&
+    (!Number.isFinite(filter.minConfidence) || filter.minConfidence < 0 || filter.minConfidence > 1)
+  )
+    throw new Error("--min-confidence must be 0–1");
+  if ((filter.fit || filter.minConfidence !== undefined || filter.sort === "fit") && !filter.icp)
+    throw new Error("Fit filtering/sorting requires --icp");
+  if (filter.fit && !["yes", "no", "unknown", "stale"].includes(filter.fit))
+    throw new Error("--fit must be yes, no, unknown or stale");
+  if (filter.sort && !["name", "rank", "fit", "recent"].includes(filter.sort))
+    throw new Error("--sort must be name, rank, fit or recent");
+  if (filter.channel && !["linkedin", "email"].includes(filter.channel))
+    throw new Error("--channel must be linkedin or email");
+  if (filter.icp && snapshot.icps && !snapshot.icps.some((d) => d.id === filter.icp))
+    throw new Error(`Unknown ICP: ${filter.icp}`);
+  const matchesFit = (contact: RelationshipContact) => {
+    if (!filter.icp) return true;
+    const result = contact.qualifications?.[filter.icp],
+      fit = filter.fit ?? "yes";
+    if (fit === "stale") return result?.freshness === "stale";
+    if (result?.freshness === "stale") return false;
+    if ((result?.confidence ?? 0) < (filter.minConfidence ?? 0)) return false;
+    return fit === "unknown" ? !result || result.match === null : result?.match === (fit === "yes");
+  };
+  const contacts = snapshot.contacts.filter(
     (c) =>
+      matchesFit(c) &&
+      (!filter.hasFacts || !!c.facts?.length) &&
+      (filter.minRank === undefined || (c.rank?.score ?? 0) >= filter.minRank) &&
       (!filter.tag || c.tags.includes(filter.tag)) &&
       (!filter.anyTag?.length || filter.anyTag.some((t) => c.tags.includes(t))) &&
       (!filter.allTags?.length || filter.allTags.every((t) => c.tags.includes(t))) &&
@@ -368,6 +411,8 @@ export function filterContacts(
         c.geoUrn === filter.geo ||
         c.geo?.toLowerCase().includes(filter.geo.toLowerCase())) &&
       ((!filter.channel && !filter.account) ||
+        ((!filter.channel || filter.channel === "linkedin") &&
+          c.linkedin.some((link) => !filter.account || link.account === filter.account)) ||
         snapshot.timeline.some(
           (e) =>
             e.contactIds.includes(c.id) &&
@@ -377,6 +422,38 @@ export function filterContacts(
               e.sourceCopies?.some((copy) => copy.account === filter.account))
         ))
   );
+  const fitScore = (c: RelationshipContact) => {
+    const q = filter.icp ? c.qualifications?.[filter.icp] : undefined;
+    return q?.freshness === "fresh" && q.match === true ? q.confidence : -1;
+  };
+  if (filter.sort)
+    contacts.sort((a, b) => {
+      const tie = () => a.name.localeCompare(b.name) || a.id.localeCompare(b.id);
+      if (filter.sort === "name") return tie();
+      if (filter.sort === "rank")
+        return (
+          Number(b.rank?.pinned ?? false) - Number(a.rank?.pinned ?? false) ||
+          (b.rank?.score ?? 0) - (a.rank?.score ?? 0) ||
+          tie()
+        );
+      if (filter.sort === "fit") return fitScore(b) - fitScore(a) || tie();
+      return (b.rank?.signals.lastActivityAt ?? 0) - (a.rank?.signals.lastActivityAt ?? 0) || tie();
+    });
+  return contacts;
+}
+export function selectContacts(
+  snapshot: RelationshipSnapshot,
+  opts: RelationshipFilters & { list?: string }
+) {
+  if (!opts.list) return filterContacts(snapshot, opts);
+  const saved = Object.hasOwn(snapshot.lists, opts.list) ? snapshot.lists[opts.list] : undefined;
+  if (!saved) throw new Error("Unknown saved list");
+  const extra = { ...opts };
+  if (!extra.icp && (extra.fit || extra.minConfidence !== undefined || extra.sort === "fit")) {
+    extra.icp = saved.icp;
+    extra.fit ??= saved.fit;
+  }
+  return filterContacts({ ...snapshot, contacts: filterContacts(snapshot, saved) }, extra);
 }
 export async function saveSnapshot(store: Store, root: string) {
   const result = await relationshipSnapshot(store, root);

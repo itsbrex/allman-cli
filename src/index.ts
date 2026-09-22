@@ -693,6 +693,12 @@ program
   .option("--any-tag <tags...>", "match any tag (OR)")
   .option("--all-tags <tags...>", "require every tag (AND)")
   .option("--without-tags <tags...>", "exclude any tag (NOT)")
+  .option("--icp <id>", "filter by ICP (fresh matches by default)")
+  .option("--fit <state>", "yes, no, unknown or stale")
+  .option("--min-confidence <n>", "minimum fit confidence, 0–1", Number)
+  .option("--min-rank <n>", "minimum relationship score, 0–100", Number)
+  .option("--sort <key>", "name, rank, fit or recent")
+  .option("--has-facts", "require stored profile/company evidence")
   .option("--company <name>", "filter by employer")
   .option("--geo <name|urn>", "filter by location")
   .option("--channel <channel>", "linkedin or email")
@@ -719,6 +725,12 @@ program
   .option("--any-tag <tags...>", "match any tag (OR)")
   .option("--all-tags <tags...>", "require every tag (AND)")
   .option("--without-tags <tags...>", "exclude any tag (NOT)")
+  .option("--icp <id>", "filter by ICP (fresh matches by default)")
+  .option("--fit <state>", "yes, no, unknown or stale")
+  .option("--min-confidence <n>", "minimum fit confidence, 0–1", Number)
+  .option("--min-rank <n>", "minimum relationship score, 0–100", Number)
+  .option("--sort <key>", "name, rank, fit or recent")
+  .option("--has-facts", "require stored profile/company evidence")
   .option("--company <name>", "filter by employer")
   .option("--geo <name|urn>", "filter by location")
   .option("--channel <channel>", "linkedin or email")
@@ -754,6 +766,24 @@ program
   .action(async (action, id, opts, cmd) =>
     icpCommand(action, id, { ...cmd.optsWithGlobals(), ...opts })
   );
+
+program
+  .command("contact <action> [target]")
+  .description("Local contact list, show or timeline with fit and relationship evidence")
+  .option("--tag <tag>", "filter by tag")
+  .option("--geo <name|urn>", "filter by location")
+  .option("--company <name>", "filter by employer")
+  .option("--list <name>", "use saved group")
+  .option("--icp <id>", "filter by ICP")
+  .option("--fit <state>", "yes, no, unknown or stale")
+  .option("--min-confidence <n>", "minimum fit confidence", Number)
+  .option("--min-rank <n>", "minimum relationship score", Number)
+  .option("--sort <key>", "name, rank, fit or recent")
+  .action(async (action, target, opts, cmd) => {
+    if (!["list", "show", "timeline"].includes(action))
+      throw new Error("Use contact list, show or timeline");
+    return relationshipsCommand(action, target, [], { ...cmd.optsWithGlobals(), ...opts });
+  });
 
 program.parseAsync(process.argv).catch((err: unknown) => {
   process.stderr.write(`Error: ${String(err)}\n`);

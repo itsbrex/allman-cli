@@ -1018,3 +1018,21 @@ User overrides are journaled and never replaced automatically, including stale o
 clear or renew them explicitly. `--contact` scopes one ID. Batch outputs expose
 `nextOffset`; with `qualify --stale-only`, the next offset is zero because successfully
 qualified contacts leave that selection. `export` is a stable read and advances normally.
+
+### Combined contact filters
+
+```bash
+allman relationships list --icp sales --min-confidence 0.8 --min-rank 40 --tag buyer --geo 'San Diego' --sort rank
+allman group set qualified --icp sales --min-confidence 0.8 --all-tags buyer --sort rank
+allman relationships list --list qualified --company Example
+allman contact show CONTACT_ID
+allman contact list --icp sales --fit unknown
+allman contact list --icp sales --fit stale
+```
+
+Fresh positive matches are the default for `--icp`. Unknown and stale results need
+explicit selection. `--fit no` selects fresh negative results. Extra list filters
+narrow the saved group; they do not replace its predicates. `--sort` accepts `name`,
+`rank` (pins first), `fit` (requires `--icp`), or `recent`. `--has-facts` excludes
+contacts lacking stored profile/company facts. Relationship strength and ICP fit
+remain separate fields.
