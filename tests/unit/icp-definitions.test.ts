@@ -47,3 +47,9 @@ it("validates structured criteria without inventing absent constraints", () => {
     parseIcpInput({ ...input, criteria: [{ ...input.criteria[0], field: "name" }] })
   ).toThrow("structured");
 });
+it("rejects action-incompatible ICP flags instead of silently ignoring them", async () => {
+  const { icpCommand } = await import("@/commands/icp.js");
+  await expect(
+    icpCommand("list", undefined, { store: "/tmp/allman-unused", match: "yes" })
+  ).rejects.toThrow("--match is not supported for icp list");
+});

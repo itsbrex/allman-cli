@@ -80,3 +80,14 @@ it("saved unknown groups retain semantics and additional filters narrow them", (
   expect(selectContacts(grouped, { list: "buyers", minRank: 70 }).map((c) => c.id)).toEqual(["b"]);
   expect(() => selectContacts(grouped, { list: "constructor" })).toThrow("Unknown saved list");
 });
+it("confidence threshold still applies when stale results are explicitly selected", () => {
+  const mixed = {
+    ...snapshot,
+    contacts: snapshot.contacts.map((c) =>
+      c.id === "b"
+        ? { ...c, qualifications: { sales: { ...c.qualifications?.sales, confidence: 0.2 } } }
+        : c
+    ),
+  } as RelationshipSnapshot;
+  expect(filterContacts(mixed, { icp: "sales", fit: "stale", minConfidence: 0.8 })).toHaveLength(0);
+});

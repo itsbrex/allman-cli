@@ -392,9 +392,9 @@ export function filterContacts(
     if (!filter.icp) return true;
     const result = contact.qualifications?.[filter.icp],
       fit = filter.fit ?? "yes";
+    if ((result?.confidence ?? 0) < (filter.minConfidence ?? 0)) return false;
     if (fit === "stale") return result?.freshness === "stale";
     if (result?.freshness === "stale") return false;
-    if ((result?.confidence ?? 0) < (filter.minConfidence ?? 0)) return false;
     return fit === "unknown" ? !result || result.match === null : result?.match === (fit === "yes");
   };
   const contacts = snapshot.contacts.filter(

@@ -24,6 +24,29 @@ export interface IcpOptions {
   clear?: boolean;
 }
 export async function icpCommand(action: string, id: string | undefined, opts: IcpOptions) {
+  const allowed: Record<string, string[]> = {
+    list: [],
+    show: [],
+    history: [],
+    define: ["file"],
+    results: ["contact"],
+    qualify: ["contact", "limit", "offset", "staleOnly"],
+    export: ["contact", "limit", "offset", "staleOnly"],
+    import: ["file", "contact"],
+    override: ["contact", "match", "reason", "clear"],
+  };
+  if (!Object.hasOwn(allowed, action)) throw new Error("Unknown ICP action");
+  for (const [key, value] of Object.entries(opts)) {
+    if (
+      value !== undefined &&
+      !["store", "json", "debug"].includes(key) &&
+      !allowed[action]?.includes(key)
+    )
+      throw new Error(
+        `--${key.replace(/[A-Z]/g, (letter) => `-${letter.toLowerCase()}`)} is not supported for icp ${action}`
+      );
+  }
+  if (action === "list" && id) throw new Error("icp list takes no id; use icp show <id>");
   const root = workspaceRoot(resolveStorePath(opts.store));
   if (action === "list")
     return output.printData(
