@@ -14,8 +14,9 @@ import {
   relationshipSnapshot,
   saveSnapshot,
 } from "../store/relationships.js";
+import { validateLocalName } from "../utils/local-name.js";
 import * as output from "../utils/output.js";
-import { selectedFilters, validateLocalName } from "./groups.js";
+import { selectedFilters } from "./groups.js";
 export interface RelationshipOptions extends RelationshipFilters {
   store?: string;
   json?: boolean;

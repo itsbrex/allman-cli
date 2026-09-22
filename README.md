@@ -970,3 +970,20 @@ allman rank CONTACT_ID --unpin --reason 'No longer prioritized'
 
 Clearing the score leaves pin state unchanged. Pinning affects display order, not
 relationship evidence or ICP fit.
+
+### Versioned ICP definitions
+
+`allman icp define sales --file /private/path/sales.json` creates or updates a private
+ICP. `icp list`, `icp show sales`, and `icp history sales` read current definitions
+and immutable revisions. Identical updates do not create a revision. Minimal input:
+
+```json
+{"name":"Engineering hiring","description":"Senior engineering leaders"}
+```
+
+For deterministic rules, supply `criteria` with unique `id`, `description`, `field`,
+`operator`, and `values`. Fields: `title`, `headline`, `company`, `geo`, `industry`,
+`about`, `companySize`, `companyDescription`. Text operators: `contains-any` and
+`equals-any`. Numeric `gte`/`lte` rules apply to `companySize`. Criteria without a
+field retain natural-language requirements. `maxAgeDays` defaults to 90 and controls
+qualification freshness; it does not define customer fit.

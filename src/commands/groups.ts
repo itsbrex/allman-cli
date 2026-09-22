@@ -12,16 +12,9 @@ import {
   type RelationshipSettings,
   relationshipSnapshot,
 } from "../store/relationships.js";
+import { validateLocalName } from "../utils/local-name.js";
 import * as output from "../utils/output.js";
 
-export function validateLocalName(name: string | undefined): asserts name is string {
-  if (
-    !name ||
-    !/^[a-zA-Z0-9][a-zA-Z0-9._-]{0,79}$/.test(name) ||
-    ["constructor", "prototype", "__proto__"].includes(name)
-  )
-    throw new Error("Name must be 1–80 letters, digits, dots, underscores or hyphens");
-}
 export function selectedFilters(opts: RelationshipFilters): RelationshipFilters {
   return Object.fromEntries(
     ["tag", "anyTag", "allTags", "withoutTags", "company", "geo", "channel", "account"]

@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { groupsCommand } from "./commands/groups.js";
+import { icpCommand } from "./commands/icp.js";
 import { rankCommand } from "./commands/rank.js";
 /**
  * allman — LinkedIn messenger from the CLI
@@ -735,6 +736,14 @@ program
   .option("--reason <text>", "required audit reason for changes")
   .action(async (contact, opts, cmd) =>
     rankCommand(contact, { ...cmd.optsWithGlobals(), ...opts })
+  );
+
+program
+  .command("icp <action> [id]")
+  .description("Private ICP definitions: define, list, show, history")
+  .option("--file <path>", "JSON definition input")
+  .action(async (action, id, opts, cmd) =>
+    icpCommand(action, id, { ...cmd.optsWithGlobals(), ...opts })
   );
 
 program.parseAsync(process.argv).catch((err: unknown) => {

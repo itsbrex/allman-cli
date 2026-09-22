@@ -26,7 +26,7 @@ Open upstream issues are not proof of missing local code. In particular, some co
 3. **Complete:** Composable tag groups with local CLI commands.
 4. **Complete:** Explainable, history-derived relationship scoring; no fit/seniority blending.
 5. **Complete:** Auditable manual score overrides and pinning.
-6. Multiple private, versioned natural-language/structured ICP definitions.
+6. **Complete:** Multiple private, versioned natural-language/structured ICP definitions.
 7. Evidence-backed rule qualification plus bounded offline LLM export/import, unknown results and stale-result handling.
 8. Composable ICP/rank/tag/company/location filtering and sorting.
 9. Observed graph construction and ranked `intro-to` results with evidence on both legs.
