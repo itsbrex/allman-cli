@@ -36,6 +36,7 @@ For example, initialize and sign in within an isolated shell environment:
   unset PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
   export ALLMAN_STORE="$HOME/.local/share/allman/accounts/jp/store"
   export ALLMAN_BROWSER_WORKSPACE="$HOME/.local/share/allman/accounts/jp/browser-workspace"
+  export ALLMAN_RELATIONSHIP_STORE="$HOME/.local/share/allman/accounts/jp/relationships"
   export ALLMAN_ACCOUNT=jp
   mkdir -p "$ALLMAN_STORE" "$ALLMAN_BROWSER_WORKSPACE"
   allman store status
@@ -60,6 +61,21 @@ explicit `login --account jp` to create or reauthenticate that alias. Keep the
 ordinary `allman` launcher and saved store selection unchanged. Explicit CLI
 flags still override launcher defaults, so do not pass another account's
 `--store`, `--profile`, or `--cdp` to the isolated launcher.
+
+Also pin `ALLMAN_RELATIONSHIP_STORE` outside the LinkedIn store. That isolates
+mail, Attio cache, ICP definitions/results, and relationship settings even when
+the parent shell has a workspace override. Without an override, Allman derives
+a separate workspace from the store path. Do not copy the original account's
+mail/CRM cache into another person's workspace as part of browser setup.
+
+When matching an existing profile's extension set, inventory the running
+browser's actual profile, apply requested exclusions, and preserve enabled and
+disabled states. Copy extension packages only, not the source profile,
+`Local Extension Settings`, cookies, passwords, or extension authentication.
+Verify the set after restarting the isolated profile, then verify Shield before
+login. Unpacked copies are version snapshots rather than Web Store-managed
+installations; document that update limitation and any package repair. Keep
+temporary extension-install debugging flags out of the normal browser launcher.
 
 If Neo needs `--enable-features=OnDeviceModelForceCpuBackend`, a small executable
 wrapper can forward that flag and all received arguments to the installed Neo
