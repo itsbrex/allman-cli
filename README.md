@@ -958,3 +958,15 @@ half-life. It excludes automation, group mail, unknown direction, future timesta
 and duplicate messages. Evidence IDs and coverage accompany every score. Incomplete
 history can distort initiation and response measurements. This heuristic is neither
 a probability nor a measure of seniority, ICP fit, or personal importance.
+
+Score overrides and pins require a reason and retain the original derived score,
+factors, and evidence. Changes are journaled privately:
+
+```bash
+allman rank CONTACT_ID --set 80 --pin --reason 'Known relationship; local history incomplete'
+allman rank CONTACT_ID --clear --reason 'Return to history score'
+allman rank CONTACT_ID --unpin --reason 'No longer prioritized'
+```
+
+Clearing the score leaves pin state unchanged. Pinning affects display order, not
+relationship evidence or ICP fit.

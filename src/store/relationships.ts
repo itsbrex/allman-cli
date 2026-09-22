@@ -3,6 +3,7 @@ import { type AttioAssociation, correlateAttio } from "../attio/correlation.js";
 import { normalizeLinkedInUrl, readAttioCache } from "../attio/people.js";
 import { type Contact, contactId, emailAddress, MailStore, stableId } from "../mail/store.js";
 import { type RelationshipScore, relationshipScore } from "../relationships/rank.js";
+import { applyRankOverride, readRankOverrides } from "../relationships/rank-overrides.js";
 import { companyRollups } from "./company-view.js";
 import type { Store } from "./index.js";
 import { readJson, writePrivate } from "./private-workspace.js";
@@ -294,8 +295,12 @@ export async function relationshipSnapshot(
   const byContact = new Map<string, TimelineEvent[]>();
   for (const event of all)
     for (const id of event.contactIds) byContact.set(id, [...(byContact.get(id) ?? []), event]);
+  const rankOverrides = await readRankOverrides(root);
   for (const contact of activeContacts)
-    contact.rank = relationshipScore(byContact.get(contact.id) ?? [], now);
+    contact.rank = applyRankOverride(
+      relationshipScore(byContact.get(contact.id) ?? [], now),
+      rankOverrides.contacts[contact.id]
+    );
   const runValues = Object.values(runs);
   return {
     schemaVersion: 1,

@@ -1,8 +1,10 @@
 import type { TimelineEvent } from "../store/relationships.js";
+import type { RankOverride } from "./rank-overrides.js";
 
 const DAY = 86_400_000;
 export interface RelationshipScore {
   model: "history-v1";
+  override?: RankOverride;
   score: number;
   derivedScore: number;
   pinned: boolean;

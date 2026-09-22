@@ -728,6 +728,11 @@ program
 program
   .command("rank [contact]")
   .description("Explain local history-derived relationship scores (no ICP blending)")
+  .option("--set <score>", "override score (0–100)", Number)
+  .option("--clear", "clear score override, retaining pin state")
+  .option("--pin", "pin ahead of unpinned contacts")
+  .option("--unpin", "remove pin")
+  .option("--reason <text>", "required audit reason for changes")
   .action(async (contact, opts, cmd) =>
     rankCommand(contact, { ...cmd.optsWithGlobals(), ...opts })
   );
