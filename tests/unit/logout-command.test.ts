@@ -4,6 +4,7 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import { expect, it, vi } from "vitest";
 import { logoutCommand } from "@/commands/logout.js";
+import { storeGitEnvironment } from "@/store/git.js";
 import { Store } from "@/store/index.js";
 
 vi.unmock("simple-git");
@@ -46,6 +47,7 @@ it("clears private cookies without copying credentials into tracked auth metadat
       expect(auth).not.toHaveProperty(field);
     const tracked = execFileSync("git", ["show", "HEAD:ACoFixture/AUTH.json"], {
       cwd: root,
+      env: storeGitEnvironment(),
       encoding: "utf8",
     });
     expect(tracked).not.toContain("private-synthetic-session");

@@ -6,9 +6,29 @@
  * still providing near-realtime versioning during `allman listen`.
  */
 
+import { existsSync } from "node:fs";
 import { join } from "node:path";
 import simpleGit, { type SimpleGit } from "simple-git";
 import * as output from "../utils/output.js";
+
+/** Repository-local Git variables inherited from hooks must not redirect store writes. */
+export function storeGitEnvironment(env: NodeJS.ProcessEnv = process.env): NodeJS.ProcessEnv {
+  const identityVariables = new Set([
+    "GIT_AUTHOR_NAME",
+    "GIT_AUTHOR_EMAIL",
+    "GIT_AUTHOR_DATE",
+    "GIT_COMMITTER_NAME",
+    "GIT_COMMITTER_EMAIL",
+    "GIT_COMMITTER_DATE",
+  ]);
+  return Object.fromEntries(
+    Object.entries(env).filter(
+      ([key]) =>
+        !["EDITOR", "VISUAL", "PAGER"].includes(key) &&
+        (!key.startsWith("GIT_") || identityVariables.has(key))
+    )
+  );
+}
 
 export class StoreGit {
   private git: SimpleGit | null = null;
@@ -24,7 +44,7 @@ export class StoreGit {
 
   private getGit(): SimpleGit {
     if (!this.git) {
-      this.git = simpleGit(this.storePath);
+      this.git = simpleGit(this.storePath).env(storeGitEnvironment());
     }
     return this.git;
   }
@@ -32,9 +52,10 @@ export class StoreGit {
   /** Initialize git repo if not already initialized. */
   async init(): Promise<void> {
     // Reset the cached instance to ensure it points to the (now-existing) dir
-    this.git = simpleGit(this.storePath);
-    const isRepo = await this.git.checkIsRepo().catch(() => false);
-    if (!isRepo) {
+    this.git = simpleGit(this.storePath).env(storeGitEnvironment());
+    // checkIsRepo() alone also accepts a parent repository. A store must own
+    // its .git boundary before add/commit can run.
+    if (!existsSync(join(this.storePath, ".git"))) {
       await this.git.init();
       output.debug("Initialized git repo in store");
     }
@@ -66,6 +87,7 @@ export class StoreGit {
       this.timer = null;
     }
 
+    await this.init();
     const git = this.getGit();
     const status = await git.status();
     if (status.files.length === 0) {

@@ -19,6 +19,7 @@ import type { AccountRecord, ConversationRecord } from "@/store/types.js";
 
 vi.mock("simple-git", () => ({
   default: vi.fn(() => ({
+    env: vi.fn().mockReturnThis(),
     init: vi.fn().mockResolvedValue(undefined),
     add: vi.fn().mockResolvedValue(undefined),
     commit: vi.fn().mockResolvedValue(undefined),
