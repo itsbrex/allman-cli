@@ -19,8 +19,10 @@ import {
 } from "../linkedin/api/endpoints/salesnav.js";
 import { loadSession } from "../linkedin/api/session.js";
 import { resolveStorePath, Store } from "../store/index.js";
+import { AccountQuota } from "../utils/account-quota.js";
 import { csvLines } from "../utils/csv.js";
 import * as output from "../utils/output.js";
+import { describeWait, describeWindow } from "../utils/quota.js";
 import {
   DEFAULT_PAGE_DELAY,
   type RandomDelayConfig,
@@ -79,6 +81,17 @@ export interface ConnectionsOptions {
 }
 
 export async function connectionsCommand(opts: ConnectionsOptions): Promise<void> {
+  if (opts.salesnav && opts.flagship)
+    throw new Error("--salesnav and --flagship cannot be combined.");
+  if (opts.salesnav && (opts.enrich || opts.deep))
+    throw new Error(
+      "--salesnav already includes core profile fields. For full history, use flagship connections followed by enrich --deep."
+    );
+  if (opts.deep && !opts.enrich) throw new Error("--deep requires --enrich on connections.");
+  if (opts.enrich && (opts.json || opts.noStore))
+    throw new Error(
+      "--enrich requires storing connections; remove --json/--no-save or run enrich separately."
+    );
   if (opts.browserosMcp) {
     const { connectionsNeoCommand } = await import("./connections-neo.js");
     await connectionsNeoCommand(opts);
@@ -213,6 +226,13 @@ export async function connectionsCommand(opts: ConnectionsOptions): Promise<void
       const depth = opts.deep ? "deep" : "core";
       const ids = all.map((r) => safeProfileId(r.memberUrn)).filter((id) => id.length > 0);
       output.info(`Enriching ${ids.length} profiles (${depth})…`);
+      const quota = await AccountQuota.load(
+        store,
+        session.profileId,
+        "enrichment",
+        await store.accounts.readConfig(session.profileId),
+        seat
+      );
       const res = await enrichConnections({
         apiClient: session.apiClient,
         cstore,
@@ -224,13 +244,17 @@ export async function connectionsCommand(opts: ConnectionsOptions): Promise<void
         json: false,
         noDelay: opts.noDelay === true,
         delayConfig,
+        quota,
       });
       cstore.git.scheduleCommit(`enrich: ${res.enriched} profiles (${depth})`);
       await store.git.flush();
       output.success(`Enriched ${res.enriched}, skipped ${res.skipped}, ${res.failed} failed.`);
+      if (res.quotaExhausted)
+        output.warn(
+          `Stopped early: enrichment limit reached (${describeWindow(quota.window)}). ` +
+            `Capacity returns in ${describeWait(quota.status().nextFreeAt)} — re-run then to continue.`
+        );
     }
-  } else if (opts.enrich) {
-    output.warn("--enrich requires storing; ignoring because --no-save/--json was set.");
   }
 
   // --csv: additional CSV export.
@@ -243,7 +267,7 @@ export async function connectionsCommand(opts: ConnectionsOptions): Promise<void
 
   if (opts.noStore && !opts.csv) {
     output.success(
-      `Fetched ${all.length} connections (not stored — pass --csv or drop --no-store).`
+      `Fetched ${all.length} connections (not stored — pass --csv or drop --no-save).`
     );
   }
 }

@@ -476,7 +476,10 @@ program
     "after storing, fetch each connection's full profile (title, company, location, about)"
   )
   .option("--deep", "with --enrich: also fetch work history, education, and skills")
-  .option("--salesnav", "force the Sales Navigator backend (default when a seat exists)")
+  .option(
+    "--salesnav",
+    "use the Sales Navigator backend (flagship is default; SalesNav caps results at 2500)"
+  )
   .option("--flagship", "force the flagship backend")
   .option(
     "--geo <name|urn>",

@@ -9,6 +9,7 @@
  * All ids/slugs are synthetic.
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { LinkedInProfileEnricher } from "@/linkedin/profile-enricher.js";
 
 const ID_1 = "ACoSYNTH0000000000000000000000000000001";
 const ID_2 = "ACoSYNTH0000000000000000000000000000002";
@@ -392,4 +393,38 @@ describe("enrich: single target", () => {
     await enrichCommand(undefined, { noDelay: true });
     expect(h.out.errors[0]).toMatch(/No stored connections/);
   });
+});
+
+it("uses the fetch observation time even when storage begins later", async () => {
+  vi.useFakeTimers({ toFake: ["Date"] });
+  vi.setSystemTime(new Date("2026-01-01T00:00:00Z"));
+  const original = LinkedInProfileEnricher.prototype.fetch;
+  const fetch = vi
+    .spyOn(LinkedInProfileEnricher.prototype, "fetch")
+    .mockImplementation(async function (this: LinkedInProfileEnricher, identity) {
+      const result = await original.call(this, identity);
+      vi.setSystemTime(new Date("2026-01-01T00:00:01Z"));
+      return result;
+    });
+  try {
+    h.state.records.set(ID_1, pending(ID_1));
+    await enrichCommand(undefined, { noDelay: true });
+    const write = h.personWrites[0];
+    expect(write?.observations.title?.provenance.observedAt).toBe(write?.nowIso);
+  } finally {
+    fetch.mockRestore();
+    vi.useRealTimers();
+  }
+});
+
+it("counts an inaccessible profile against the requested fetch limit", async () => {
+  h.state.records.set(ID_1, pending(ID_1));
+  h.state.records.set(ID_2, pending(ID_2));
+  const fetch = vi.spyOn(LinkedInProfileEnricher.prototype, "fetch").mockResolvedValue(null);
+  try {
+    await enrichCommand(undefined, { limit: 1, noDelay: true });
+    expect(fetch).toHaveBeenCalledTimes(1);
+  } finally {
+    fetch.mockRestore();
+  }
 });

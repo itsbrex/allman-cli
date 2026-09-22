@@ -114,11 +114,11 @@ export async function enrichCommand(
       return;
     }
     const detail = fetched?.detail;
-    if (!detail?.urn) {
+    if (!fetched || !detail?.urn) {
       output.error(`Profile "${identity}" not found or not accessible.`, 1);
       return;
     }
-    const nowIso = new Date().toISOString();
+    const nowIso = fetched.observedAt;
     const flagshipId = profileUrnId(detail.urn);
     // Ensure a base record exists so we have somewhere to attach enrichment.
     await cstore.upsertConnection(
@@ -225,7 +225,7 @@ export interface EnrichPassResult {
 /**
  * Enrich a set of connections by flagship id. Skips records that already have
  * enrichment at the requested depth (unless `force`), stops after `limit`
- * successful fetches, and paces fetches with a random delay. Does not commit —
+ * attempted profile fetches, and paces fetches with a random delay. Does not commit —
  * the caller owns the git commit + flush.
  */
 export async function enrichConnections(params: EnrichPassParams): Promise<EnrichPassResult> {
@@ -250,9 +250,10 @@ export async function enrichConnections(params: EnrichPassParams): Promise<Enric
   let failed = 0;
   let quotaExhausted = false;
   let firstFetch = true;
+  let attempted = 0;
 
   for (const id of ids) {
-    if (enriched >= cap) break;
+    if (attempted >= cap) break;
 
     const record = await cstore.readConnection(id);
     if (!record) {
@@ -274,6 +275,7 @@ export async function enrichConnections(params: EnrichPassParams): Promise<Enric
     // Pace between actual network fetches (not on skips).
     if (!firstFetch && !noDelay) await randomPageSleep(delayConfig);
     firstFetch = false;
+    attempted += 1;
 
     const identity = record.publicIdentifier ?? id;
     let fetched: ProfileObservationResult | null;
@@ -285,13 +287,13 @@ export async function enrichConnections(params: EnrichPassParams): Promise<Enric
       continue;
     }
     const detail = fetched?.detail;
-    if (!detail) {
+    if (!fetched || !detail) {
       output.warn(`  ${identity}: not found / not accessible`);
       failed += 1;
       continue;
     }
 
-    const nowIso = new Date().toISOString();
+    const nowIso = fetched.observedAt;
     await cstore.enrichConnection(id, toEnrichment(detail, depth), depth, nowIso);
     await writePersonRecord(pstore, id, fetched?.observations ?? {}, nowIso);
     enriched += 1;

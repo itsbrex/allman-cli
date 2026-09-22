@@ -5,6 +5,7 @@ import { fetchProfileDetail, type ProfileDetail } from "./api/endpoints/profile-
 
 export interface ProfileObservationResult {
   detail: ProfileDetail;
+  observedAt: string;
   observations: ObservationSet;
 }
 
@@ -28,11 +29,13 @@ export class LinkedInProfileEnricher implements Enricher {
       raw: this.raw,
     });
     if (!detail) return null;
+    const observedAt = new Date().toISOString();
     return {
       detail,
+      observedAt,
       observations: observationsFrom(personFactsFrom(detail, this.depth), {
         source: this.depth === "deep" ? "linkedin/enrich-deep" : "linkedin/enrich-core",
-        observedAt: new Date().toISOString(),
+        observedAt,
       }),
     };
   }

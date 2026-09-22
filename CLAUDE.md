@@ -27,7 +27,7 @@ src/linkedin/realtime/       SSE stream client with reconnect
 src/store/                   File store: RECORD.json files + JSONL messages + git
 src/utils/                   URN helpers, slug extraction, output formatting
 tests/unit/                  Fast, no network
-tests/integration/           Mock network responses
+tests/unit/                  Unit and mocked command integration tests
 ```
 
 ## File store layout
@@ -259,7 +259,7 @@ PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH  Explicit browser executable (wins over chan
 ```bash
 bun install
 bun run dev          # runs src/index.ts directly
-bun test             # vitest
+bun run test         # vitest (bun test invokes a different runner)
 bun run typecheck    # tsc --noEmit
 bun run build        # bun build --compile → dist/allman
 ```
@@ -294,7 +294,7 @@ husky + lint-staged run on every commit: biome over staged `src`/`tests` files, 
 ## Testing
 
 Unit tests: `tests/unit/` — no network, no filesystem side effects (use temp dirs).
-Integration tests: `tests/integration/` — mock axios, assert file store state.
+Command integration tests also live in `tests/unit/` — mock network responses and assert store behavior. Live checks require a separate private store and explicit read-only scope.
 
 Use `vitest`'s `vi.mock` for axios. Use real temp directories (via `os.tmpdir()`) for
 store tests — don't mock the filesystem.
@@ -320,3 +320,13 @@ Single-context: one `CONTEXT.md` at the repo root plus ADRs in `docs/adr/`. See 
 ### Persistent browser protection
 
 `allman browser configure --browser browseros-neo --shield /path/to/linkedin-shield/dist` verifies and saves browser defaults. `allman browser doctor --json` checks the running extension. Every login/capture uses a persistent profile and must verify Shield before LinkedIn navigation; no unprotected fallback or ephemeral context is allowed. Capture profiles are separate per account. CDP uses the existing default context, never injects cookies, and capture requires a matching LinkedIn session. See `docs/browser-support.md`.
+
+
+### Read-only command QA
+
+- Never run `send`, `react`, or `connect` against live accounts during a read-only QA run. Their unit tests use synthetic identities and mocked network clients; success text from those tests is not a live receipt.
+- Use a private disposable store/workspace and copy the current quota ledger before bounded live reads. Preserve accounting for consumed quota; do not advance the user's history or inbox watermarks.
+- `connections --enrich` must use the same persisted `AccountQuota` as standalone `enrich`. Failed profile fetches count toward `--limit`; skipped stored records do not.
+- Use one observation timestamp for fetched person facts and their stored enrichment metadata. Do not take a second clock reading while applying the same fetch.
+- Sales Navigator exports core fields inline into their own namespace. Full `--deep` enrichment requires flagship identities; reject flags that would otherwise silently skip requested work.
+- Apple Mail ingestion requires the server's `export_emails_page` tool. An older global launcher can list accounts but cannot ingest; select the capable checkout with `mail configure --command` before testing.

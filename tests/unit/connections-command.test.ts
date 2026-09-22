@@ -11,7 +11,12 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const h = vi.hoisted(() => {
-  const state = { seat: true, salesnavTotal: 9999 };
+  const state = {
+    seat: true,
+    salesnavTotal: 9999,
+    config: {} as Record<string, unknown>,
+    rateState: null as Record<string, unknown> | null,
+  };
   const urls: string[] = [];
   const flagshipUpserts: Array<Record<string, unknown>> = [];
   const salesnavUpserts: Array<Record<string, unknown>> = [];
@@ -103,6 +108,13 @@ vi.mock("@/store/index.js", () => ({
   Store: class {
     path = "/tmp/allman-test-store";
     git = { flush: vi.fn().mockResolvedValue(undefined) };
+    accounts = {
+      readConfig: async () => h.state.config,
+      readRateState: async () => h.state.rateState,
+      writeRateState: async (_id: string, state: Record<string, unknown>) => {
+        h.state.rateState = state;
+      },
+    };
     async init() {}
     peopleFor() {
       return { applyObservations: async () => ({}) };
@@ -117,7 +129,8 @@ vi.mock("@/store/index.js", () => ({
           h.salesnavUpserts.push(c);
         },
         listConnectionIds: async () => [],
-        readConnection: async () => null,
+        readConnection: async (id: string) =>
+          h.flagshipUpserts.find((c) => c.flagshipId === id) ?? null,
         enrichConnection: async () => true,
       };
     }
@@ -132,6 +145,8 @@ const usedFlagship = () => h.urls.some((u) => u.includes("relationships/dash/con
 beforeEach(() => {
   h.state.seat = true;
   h.state.salesnavTotal = 9999;
+  h.state.config = {};
+  h.state.rateState = null;
   h.urls.length = 0;
   h.flagshipUpserts.length = 0;
   h.salesnavUpserts.length = 0;
@@ -206,5 +221,26 @@ describe("connections: storage", () => {
     h.state.salesnavTotal = 10;
     await connectionsCommand({ salesnav: true, noDelay: true });
     expect(h.out.warns.join(" ")).not.toMatch(/2500/);
+  });
+});
+
+describe("connections: enrichment safeguards", () => {
+  it("honors the persisted enrichment quota in the inline pass", async () => {
+    h.state.config = { rateLimit: { maxEnrichments: 0 } };
+    await connectionsCommand({ enrich: true, deep: true, limit: 1, noDelay: true });
+    expect(h.flagshipUpserts).toHaveLength(1);
+    expect(h.urls).toHaveLength(1); // List request only; no profile reads.
+    expect(h.out.warns.join(" ")).toMatch(/enrichment limit reached/i);
+  });
+
+  it.each([
+    { flagship: true, salesnav: true },
+    { salesnav: true, deep: true, enrich: true },
+    { deep: true },
+    { enrich: true, json: true },
+    { enrich: true, noStore: true },
+  ])("rejects conflicting or ignored flags before making requests: %j", async (opts) => {
+    await expect(connectionsCommand(opts)).rejects.toThrow(/--/);
+    expect(h.urls).toHaveLength(0);
   });
 });

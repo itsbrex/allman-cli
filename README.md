@@ -428,7 +428,7 @@ allman connections --json                # stream NDJSON to stdout (ephemeral; n
 allman connections --include-headline    # also store the headline
 allman connections --enrich              # also fetch each connection's full profile
 allman connections --enrich --deep       # ...including work history, education, skills
-allman connections --salesnav            # force Sales Navigator (rich data, no slugs)
+allman connections --salesnav            # Sales Navigator (core fields inline, no slugs)
 allman connections --flagship            # force flagship (slugs, needs `enrich`)
 allman connections --geo "austin"        # LOCAL query: stored records whose geo name matches (no network)
 allman connections --geo urn:li:fsd_geo:90000064 --json   # exact geo urn, as NDJSON
@@ -436,6 +436,8 @@ allman connections --geo-granularity metro                # only metro-precision
 ```
 
 Writes `{myProfileId}/connections/{flagshipId}.json` per connection plus a `{slug} -> {flagshipId}.json` symlink. Re-running is idempotent: `firstSeenAt` is preserved and `lastSeenAt` is refreshed.
+
+Inline `connections --enrich` shares the persisted quota with `enrich`. It requires stored flagship records: `--json`, `--no-save`, and `--salesnav` cannot be combined with it. `--deep` requires `--enrich`; Sales Navigator exports do not include the full education/skills pass. Use `connections` followed by `enrich --deep` for that workflow.
 
 **Local geo query.** `--geo` / `--geo-granularity` switch the command into a pure local query over records already on disk — no session, no network. A `urn:li:fsd_geo:<id>` filter matches `geoUrn` exactly; anything else is a case-insensitive substring of the structured geo name; repeat `--geo` to OR filters. Every run reports coverage (`n structured / m total`) because structured geo only exists on records enriched since the geo fields landed — coverage grows as you enrich, there is no backfill.
 
@@ -503,7 +505,7 @@ LinkedIn serves this across several resources, so enriching one person costs **2
 allman connections                 # first, pull the connection list
 allman enrich                      # then fill in profiles (core fields)
 allman enrich --deep               # include work history, education, skills
-allman enrich --limit 200          # only fetch 200 profiles this run
+allman enrich --limit 200          # at most 200 profile attempts, including failed reads
 allman enrich --force              # re-fetch even already-enriched records
 allman enrich sarah-chen           # enrich a single person (adds them if new)
 allman enrich --json               # stream enriched records as NDJSON
