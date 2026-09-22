@@ -26,6 +26,12 @@ LinkedIn person records remain keyed by flagship ID. Companies keep their numeri
 
 Mail and relationship data live outside the Git-backed LinkedIn store:
 
+For a [named profile](profile-folders.md), its selected store uses
+`~/.config/allman/<name>/relationships/`. Without a profile or explicit workspace
+override, the legacy layout below applies. Store relocation must also preserve
+the existing relationship workspace; otherwise a changed path hash can make saved
+mail and ICP data appear missing.
+
 ```text
 ~/.local/share/allman/relationship-workspaces/<SHA256-of-absolute-store-path>/
   mail-config.json          enabled accounts and source command; no credentials

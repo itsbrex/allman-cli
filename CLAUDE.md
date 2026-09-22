@@ -259,10 +259,12 @@ before touching either:
 ```
 ALLMAN_STORE        Override saved `allman store use` selection (fallback: ./.allman)
 ALLMAN_ACCOUNT      Default account slug
+ALLMAN_PROFILE      Named configuration under ~/.config/allman/<name> (shared session lock)
 ALLMAN_SEARCH_CLUSTERS_QID  Override the flagship people-search queryId (else auto-discovered)
 ALLMAN_PROFILE_DECORATION   Override the `enrich` profile decoration (else FullProfile default)
 ALLMAN_BROWSER              Browser for login/capture: browseros-neo | browseros | chromium | Playwright channel
 ALLMAN_BROWSER_WORKSPACE    Persistent browser config and profiles (default: ~/.allman/browser-workspace)
+ALLMAN_RELATIONSHIP_STORE   Private mail/ICP workspace override; must remain outside the Git store
 ALLMAN_SHIELD_PATH          Mandatory LinkedIn Shield runtime build (or set with browser configure)
 ALLMAN_BROWSER_PROFILE      Persistent browser profile dir (login --profile)
 ALLMAN_CDP_URL              Attach to a running browser over CDP (login --cdp); Chrome 136+ needs a non-default --user-data-dir
@@ -347,6 +349,14 @@ one account. New commands that can reach LinkedIn must remain guarded; local-onl
 commands must not initialize a session. Browser overrides and Neo MCP routing
 cannot bypass a registered CDP binding. Direct library consumers must go through
 the CLI guard or explicitly acquire/check session control themselves.
+
+Named configuration uses `ALLMAN_PROFILE` or shared `default-profile.json`.
+Keep `allmanConfigRoot()` separate from `profileConfigRoot()`: the shared command
+lock and session registry must never follow a per-profile configuration directory.
+The selected store, browser workspace, private mail/ICP data, and dedicated browser
+data can live under `~/.config/allman/<name>/`; ordinary user browser data stays put.
+Preserve path aliases and hashed-workspace access during relocation. See
+[profile folders](docs/profile-folders.md).
 
 `profile-pause.ts` adds only its reserved dynamic Shield rule to inactive
 registered browsers, closes their LinkedIn tabs, and preserves other tabs and

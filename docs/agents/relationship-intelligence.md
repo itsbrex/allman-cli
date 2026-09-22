@@ -11,6 +11,10 @@ is the authoritative audit and completion record.
 - Preserve existing Shield-first requirements when maintaining separate browser commands.
 - Runtime context, ICP definitions/results/handoffs, rank overrides and audit history
   live outside the Git-backed store, through `writePrivate` and `withWorkspaceLock`.
+- Named profile folders keep private evidence in `relationships/`, beside `store/`.
+  Relocation must retain the existing workspace, file identities, quotas and history;
+  do not let a changed store-path hash select an empty workspace. Keep the session
+  registry and command lock shared across profile selections. See [profile folders](../profile-folders.md).
 - Keep user business settings out of source fixtures. Cresa reference remains private;
   runtime criteria must not invent numeric thresholds or geographic restrictions.
 - The companion relationship TUI now exposes fit/rank evidence and observed introduction

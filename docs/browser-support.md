@@ -14,6 +14,11 @@ allman login
 
 Configuration lives in `~/.allman/browser-workspace/config.json`, mode `0600`. Profiles live under that workspace and survive process exits, repository changes, and running commands from another directory. `ALLMAN_BROWSER_WORKSPACE` selects another workspace. The Shield build path is saved and reloaded on every launch; keep that directory available. Browser-generated `_metadata` and unrelated repository files are excluded from verification.
 
+With a [named profile](profile-folders.md), the default location is
+`~/.config/allman/<name>/browser-workspace/config.json`. Named profiles keep their
+store selection, browser workspace and private relationship data together while
+sharing the active-account registry and command lock.
+
 This workspace holds browser identities. The message/account store follows `--store` / `ALLMAN_STORE` / saved selection / `./.allman`. Use `allman store use /absolute/path/to/.allman` to select an existing populated store across working directories; the absolute path is saved privately under `$XDG_CONFIG_HOME/allman/default-store.json` (normally `~/.config/allman/default-store.json`). No account data is migrated. Browser sign-in alone does not save CLI cookies: run `allman login` to authorize that local export.
 
 Configuration is saved only after successful live verification. Flags override environment settings, which override saved settings. A higher-priority browser/CDP/executable choice replaces lower-priority transport choices. Explicit choices never silently fall back.
@@ -38,14 +43,13 @@ For example, initialize and sign in within an isolated shell environment:
   umask 077
   unset ALLMAN_CDP_URL ALLMAN_BROWSER ALLMAN_BROWSER_PROFILE ALLMAN_SHIELD_PATH
   unset PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
-  export ALLMAN_STORE="$HOME/.local/share/allman/accounts/jp/store"
-  export ALLMAN_BROWSER_WORKSPACE="$HOME/.local/share/allman/accounts/jp/browser-workspace"
-  export ALLMAN_RELATIONSHIP_STORE="$HOME/.local/share/allman/accounts/jp/relationships"
+  unset ALLMAN_STORE ALLMAN_BROWSER_WORKSPACE ALLMAN_RELATIONSHIP_STORE
+  export ALLMAN_PROFILE=jp
   export ALLMAN_ACCOUNT=jp
-  mkdir -p "$ALLMAN_STORE" "$ALLMAN_BROWSER_WORKSPACE"
+  allman store use "$HOME/.config/allman/jp/store"
   allman store status
   allman browser configure --browser browseros-neo \
-    --profile "$HOME/.local/share/allman/accounts/jp/neo-profile" \
+    --profile "$HOME/.config/allman/jp/neo-profile" \
     --shield /absolute/path/to/linkedin-shield/.dev-build --account jp
   allman login --account jp
   allman status --account jp --check
@@ -59,17 +63,17 @@ verified cookies privately. Enter the different account's credentials manually
 in the new window. Do not sign out the original account to perform this setup.
 
 For repeated use, put the isolated environment in a dedicated launcher (for
-example, `allman-jp`) that clears inherited browser/CDP overrides, pins the
-three defaults, and forwards arguments to the same Allman executable. Use an
+example, `allman-jp`) that clears inherited store/workspace/browser/CDP overrides,
+sets `ALLMAN_PROFILE` and `ALLMAN_ACCOUNT`, and forwards arguments to the same Allman executable. Use an
 explicit `login --account jp` to create or reauthenticate that alias. Keep the
 ordinary `allman` launcher and saved store selection unchanged. Explicit CLI
 flags still override launcher defaults, so do not pass another account's
 `--store`, `--profile`, or `--cdp` to the isolated launcher.
 
-Also pin `ALLMAN_RELATIONSHIP_STORE` outside the LinkedIn store. That isolates
-mail, Attio cache, ICP definitions/results, and relationship settings even when
-the parent shell has a workspace override. Without an override, Allman derives
-a separate workspace from the store path. Do not copy the original account's
+Named profiles keep mail, Attio cache, ICP definitions/results, and relationship
+settings in their own `relationships/` directory, outside the LinkedIn store.
+Clear inherited `ALLMAN_RELATIONSHIP_STORE` overrides in the launcher. Without a
+profile selection or override, Allman derives a separate workspace from the store path. Do not copy the original account's
 mail/CRM cache into another person's workspace as part of browser setup.
 
 When matching an existing profile's extension set, inventory the running

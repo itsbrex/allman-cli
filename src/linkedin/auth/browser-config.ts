@@ -3,6 +3,7 @@ import { existsSync, readFileSync } from "node:fs";
 import { mkdir, rename, unlink, writeFile } from "node:fs/promises";
 import { homedir } from "node:os";
 import { isAbsolute, join, resolve } from "node:path";
+import { profileConfigRoot } from "../../store/config.js";
 
 export interface BrowserConfig {
   channel?: string;
@@ -15,7 +16,8 @@ export interface BrowserConfig {
 const CONFIG_KEYS = ["channel", "executablePath", "profileDir", "cdpEndpoint", "shieldPath"];
 
 export function browserWorkspace(env: Record<string, string | undefined> = process.env): string {
-  return resolve(env.ALLMAN_BROWSER_WORKSPACE || join(homedir(), ".allman", "browser-workspace"));
+  if (env.ALLMAN_BROWSER_WORKSPACE) return resolve(env.ALLMAN_BROWSER_WORKSPACE);
+  return join(profileConfigRoot(env) ?? join(homedir(), ".allman"), "browser-workspace");
 }
 
 export function readBrowserConfig(workspace = browserWorkspace()): BrowserConfig {

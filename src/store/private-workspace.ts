@@ -1,11 +1,25 @@
 import { createHash, randomUUID } from "node:crypto";
+import { existsSync, realpathSync } from "node:fs";
 import { chmod, mkdir, open, readFile, rename, rm } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
+import { profileConfigRoot, readStoreDefault } from "./config.js";
+
+function profileWorkspace(storePath: string): string | undefined {
+  const profile = profileConfigRoot();
+  if (!profile) return undefined;
+  const configured = readStoreDefault();
+  const canonical = (path: string) => (existsSync(path) ? realpathSync(path) : resolve(path));
+  // Explicit --store must never join another store's private mail or contact evidence.
+  return configured && canonical(configured) === canonical(storePath)
+    ? join(profile, "relationships")
+    : undefined;
+}
 
 export function workspaceRoot(storePath: string): string {
   const root = resolve(
     process.env.ALLMAN_RELATIONSHIP_STORE ??
+      profileWorkspace(storePath) ??
       join(
         homedir(),
         ".local",

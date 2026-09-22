@@ -10,9 +10,9 @@ import {
   unlinkSync,
   writeFileSync,
 } from "node:fs";
-import { dirname, isAbsolute, join, resolve } from "node:path";
+import { isAbsolute, join, resolve } from "node:path";
 import type { Command } from "commander";
-import { storeDefaultFile } from "../store/config.js";
+import { allmanConfigRoot } from "../store/config.js";
 import { resolveStorePath, Store } from "../store/index.js";
 import {
   type BrowserConfig,
@@ -35,7 +35,7 @@ export interface SessionRegistry {
   profiles: ManagedProfile[];
 }
 export function sessionControlRoot(): string {
-  return dirname(storeDefaultFile());
+  return allmanConfigRoot();
 }
 export function canonicalPath(path: string): string {
   const absolute = resolve(path);

@@ -71,3 +71,9 @@ scripts, or a disabled/uninstalled Shield. It is not an operating-system firewal
 Keep all launchers on the guarded checkout and retain the shared configuration.
 Direct CLI HTTP requests are outside Shield's browser interception but are
 subject to the CLI account and command lock.
+
+[Named profile folders](profile-folders.md) scope default stores and workspaces
+with `ALLMAN_PROFILE`. They never scope the shared registry or command lock.
+Do not use different `XDG_CONFIG_HOME` values to isolate account settings: that
+would also select a different session-control root. Choosing a profile's launcher
+does not activate it; `session activate` remains the only account-switch workflow.

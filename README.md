@@ -173,6 +173,11 @@ allman status
 
 The selected absolute path is saved in `$XDG_CONFIG_HOME/allman/default-store.json` (normally `~/.config/allman/default-store.json`). Explicit `--store` and `ALLMAN_STORE` settings still take precedence. Without a selection, the upstream `./.allman` default remains.
 
+Named profiles use `ALLMAN_PROFILE=brian` or `ALLMAN_PROFILE=jp` and save their
+selection in `~/.config/allman/<name>/default-store.json`. Browser configuration
+and private relationship data follow that profile; the active-account registry
+and network-command lock remain shared. See [profile folders](docs/profile-folders.md).
+
 ---
 
 ### `allman start`
