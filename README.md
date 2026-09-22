@@ -497,6 +497,8 @@ The SalesNav seat is captured automatically by `allman login` (it visits Sales N
 
 Turn stored connections (IDs + name) into full **profiles**: current title, company, location, and About — plus, with `--deep`, full work history, education, and skills. Results are written back onto each connection record with an `enrichedAt` stamp, so re-runs skip already-enriched people (unless `--force`). Fetches use the flagship profile **API** (no profile-page scraping) and are paced with the same 2–8s delay as `connections`.
 
+`--limit` and `--page-size` accept positive integers only; malformed, fractional, zero, and negative bounds fail before account or network access. Opaque `ACo` profile IDs retain their case whether passed directly or inside a profile URL.
+
 Every enrichment also writes a **person record** — `people/{flagshipId}.json` (+ slug symlink) — the single owner of person facts, with per-field provenance `{source, observedAt}`. A re-enrich only overwrites a field whose provenance is equal-or-worse (`user` edits are never auto-overwritten), and readers prefer the person record over the connection-record mirror. Structured geo (`geoUrn`, `geoName`, `geoGranularity`) lands here; query it with `allman connections --geo`.
 
 LinkedIn serves this across several resources, so enriching one person costs **2 requests** (4 with `--deep`). Budget accordingly on large networks — that's why `--limit` exists.

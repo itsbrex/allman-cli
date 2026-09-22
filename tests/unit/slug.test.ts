@@ -3,6 +3,7 @@ import {
   conversationSlug,
   isLinkedInUrl,
   sanitizeSlug,
+  slugFromLinkedInUrl,
   slugFromUrl,
   urlFromSlug,
 } from "@/utils/slug.js";
@@ -72,4 +73,11 @@ describe("conversationSlug", () => {
   it("prefixes group conversations with group-", () => {
     expect(conversationSlug("Engineering Team", true)).toBe("group-engineering-team");
   });
+});
+
+it("preserves case-sensitive opaque profile IDs in bare and URL targets", () => {
+  const id = "ACoSYNTHCaseSensitive_1";
+  expect(slugFromUrl(id)).toBe(id);
+  expect(slugFromUrl(`https://www.linkedin.com/in/${id}/`)).toBe(id);
+  expect(slugFromLinkedInUrl(`https://www.linkedin.com/in/${id}/`)).toBe(id);
 });

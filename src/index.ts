@@ -11,7 +11,7 @@
  *   --debug            Verbose debug output to stderr
  */
 
-import { Command } from "commander";
+import { Command, InvalidArgumentError } from "commander";
 import { attioCommand } from "./commands/attio.js";
 import { browserConfigureCommand, browserDoctorCommand } from "./commands/browser.js";
 import { companiesCommand } from "./commands/companies.js";
@@ -41,6 +41,13 @@ import {
 } from "./commands/store-cmd.js";
 import { syncCommand } from "./commands/sync.js";
 import { setDebugMode, setJsonMode } from "./utils/output.js";
+
+function positiveInteger(value: string): number {
+  const number = Number(value);
+  if (!/^\d+$/.test(value) || !Number.isSafeInteger(number) || number < 1)
+    throw new InvalidArgumentError("Expected a positive integer.");
+  return number;
+}
 
 const program = new Command();
 
@@ -205,7 +212,11 @@ program
   )
   .option("--to <duration>", "newer boundary — newest message to fetch (defaults to now)")
   .option("--since <duration>", "[deprecated] alias for --from")
-  .option("-n, --limit <n>", "max conversations (inbox sync) or messages (single-conv sync)")
+  .option(
+    "-n, --limit <n>",
+    "max conversations (inbox sync) or messages (single-conv sync)",
+    positiveInteger
+  )
   .option("--json", "output as JSON")
   .option(
     "--resync",
@@ -254,7 +265,7 @@ program
   .option("-a, --account <slug>", "filter by account")
   .option("-s, --store <path>", "store directory")
   .option("--json", "output as JSON")
-  .option("-n, --limit <n>", "max conversations to show", "50")
+  .option("-n, --limit <n>", "max conversations to show", positiveInteger, 50)
   .action(async (opts, cmd) => {
     const globalOpts = cmd.parent?.opts() ?? {};
     await conversationsCommand({
@@ -279,7 +290,7 @@ program
   .option("-a, --account <slug>", "account")
   .option("-s, --store <path>", "store directory")
   .option("--json", "output as JSON")
-  .option("-n, --limit <n>", "max messages to show", "50")
+  .option("-n, --limit <n>", "max messages to show", positiveInteger, 50)
   .option("--since <date>", "show messages since this date (ISO format)")
   .option("--no-sync", "don't auto-sync if conversation not found")
   .action(async (conversation: string, opts, cmd) => {
@@ -352,7 +363,7 @@ program
   .option("-a, --account <slug>", "account to search")
   .option("-s, --store <path>", "store directory")
   .option("--json", "output as JSON")
-  .option("-n, --limit <n>", "max results (default: 10)", "10")
+  .option("-n, --limit <n>", "max results (default: 10)", positiveInteger, 10)
   .action(async (query: string, opts, cmd) => {
     const globalOpts = cmd.parent?.opts() ?? {};
     await searchCommand(query, {
@@ -374,7 +385,7 @@ program
   .option("-s, --store <path>", "store directory")
   .option("--since <duration>", "override watermark (1h, 3d, 1w, or ISO date)")
   .option("--no-mark", "don't advance the watermark after viewing")
-  .option("-n, --limit <n>", "max conversations to show")
+  .option("-n, --limit <n>", "max conversations to show", positiveInteger)
   .option("--json", "output as JSON")
   .action(async (opts, cmd) => {
     const globalOpts = cmd.parent?.opts() ?? {};
@@ -398,7 +409,7 @@ program
   .option("-a, --account <slug>", "account to search")
   .option("-s, --store <path>", "store directory")
   .option("--since <duration>", "only search messages after this date/duration")
-  .option("-n, --limit <n>", "max results (default: 50)", "50")
+  .option("-n, --limit <n>", "max results (default: 50)", positiveInteger, 50)
   .option("--json", "output as JSON")
   .action(async (query: string, opts, cmd) => {
     const globalOpts = cmd.parent?.opts() ?? {};
@@ -468,8 +479,8 @@ program
   .option("-s, --store <path>", "store directory")
   .option("--csv <path>", "also export a CSV to this path")
   .option("--no-save", "don't write to the store (use with --csv for a pure export)")
-  .option("-n, --limit <n>", "max connections to fetch (default: all)")
-  .option("--page-size <n>", "results per request (default: 100, max: 500)", "100")
+  .option("-n, --limit <n>", "max connections to fetch (default: all)", positiveInteger)
+  .option("--page-size <n>", "results per request (default: 100, max: 500)", positiveInteger, 100)
   .option("--include-headline", "include the LinkedIn headline in stored records / CSV")
   .option(
     "--enrich",
@@ -528,7 +539,7 @@ program
   .option("-s, --store <path>", "store directory")
   .option("--csv <path>", "also export a CSV to this path")
   .option("--no-save", "don't write to the store (use with --csv for a pure export)")
-  .option("-n, --limit <n>", "max results to fetch")
+  .option("-n, --limit <n>", "max results to fetch", positiveInteger)
   .option("--flagship", "force the flagship people-search backend (no fallback)")
   .option("--salesnav", "force the Sales Navigator backend (no fallback; errors without a seat)")
   .option("--json", "stream NDJSON to stdout (ephemeral — does not write the store)")
@@ -565,7 +576,7 @@ program
     "also store LinkedIn's untouched payloads on each record (large — sampling aid, not for bulk runs)"
   )
   .option("--force", "re-fetch even connections already enriched")
-  .option("-n, --limit <n>", "max profiles to fetch this run (default: all)")
+  .option("-n, --limit <n>", "max profiles to fetch this run (default: all)", positiveInteger)
   .option("--json", "stream enriched records to stdout as NDJSON")
   .action(async (target: string | undefined, opts, cmd) => {
     const globalOpts = cmd.parent?.opts() ?? {};
@@ -596,7 +607,7 @@ program
   .option("-s, --store <path>", "store directory")
   .option("--current-only", "only resolve employers of people's current roles")
   .option("--force", "re-fetch companies already stored")
-  .option("-n, --limit <n>", "max companies to fetch this run (default: all)")
+  .option("-n, --limit <n>", "max companies to fetch this run (default: all)", positiveInteger)
   .option("--json", "stream resolved companies to stdout as NDJSON")
   .action(async (target: string | undefined, opts, cmd) => {
     const globalOpts = cmd.parent?.opts() ?? {};
@@ -673,7 +684,7 @@ program
 program
   .command("relationships <action> [target] [values...]")
   .description(
-    "Local contacts, timeline, followups, refresh, tag/untag, save-list, link/unlink, cadence, snooze/dismiss/acknowledge, review"
+    "Local relationships: list, show, timeline, followups, status, refresh, tag/untag, save-list, link/unlink, cadence, snooze/dismiss/acknowledge, review"
   )
   .option("--tag <tag>", "filter by tag")
   .option("--company <name>", "filter by employer")

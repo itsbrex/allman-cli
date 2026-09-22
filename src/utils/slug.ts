@@ -11,6 +11,11 @@
 
 const LINKEDIN_PROFILE_PATTERN = /(?:https?:\/\/)?(?:www\.)?linkedin\.com\/in\/([a-zA-Z0-9_-]+)\/?/;
 
+/** Opaque LinkedIn IDs are case-sensitive; vanity handles are not. */
+function normalizeIdentifier(value: string): string {
+  return /^AC[ow][A-Za-z0-9_-]+$/.test(value) ? value : value.toLowerCase();
+}
+
 /**
  * Extract the profile slug from a LinkedIn profile URL or return the input
  * unchanged if it already looks like a slug (no URL characters).
@@ -20,7 +25,7 @@ const LINKEDIN_PROFILE_PATTERN = /(?:https?:\/\/)?(?:www\.)?linkedin\.com\/in\/(
 export function slugFromUrl(input: string): string {
   // Already a slug (no slashes, no dots that suggest a domain)
   if (!input.includes("/") && !input.includes(".")) {
-    return input.toLowerCase();
+    return normalizeIdentifier(input);
   }
 
   const match = input.match(LINKEDIN_PROFILE_PATTERN);
@@ -30,7 +35,7 @@ export function slugFromUrl(input: string): string {
         `Expected a URL like https://linkedin.com/in/sarah-chen or just "sarah-chen".`
     );
   }
-  return match[1].toLowerCase();
+  return normalizeIdentifier(match[1]);
 }
 
 /** Return true if the input looks like a LinkedIn profile URL. */
@@ -72,5 +77,5 @@ export function conversationSlug(title: string, isGroup: boolean): string {
  */
 export function slugFromLinkedInUrl(url: string): string | null {
   const match = url.match(LINKEDIN_PROFILE_PATTERN);
-  return match?.[1]?.toLowerCase() ?? null;
+  return match?.[1] ? normalizeIdentifier(match[1]) : null;
 }
