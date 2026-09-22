@@ -222,3 +222,13 @@ it("uses Sales Navigator degree-one evidence without fabricating flagship joins"
   ).toBe(true);
   expect(graph.edges.some((e) => e.a.endsWith("/112") || e.b.endsWith("/112"))).toBe(false);
 });
+it("explicitly unknown sweep time cannot borrow a later metadata update", async () => {
+  const row = await store.connectionsFor(account).readConnection("ACoConnector");
+  await writePrivate(join(root, account, "connections/ACoConnector.json"), {
+    ...row,
+    connectionObservedAt: null,
+    lastSeenAt: iso,
+  });
+  const graph = await buildObservedGraph(store, snapshot, { now });
+  expect(introductionPaths(graph, "Target", snapshot).paths).toHaveLength(0);
+});

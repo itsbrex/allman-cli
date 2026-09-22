@@ -159,7 +159,11 @@ export async function buildObservedGraph(
         [row.firstName, row.lastName].filter(Boolean).join(" "),
         row.publicIdentifier
       );
-      const observedAt = row.connectionObservedAt ?? (!row.enrichedAt ? row.lastSeenAt : "");
+      const observedAt = Object.hasOwn(row, "connectionObservedAt")
+        ? (row.connectionObservedAt ?? "")
+        : !row.enrichedAt
+          ? row.lastSeenAt
+          : "";
       add(self, person, {
         kind: "first-degree",
         source: `${account}/connections/${id}.json`,

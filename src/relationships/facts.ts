@@ -39,7 +39,7 @@ export function personFacts(
       field,
       person[key],
       person.provenance?.[key]?.source ?? "linkedin/stored",
-      person.provenance?.[key]?.observedAt ?? person.lastSeenAt,
+      person.provenance?.[key]?.observedAt ?? "",
       `${account}/people/${person.flagshipId}`
     );
   }
@@ -52,7 +52,7 @@ export function personFacts(
         field,
         company[key],
         company.provenance?.[key]?.source ?? "linkedin/company",
-        company.provenance?.[key]?.observedAt ?? company.fetchedAt,
+        company.provenance?.[key]?.observedAt ?? "",
         `${account}/companies/${company.id}`
       );
   }
