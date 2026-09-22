@@ -13,8 +13,10 @@ is the authoritative audit and completion record.
   live outside the Git-backed store, through `writePrivate` and `withWorkspaceLock`.
 - Keep user business settings out of source fixtures. Cresa reference remains private;
   runtime criteria must not invent numeric thresholds or geographic restrictions.
-- TUI currently retains earlier relationship views. Do not claim new CLI features are
-  rendered or editable there without a separate implementation and verification.
+- The companion relationship TUI now exposes fit/rank evidence and observed introduction
+  queries in views 5 and 6. Its writes use the CLI; new definitions and model-result
+  imports remain CLI workflows. Select the current CLI explicitly if its sibling checkout
+  is older. Do not confuse cached snapshot freshness with a live provider check.
 
 ## Ownership and semantics
 
@@ -32,6 +34,9 @@ is the authoritative audit and completion record.
   imports validate every row before any write; evidence IDs must exist and be fresh.
   Model assertions remain labeled `llm-import`. User overrides are sticky, audited and
   may themselves become stale; clear/renew explicitly.
+- `icp export --list <group>` reuses saved-group predicates before pagination and exports
+  at most 100 contacts from one snapshot. This flag is export-only; do not pass it to
+  qualification, whose writes can change membership of a fit-based group.
 - `relationships.ts`: filters compose; extra filters narrow saved groups. Stale or
   unknown qualification cannot enter a default positive ICP filter. Rank and fit stay
   separately inspectable. Changing data invalidates results without paid background work.

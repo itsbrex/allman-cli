@@ -994,6 +994,7 @@ qualification freshness; it does not define customer fit.
 allman icp qualify sales --stale-only --limit 100
 allman icp results sales
 allman icp export sales --limit 25
+allman group set 'Sales review' --icp sales --fit unknown --has-facts
 allman icp export sales --list 'Sales review' --limit 100
 allman icp import sales --file /private/path/model-results.json
 allman icp override sales --contact CONTACT_ID --match yes --reason 'Reviewed independently'

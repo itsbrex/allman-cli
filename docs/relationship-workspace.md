@@ -12,7 +12,7 @@ The local CLI now provides shared identities, observed timelines, follow-up stat
 | [tarkaai/allman-cli#7](https://github.com/tarkaai/allman-cli/issues/7) | Multiple versioned definitions, deterministic rules, validated offline LLM handoff, confidence/evidence, freshness, overrides and combined filters | No automatic external model/provider calls; natural-language fit needs reviewed evidence |
 | [tarkaai/allman-cli#14](https://github.com/tarkaai/allman-cli/issues/14) | Observed graph and ranked `intro-to` paths with both legs explained | Unknown peer strength stays null; no drafting, sending, ask tracking or semantic LLM search |
 
-Relationship strength and ICP fit remain separate dimensions. Cadence-based follow-ups are independent of scores. The companion TUI still exposes its existing relationship views; these new rank/ICP/graph workflows are CLI features.
+Relationship strength and ICP fit remain separate dimensions. Cadence-based follow-ups are independent of scores. The companion TUI exposes fit/rank evidence in view 5 and observed introduction queries in view 6, including filters, local overrides, rule qualification and private handoff export. ICP definitions and model-result imports remain CLI workflows. Use a matching current CLI build when running the TUI.
 
 ### Saved ICP context
 
@@ -127,7 +127,7 @@ Company rollups derive current, past, and unknown affiliations, retain concurren
 
 The companion TUI supports `--relationships`, which opens the local workspace without login, auto-sync, or a composer. From the normal inbox, use `:relationships`, `:people`, or `:geo San Diego`.
 
-Keys: `1` people, `2` needs reply, `3` awaiting response, `4` companies, `j/k` selection, `r` rebuild local view, `:` commands, Escape close. Commands include `geo`, `company`, `tag`, `channel`, `account`, `clear`, `save`, `list`, `tag-add`, `tag-remove`, `link`, `unlink`, `cadence`, `snooze`, `dismiss`, and `acknowledge`. TUI writes always go through CLI.
+Keys: `1` people, `2` needs reply, `3` awaiting response, `4` companies, `5` fit/rank, `6` introductions, `j/k` selection, `r` rebuild local view, `:` commands, `?` help, `[`/`]` scroll evidence, Escape close. Commands include the existing filters/local follow-up actions plus `icp`, `fit`, `sort`, `min-rank`, `confidence`, `facts`, `any-tags`, `all-tags`, `without-tags`, `rank`, `rank-clear`, `pin`, `unpin`, `fit-set`, `fit-clear`, `qualify`, `export`, `graph`, `intro`, and `intro-fit`. TUI writes always go through CLI; introduction queries create no requests or drafts. Fit freshness is shown as of the saved snapshot.
 
 ## Verification boundaries
 

@@ -99,7 +99,68 @@ These counts describe local stored records, not a fresh LinkedIn or Attio API ch
   browser interactions or credential changes occurred in this intelligence batch.
   Build dependency downloads are separate from these local data operations.
 
-Remaining upstream scope is explicit: automatic paid/model-provider integration,
-new TUI fit/rank/graph controls, observed third-party relationship-strength evidence,
-semantic natural-language graph search, and introduction ask/draft tracking. No public
-release, push, or upstream issue mutation is performed by this batch.
+At the end of the original ten-task batch, remaining scope included TUI controls
+(completed in the follow-up below), automatic paid/model-provider integration,
+observed third-party relationship-strength evidence, semantic natural-language graph
+search, and introduction ask/draft tracking. No public release, push, or upstream
+issue mutation was performed.
+
+## Follow-up: contact review, observed paths and TUI controls
+
+The user authorized continuing the three suggested follow-ups on 2026-09-22. All three
+are complete within the boundaries below.
+
+1. **Private evidence review:** Exported and reviewed all 49 contacts with stored facts.
+   Each had only a headline; 25 headlines lacked an observation timestamp. Two fresh
+   CFO headlines supported the buyer-role criterion. Company scale, real estate
+   footprint and an active buying initiative remained unknown, so all 49 overall
+   qualifications stayed unknown. Imported all 49 per-criterion reviews through the
+   CLI's validation boundary as `llm-import`, with zero manual overrides replaced.
+   No additional model-provider API was called. Private exports, review inputs and
+   receipts remain in the relationship workspace; no contact details enter this report.
+2. **Bounded network collection:** Shield 3.4.0 and authenticated owner identity passed
+   fresh checks. Three distinct flagship `connections-of` reads used `--limit 5`.
+   One target returned no visible results; two stored five rows each. The graph now has
+   **1,517 nodes, 178 edges and ten observed two-step paths**. Its two warnings correctly
+   describe partial exports: 5/861 and 5/166 results. A real stored-data `intro-to` query
+   returned a path with evidence on both legs; peer strength and composite weight stayed
+   null when unmeasured. This does not prove introduction willingness or full network coverage.
+3. **TUI controls:** Views 5 and 6 now expose separate fit/rank evidence, combined
+   filters, saved groups, audited rank/fit overrides, local rule qualification, private
+   handoff export, and observed introduction queries. Navigation is local; explicit
+   operations use the CLI. Small terminals retain scrollable evidence. No compose,
+   send, invitation or CRM action was added to relationship mode.
+
+### Follow-up fixes and verification
+
+- CLI `1d5c26d` adds `icp export --list <group>` so a bounded review group needs one
+  snapshot rather than one rebuild per contact. A per-contact run exceeded its local
+  40-second deadline during extreme host load; completed exports were preserved and
+  the stopped process's writer lock was removed only after verifying its PID was gone.
+  Group export and import then completed. This is not a controlled speed benchmark.
+- CLI **617 tests in 71 files passed**, with one Vitest worker to avoid host contention.
+  TUI **138 tests in 12 files passed**. Both typechecks and lints passed; existing
+  informational/warning diagnostics remain. Real Git/shell fixture deadlines were
+  increased without changing their assertions. Detail scrolling also has regression
+  coverage for moving back after reaching the end.
+- TUI code commit: `f6bac6f`. Its QA gallery has **15 actual Ink screenshots**, each
+  **3200 × 2120**, verified by PNG headers and SHA-256. Synthetic data only; the isolated
+  Shield-protected capture profile recorded zero page network requests. Fit/rank,
+  observed introductions and narrow stale-evidence views were visually inspected.
+- A compiled TUI test ran in a real PTY against a private synthetic store with no
+  credentials and no `allman` on PATH. Fit/rank rendering, ICP filtering, embedded CLI
+  graph/intro queries, embedded binary hash equality, and clean Escape exit passed.
+  The initial exit check stalled because the harness waited without draining terminal
+  output; draining the PTY resolved it without an application change. Sanitized receipt:
+  companion TUI `docs/qa/relationships/compiled-smoke.json`.
+- Current local binaries: CLI `dist/allman-intelligence-dev`; companion TUI
+  `dist/allman-tui`. The TUI embeds the current CLI. Source launches must explicitly
+  select the current CLI if their sibling worktree is older. Global launchers remain
+  unchanged; the TUI worktree is `~/.codex/worktrees/allman-relationships/allman-tui`.
+- **Zero live sends, drafts, invitations, reactions, CRM writes, or remote read-state
+  changes.** No public release, push, upstream mutation, or automatic provider call.
+
+Remaining gaps: the 49 reviewed contacts still need company/footprint/initiative
+evidence for full ICP fit; network collection is intentionally partial; peer strength
+is unmeasured; automatic model providers, semantic graph search, and introduction
+request tracking remain outside this continuation.
