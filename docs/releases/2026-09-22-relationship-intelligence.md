@@ -30,7 +30,7 @@ Open upstream issues are not proof of missing local code. In particular, some co
 7. **Complete:** Evidence-backed rule qualification plus bounded offline LLM export/import, unknown results and stale-result handling.
 8. **Complete:** Composable ICP/rank/tag/company/location filtering and sorting.
 9. **Complete:** Observed graph construction and ranked `intro-to` results with evidence on both legs.
-10. End-to-end verification, docs/agent docs, release packaging and remaining-gap report.
+10. **Complete:** End-to-end verification, docs/agent docs, local release packaging and remaining-gap report below.
 
 Each implementation deliverable receives a focused commit and regression coverage. Private business context, contacts, cookies and qualification results stay outside the source repository. Existing user WIP is preserved.
 
@@ -51,8 +51,53 @@ proof that every field was re-observed.
 - Existing no-send QA remains at [command validation](../qa/2026-09-22-command-validation.md).
   Its authenticated Sales Navigator, deep-enrichment and first-degree checks are
   earlier-run evidence; this feature batch does not repeat outbound-capable live tests.
-- Four-target packaging and compiled native workflow results will be recorded below
-  after clean-checkout verification. Cross-compilation alone is not runtime validation.
+- A clean checkout of `0e2afc3b327942789fbc7799900d94146c9f1dcf`, installed with
+  `bun install --frozen-lockfile`, passed typecheck, lint and the complete 617-test suite.
+  `bun run release 2026-09-22.1-beta --dry-run` produced four binaries, four SHA-256
+  files and a manifest. It created no Git tag or public release.
+- The packaged macOS ARM64 binary reports `0.4.0-rc.1`; its help and real subprocess
+  integration passed. The integration runs the complete local group/rank/ICP/intro
+  lifecycle against a synthetic store using `ALLMAN_TEST_BINARY`. The other three
+  targets were cross-compiled, not executed on their target systems.
+
+### Local artifacts
+
+Candidate binaries and [release manifest](../../dist/relationship-intelligence-0.4.0-rc.1/release-manifest.json)
+are retained in ignored `dist/relationship-intelligence-0.4.0-rc.1/`. All copied
+artifact checksums were verified. They correspond to the source commit above;
+this later evidence-only documentation commit does not change their code.
+
+| Binary | SHA-256 | Runtime coverage |
+| --- | --- | --- |
+| `allman-linux-x64` | `b5d1f56fe5f1834f354a3a61ff2f2eb019e7e45b096061bce81f133d3625ac82` | Cross-compiled only |
+| `allman-linux-arm64` | `87bba255854c50ef06f7fae0d01a4a0003ab6d44d4a22bc332ce8a19218fc404` | Cross-compiled only |
+| `allman-darwin-x64` | `2dd85d576d3091cef107bdcc989da937a22edebe88e8f37a1ac0ed3eb337fd92` | Cross-compiled only |
+| `allman-darwin-arm64` | `d8045701fe09d3f9fc96450ed84edb82cfb8825c09d139e8a58f4fbff38ff682` | Version/help, synthetic CLI lifecycle, stored-data graph reads |
+
+The existing development launcher already points to this source checkout. No launcher
+or browser configuration was changed. The packaging worktree remains available at
+`~/.codex/worktrees/allman-relationship-release/allman-cli`. Unrelated `.tool-versions`
+and `docs/browser-atlas/` work was preserved.
+
+### Private workspace verification
+
+These counts describe local stored records, not a fresh LinkedIn or Attio API check:
+
+- All **1,502 contacts** received a history-derived rank; **49** have person/company
+  facts. Missing history or facts do not imply a weak real-world relationship or poor fit.
+- The private Cresa runtime definition was applied to all 1,502 contacts. Every result
+  is **unknown**, with no positive/negative assertion: its natural-language role, scale,
+  footprint and buying-initiative requirements need reviewed supporting evidence.
+  No arbitrary employee threshold, confidence cutoff or geography was added.
+- Private `cresa-review` and `cresa-fit` groups were created. Bounded offline handoffs
+  were saved with mode 0600; no model provider was called and no model result imported.
+- Both source and compiled graph commands returned **1,507 nodes and 168 edges**, with
+  zero graph warnings. The stored graph currently has no connected two-step introduction
+  path. A compiled `intro-to` query correctly returned no paths; positive paths with
+  evidence on both legs were verified in synthetic unit and CLI integration tests.
+- No live sends, invitations, reactions, drafts, CRM writes, remote read-state changes,
+  browser interactions or credential changes occurred in this intelligence batch.
+  Build dependency downloads are separate from these local data operations.
 
 Remaining upstream scope is explicit: automatic paid/model-provider integration,
 new TUI fit/rank/graph controls, observed third-party relationship-strength evidence,
