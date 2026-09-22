@@ -78,45 +78,12 @@ async function recordFixture(
 // Verified against: monorepo/lib/services/.../linkedin-api-services.ts
 // ---------------------------------------------------------------------------
 
-const LI_TRACK = JSON.stringify({
-  clientVersion: "1.13.8751",
-  mpVersion: "1.13.8751",
-  osName: "web",
-  timezoneOffset: -5,
-  timezone: "America/New York",
-  deviceFormFactor: "DESKTOP",
-  mpName: "voyager-web",
-  displayDensity: 1,
-  displayWidth: 2560,
-  displayHeight: 1440,
-});
-
-const LI_RECIPE_MAP = JSON.stringify({
-  inAppAlertsTopic: "com.linkedin.voyager.dash.deco.identity.notifications.InAppAlert-51",
-  professionalEventsTopic: "com.linkedin.voyager.dash.deco.events.ProfessionalEventDetailPage-53",
-  topCardLiveVideoTopic: "com.linkedin.voyager.dash.deco.video.TopCardLiveVideo-9",
-});
-
-const FALLBACK_HEADERS = {
-  "accept-language": "en-US,en;q=0.9",
-  "x-li-lang": "en_US",
+// Keep API requirements only; browser identity comes from the protected login.
+// Never invent client hints, tracking metadata, or browser/version claims.
+const API_HEADERS = {
   "x-restli-protocol-version": "2.0.0",
-  "x-li-track": LI_TRACK,
-  "x-li-recipe-accept": "application/vnd.linkedin.normalized+json+2.1",
-  "x-li-recipe-map": LI_RECIPE_MAP,
-  "x-li-page-instance": "urn:li:page:feed_index_index;bcfe9fd6-239a-49e9-af15-44b7e5895eaa",
-  authority: "www.linkedin.com",
   referer: "https://www.linkedin.com/feed/",
   accept: "application/vnd.linkedin.normalized+json+2.1",
-  "content-type": "application/json",
-  "user-agent":
-    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-  "sec-ch-ua": '"Not_A Brand";v="8", "Chromium";v="120"',
-  "sec-ch-ua-mobile": "?0",
-  "sec-ch-ua-platform": '"Linux"',
-  "sec-fetch-dest": "empty",
-  "sec-fetch-mode": "cors",
-  "sec-fetch-site": "same-origin",
 };
 
 // ---------------------------------------------------------------------------
@@ -167,6 +134,7 @@ export interface ApiClientOptions {
   onRateStateUpdate?: RateStatePersistFn;
   /** Proxy configuration (from account config). */
   proxy?: ProxyConfig;
+  requestIdentity?: AccountRecord["requestIdentity"];
 }
 
 export interface ApiRequestOptions {
@@ -190,6 +158,7 @@ export class LinkedInApiClient {
   private readonly rateLimiter?: RateLimiter;
   private readonly onRateStateUpdate?: RateStatePersistFn;
   private readonly proxy?: ProxyConfig;
+  private readonly requestIdentity?: AccountRecord["requestIdentity"];
 
   constructor(options: ApiClientOptions) {
     this.jar = loadCookieJar(options.account);
@@ -197,6 +166,7 @@ export class LinkedInApiClient {
     this.rateLimiter = options.rateLimiter;
     this.onRateStateUpdate = options.onRateStateUpdate;
     this.proxy = options.proxy;
+    this.requestIdentity = options.requestIdentity ?? options.account.requestIdentity;
   }
 
   /** Replace the internal cookie jar (e.g. after login). */
@@ -209,6 +179,22 @@ export class LinkedInApiClient {
     return this.jar;
   }
 
+  /** Shared by REST, realtime streams, and heartbeat requests. */
+  async getRequestHeaders(additional?: Record<string, string>): Promise<Record<string, string>> {
+    return {
+      ...API_HEADERS,
+      ...(this.requestIdentity
+        ? {
+            "user-agent": this.requestIdentity.userAgent,
+            "accept-language": this.requestIdentity.acceptLanguage,
+          }
+        : {}),
+      cookie: await buildCookieHeader(this.jar),
+      "csrf-token": (await getCsrfToken(this.jar)) ?? "",
+      ...additional,
+    };
+  }
+
   async request<T = unknown>(options: ApiRequestOptions): Promise<T> {
     // Enforce rate limit on outbound message sends
     if (options.method === "POST" && options.url.includes(MESSAGES_ENDPOINT) && this.rateLimiter) {
@@ -218,15 +204,7 @@ export class LinkedInApiClient {
       }
     }
 
-    const cookieHeader = await buildCookieHeader(this.jar);
-    const csrfToken = (await getCsrfToken(this.jar)) ?? "";
-
-    const headers: Record<string, string> = {
-      ...FALLBACK_HEADERS,
-      cookie: cookieHeader,
-      "csrf-token": csrfToken,
-      ...options.headers,
-    };
+    const headers = await this.getRequestHeaders(options.headers);
 
     const axiosConfig: AxiosRequestConfig = {
       method: options.method,
@@ -302,7 +280,7 @@ export class LinkedInApiClient {
 
     if (status === 401 || status === 302) {
       throw new LinkedInError(
-        "LinkedIn session expired. Run `allman login` to re-authenticate.",
+        `LinkedIn rejected the session (HTTP ${status}). Run \`allman login\` to re-authenticate.`,
         "UNAUTHENTICATED",
         status
       );
@@ -374,9 +352,14 @@ export function buildApiClient(
   });
 }
 
-/** Build an empty API client with no account (for testing). */
-export function buildEmptyApiClient(): LinkedInApiClient {
+/** Build an empty API client; login supplies its captured jar before verification. */
+export function buildEmptyApiClient(
+  proxy?: ProxyConfig,
+  requestIdentity?: AccountRecord["requestIdentity"]
+): LinkedInApiClient {
   return new LinkedInApiClient({
+    proxy,
+    requestIdentity,
     account: {
       urn: null,
       profileSlug: null,

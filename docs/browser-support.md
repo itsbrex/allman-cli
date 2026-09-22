@@ -20,6 +20,22 @@ Configuration is saved only after successful live verification. Flags override e
 
 Login and query-ID capture share the browser/Shield settings. Capture uses a separate persistent profile for each account so injecting its cookies cannot replace a login profile's account. `--account` selects the login identity. An explicit `--profile` selects the login directory; capture uses a separate subdirectory. Browser profile locks are reported rather than retried in another browser.
 
+## Saved cookies and live authentication
+
+`allman status` reports saved account metadata and local cookie presence; it does not prove that LinkedIn still accepts that session. Use `allman status --check` for a read-only `/voyager/api/me` request that verifies the saved session belongs to the selected account. JSON output keeps the existing saved `status` and adds `sessionStatus` (`not_checked`, `authenticated`, `unauthenticated`, or `error`) and `sessionError`.
+
+Login verifies the browser's existing cookies after Shield passes. If they work, it exports that verified session without opening another login page. If sign-in is needed, login verifies the resulting cookies and owner before reporting success. Identity comes from `/me`, not incidental profile-page responses or Sales Navigator's DOM. Response cookie updates are retained, and verification uses the account's configured HTTP proxy. Existing Sales Navigator cookies avoid an unnecessary seat warm-up; a new warm-up requires another account verification before saving.
+
+The protected login also captures the browser's real user agent and language in gitignored, mode-0600 `COOKIES.json`. After verifying the owner, it visits the feed in an owned tab and captures the current `voyager-web` version from LinkedIn's own request headers, then re-verifies the session before saving. REST requests, realtime streams, and their heartbeats share the browser identity. The old fixed Chrome 120 user agent, contradictory Linux client hints, fabricated device metadata, and page-instance identifiers are removed. Realtime retains only its required `mpName: "voyager-web"` application identifier in `x-li-track`; keepalive uses the captured app version, a JSON Accept header, and the `action=sendHeartbeat` query parameter.
+
+Older exports remain readable for REST commands. `start` refreshes exports missing the realtime version through protected login before sync/listen; standalone `listen` asks for login rather than inventing a version. Non-200 stream responses are reported visibly instead of being silently treated as open streams.
+
+If `allman start` encounters an authentication rejection during sync, it runs protected login for that same account and retries once. Network, permission, and rate-limit errors do not trigger login. A second authentication rejection stops; there is no repeated login loop. HTTP 401/302 report session rejection, not a proven cause such as elapsed cookie expiry or an account restriction. Avoid overlapping login commands while checking session stability.
+
+Verification on 2026-09-22: a controlled run using the old header bundle was followed by HTTP 401 in both the CLI and the native browser at the 60-second check. A fresh session using actual browser identity and minimal REST headers remained valid through the three-minute baseline and a separate inbox read. This implicates the old header bundle; LinkedIn did not disclose the internal rejection reason, and the test did not isolate one individual header.
+
+Final checks passed: protected login and live account verification; a one-conversation/one-message sync into a private temporary store; and a 90-second run of the actual `allman start` command with one realtime connection, five incoming heartbeats, and a successful client keepalive. Both CLI and native browser account checks still passed afterward. Temporary stores were removed and the main store's sync watermark was unchanged. No messages, invitations, drafts, or CRM writes were made. The repository suite passed 564/564, with typecheck, build, changed-file lint, and CodeDB refresh also passing. An existing enrichment timestamp-equality test flaked in an earlier full run; its isolated 20-test file and the final full suite passed without changing that test.
+
 ## Browser support
 
 Research checked against local source and primary project documentation on 2026-09-18. Saved Keep results included Obscura, CloakBrowser Manager, invisible_playwright, managedcode/playwright_stealth, and Kernel CLI. These are candidates, not interchangeable browser engines.

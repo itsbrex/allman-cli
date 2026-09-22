@@ -1,4 +1,6 @@
-import { isAuthenticated, loadCookieJar } from "../linkedin/api/cookies.js";
+import { buildApiClient, LinkedInError } from "../linkedin/api/client.js";
+import { isAuthenticated, loadCookieJar, serializeCookieJar } from "../linkedin/api/cookies.js";
+import { getCurrentProfile } from "../linkedin/api/endpoints/profiles.js";
 import { resolveStorePath, Store } from "../store/index.js";
 import { info, printData } from "../utils/output.js";
 
@@ -6,6 +8,7 @@ export interface StatusOptions {
   account?: string;
   store?: string;
   json?: boolean;
+  check?: boolean;
 }
 
 export async function statusCommand(options: StatusOptions): Promise<void> {
@@ -36,11 +39,37 @@ export async function statusCommand(options: StatusOptions): Promise<void> {
       const jar = loadCookieJar(record);
       const hasValidCookies = await isAuthenticated(jar);
       const config = await store.accounts.readConfig(profileId);
+      let sessionStatus = "not_checked";
+      let sessionError: string | null = null;
+      if (options.check) {
+        sessionStatus = "unauthenticated";
+        if (hasValidCookies) {
+          try {
+            const client = buildApiClient(record, async () => {}, config.proxy);
+            const owner = await getCurrentProfile(client);
+            if (owner.urn !== record.urn) throw new Error("LinkedIn session account mismatch.");
+            await store.accounts.writeCookies(profileId, {
+              cookieJar: serializeCookieJar(client.getJar()),
+              cookiesUpdatedAt: new Date().toISOString(),
+              requestIdentity: record.requestIdentity,
+            });
+            sessionStatus = "authenticated";
+          } catch (error) {
+            sessionStatus =
+              error instanceof LinkedInError && error.code === "UNAUTHENTICATED"
+                ? "unauthenticated"
+                : "error";
+            sessionError = error instanceof Error ? error.message : "Session check failed.";
+          }
+        }
+      }
       return {
         profileId,
         slug: record.profileSlug,
         name: record.name,
         status: record.status,
+        sessionStatus,
+        sessionError,
         cookiesValid: hasValidCookies,
         cookiesSaved: record.cookieJar !== null,
         cookiesUpdatedAt: record.cookiesUpdatedAt,
@@ -68,7 +97,16 @@ export async function statusCommand(options: StatusOptions): Promise<void> {
     process.stdout.write(`Account: ${s.slug ?? s.profileId}\n`);
     process.stdout.write(`  Name:    ${s.name ?? "unknown"}\n`);
     process.stdout.write(`  ID:      ${s.profileId}\n`);
-    process.stdout.write(`  Status:  ${s.status}\n`);
+    const status =
+      s.sessionStatus === "not_checked"
+        ? `${s.status} (saved; not checked with LinkedIn)`
+        : s.sessionStatus === "authenticated"
+          ? "authenticated (verified with LinkedIn)"
+          : s.sessionStatus === "unauthenticated"
+            ? "unauthenticated — run `allman login`"
+            : "live check failed";
+    process.stdout.write(`  Status:  ${status}\n`);
+    if (s.sessionError) process.stdout.write(`  Check:   ${s.sessionError}\n`);
     process.stdout.write(`  Cookies: ${cookieStatus}\n`);
     if (s.lastSyncAt)
       process.stdout.write(`  Synced:  ${new Date(s.lastSyncAt).toLocaleString()}\n`);

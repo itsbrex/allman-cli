@@ -153,9 +153,9 @@ export class AccountStore {
 
   /** Write both AUTH + COOKIES (convenience for login). */
   async write(profileId: string, record: AccountRecord, commitMessage?: string): Promise<void> {
-    const { cookieJar, cookiesUpdatedAt, ...auth } = record;
+    const { cookieJar, cookiesUpdatedAt, requestIdentity, ...auth } = record;
     await this.writeAuth(profileId, auth, commitMessage);
-    await this.writeCookies(profileId, { cookieJar, cookiesUpdatedAt });
+    await this.writeCookies(profileId, { cookieJar, cookiesUpdatedAt, requestIdentity });
   }
 
   /** Update specific fields across AUTH and/or COOKIES. */

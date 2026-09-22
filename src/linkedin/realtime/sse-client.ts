@@ -24,12 +24,13 @@ import { createInterface } from "node:readline";
 import axios from "axios";
 import * as output from "../../utils/output.js";
 import type { LinkedInApiClient } from "../api/client.js";
-import { buildCookieHeader, getCsrfToken } from "../api/cookies.js";
 
 const SSE_URL = "https://www.linkedin.com/realtime/connect";
 const HEARTBEAT_URL =
   "https://www.linkedin.com/realtime/realtimeFrontendClientConnectivityTracking";
 const HEARTBEAT_INTERVAL_MS = 60_000;
+// Realtime requires this application identifier. Device/version telemetry is optional.
+const REALTIME_HEADERS = { "x-li-track": JSON.stringify({ mpName: "voyager-web" }) };
 
 // Regex to extract event topic name from the topic string
 // e.g. "urn:li-realtime:messagesTopic:..." → "messagesTopic"
@@ -71,6 +72,8 @@ export interface SseEvent {
 // ---------------------------------------------------------------------------
 
 export interface SseClientOptions {
+  /** Current voyager-web version captured from the protected browser session. */
+  mpVersion?: string;
   /** Max reconnect attempts before giving up (0 = unlimited). Default: 0. */
   maxReconnectAttempts?: number;
   /** Initial backoff in ms. Default: 1000. */
@@ -82,7 +85,6 @@ export class SseClient {
   private heartbeatTimer: ReturnType<typeof setInterval> | null = null;
   private connectionId: string | null = null;
   private senderProfileUrn: string | null = null;
-  private mpVersion = "1.13.8751";
 
   constructor(
     private readonly apiClient: LinkedInApiClient,
@@ -98,6 +100,9 @@ export class SseClient {
    * Reconnects automatically on disconnect until aborted or maxReconnectAttempts reached.
    */
   async *connect(): AsyncGenerator<SseEvent> {
+    if (!/^\d+(?:\.\d+)+$/.test(this.options.mpVersion ?? "")) {
+      throw new Error("Saved session lacks a verified realtime version. Run `allman login`.");
+    }
     const maxAttempts = this.options.maxReconnectAttempts ?? 0;
     const initialBackoff = this.options.initialBackoffMs ?? 1000;
 
@@ -122,7 +127,7 @@ export class SseClient {
         }
       } catch (err: unknown) {
         const msg = err instanceof Error ? err.message : String(err);
-        output.debug(`SSE stream error: ${msg}`);
+        output.warn(`LinkedIn realtime connection failed: ${msg}`);
         yield {
           type: "raw",
           raw: { error: msg },
@@ -142,47 +147,31 @@ export class SseClient {
   }
 
   private async *streamEvents(): AsyncGenerator<SseEvent> {
-    const jar = this.apiClient.getJar();
-    const cookieHeader = await buildCookieHeader(jar);
-    const csrfToken = (await getCsrfToken(jar)) ?? "";
-
     output.debug("SSE: connecting to LinkedIn realtime stream");
 
     const response = await axios({
       method: "GET",
       url: SSE_URL,
       params: { rc: "1" },
-      headers: {
+      headers: await this.apiClient.getRequestHeaders({
+        ...REALTIME_HEADERS,
         accept: "text/event-stream",
-        "accept-language": "en-US,en;q=0.9",
-        "x-li-lang": "en_US",
-        "x-restli-protocol-version": "2.0.0",
-        "x-li-track": JSON.stringify({
-          clientVersion: "1.13.8751",
-          mpVersion: "1.13.8751",
-          osName: "web",
-          timezoneOffset: -5,
-          timezone: "America/New York",
-          deviceFormFactor: "DESKTOP",
-          mpName: "voyager-web",
-          displayDensity: 1,
-          displayWidth: 2560,
-          displayHeight: 1440,
-        }),
-        "csrf-token": csrfToken,
-        cookie: cookieHeader,
         referer: "https://www.linkedin.com/messaging/",
-        "user-agent":
-          "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36",
-      },
+      }),
       responseType: "stream",
       timeout: 0, // no timeout for SSE
       maxRedirects: 0,
       validateStatus: () => true,
     });
 
-    if (response.status === 401 || response.status === 302) {
-      throw new Error("LinkedIn session expired. Run `allman login` to re-authenticate.");
+    if (response.status !== 200) {
+      response.data?.destroy?.();
+      if (response.status === 401 || response.status === 302) {
+        throw new Error(
+          `LinkedIn rejected the realtime session (HTTP ${response.status}). Run \`allman login\` to re-authenticate.`
+        );
+      }
+      throw new Error(`LinkedIn realtime request failed (HTTP ${response.status}).`);
     }
 
     output.debug(`SSE: connected (HTTP ${response.status})`);
@@ -385,29 +374,25 @@ export class SseClient {
 
     this.heartbeatTimer = setInterval(async () => {
       try {
-        const jar = this.apiClient.getJar();
-        const csrfToken = (await getCsrfToken(jar)) ?? "";
-        const cookieHeader = await buildCookieHeader(jar);
-
         await axios.post(
           HEARTBEAT_URL,
           {
-            action: "sendHeartbeat",
             isFirstHeartbeat: isFirst,
             isLastHeartbeat: false,
             realtimeSessionId: connectionId,
             mpName: "voyager-web",
-            mpVersion: this.mpVersion,
+            mpVersion: this.options.mpVersion,
             clientId: "voyager-web",
             actorUrn: this.senderProfileUrn,
             contextUrns: [this.senderProfileUrn],
           },
           {
-            headers: {
-              "csrf-token": csrfToken,
-              cookie: cookieHeader,
+            params: { action: "sendHeartbeat" },
+            headers: await this.apiClient.getRequestHeaders({
+              ...REALTIME_HEADERS,
+              accept: "application/json",
               "content-type": "application/json",
-            },
+            }),
           }
         );
         output.debug("SSE: heartbeat sent");

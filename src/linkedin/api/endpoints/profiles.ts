@@ -26,6 +26,45 @@ export interface ProfileData {
   networkSize: number | null;
 }
 
+/** Resolve the authenticated owner, never a profile incidentally visible on a page. */
+export async function getCurrentProfile(client: LinkedInApiClient): Promise<ProfileData> {
+  interface MiniProfile {
+    entityUrn?: string;
+    publicIdentifier?: string;
+    firstName?: string;
+    lastName?: string;
+    occupation?: string;
+  }
+  interface OwnerData {
+    "*miniProfile"?: string;
+    miniProfile?: MiniProfile;
+  }
+  const response = await client.request<OwnerData & { data?: OwnerData; included?: MiniProfile[] }>(
+    {
+      method: "GET",
+      url: "https://www.linkedin.com/voyager/api/me",
+    }
+  );
+  const data = response?.data ?? response;
+  const ref = data?.["*miniProfile"];
+  const profile = data?.miniProfile ?? response?.included?.find((item) => item.entityUrn === ref);
+  const id = /^(?:urn:li:fs_miniProfile:|urn:li:fsd_profile:)(ACo[A-Za-z0-9_-]+)$/.exec(
+    profile?.entityUrn ?? ref ?? ""
+  )?.[1];
+  if (!id) throw new Error("LinkedIn did not return a verifiable account identity.");
+  return {
+    urn: `urn:li:fsd_profile:${id}`,
+    name: [profile?.firstName, profile?.lastName].filter(Boolean).join(" ") || null,
+    headline: profile?.occupation ?? null,
+    profileUrl: profile?.publicIdentifier
+      ? `https://www.linkedin.com/in/${profile.publicIdentifier}`
+      : null,
+    imageUrl: null,
+    userType: null,
+    networkSize: null,
+  };
+}
+
 interface ProfileQueryResponse {
   data?: {
     data?: {

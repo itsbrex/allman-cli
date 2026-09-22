@@ -43,7 +43,9 @@ export async function listenCommand(options: ListenOptions): Promise<void> {
   info(`Listening for messages (${accountRecord.name ?? profileId})...`);
   info("Streaming NDJSON events to stdout. Ctrl+C to stop.");
 
-  const sseClient = new SseClient(apiClient, profileId);
+  const sseClient = new SseClient(apiClient, profileId, {
+    mpVersion: accountRecord.requestIdentity?.mpVersion,
+  });
 
   process.on("SIGINT", () => {
     sseClient.abort();

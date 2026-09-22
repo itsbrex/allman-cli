@@ -178,12 +178,14 @@ program
   .option("-a, --account <slug>", "show only this account")
   .option("-s, --store <path>", "store directory")
   .option("--json", "output as JSON")
+  .option("--check", "verify the saved session and account with LinkedIn")
   .action(async (opts, cmd) => {
     const globalOpts = cmd.parent?.opts() ?? {};
     await statusCommand({
       account: opts.account ?? globalOpts.account,
       store: opts.store ?? globalOpts.store,
       json: opts.json ?? globalOpts.json,
+      check: opts.check,
     });
   });
 

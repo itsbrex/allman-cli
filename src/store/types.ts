@@ -30,6 +30,8 @@ export interface AccountCookies {
   /** CookieJar serialized via cookieJar.toJSON() */
   cookieJar: object | null;
   cookiesUpdatedAt: string | null;
+  /** Real browser identity captured with this session; never fabricated client hints. */
+  requestIdentity?: { userAgent: string; acceptLanguage: string; mpVersion?: string };
 }
 
 /** Merged view of AUTH.json + COOKIES.json (what commands see). */

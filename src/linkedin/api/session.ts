@@ -51,6 +51,7 @@ export async function loadSession(store: Store, accountOption?: string): Promise
       await store.accounts.writeCookies(profileId, {
         cookieJar: serializeCookieJar(updatedJar),
         cookiesUpdatedAt: new Date().toISOString(),
+        requestIdentity: accountRecord.requestIdentity,
       });
     },
     accountConfig.proxy,

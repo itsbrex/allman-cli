@@ -60,6 +60,14 @@ export async function loginCommand(options: LoginOptions): Promise<void> {
     }
   }
 
+  // Verification must use the same route as the account's normal API requests.
+  // With no explicit account, use the selected default only to resolve its proxy.
+  const configId =
+    expectedProfileId ??
+    (!options.account ? await store.accounts.getDefault().catch(() => null) : null);
+  const verificationProxy =
+    proxyConfig ?? (configId ? (await store.accounts.readConfig(configId)).proxy : undefined);
+
   output.info("This tool accesses your LinkedIn account on your behalf using your own");
   output.info("credentials. You are responsible for compliance with LinkedIn's Terms of Service.");
   output.info("All data stays on your machine — nothing is sent to Tarka or any third party.");
@@ -73,6 +81,7 @@ export async function loginCommand(options: LoginOptions): Promise<void> {
     cdpEndpoint: options.cdp,
     shieldPath: options.shield,
     identity: options.account ?? process.env.ALLMAN_ACCOUNT,
+    proxy: verificationProxy,
   });
 
   if (!result.success) {
@@ -150,6 +159,7 @@ export async function loginCommand(options: LoginOptions): Promise<void> {
       cookieJar: result.cookieJar,
       cookiesUpdatedAt: new Date().toISOString(),
       lastSyncAt: existing?.lastSyncAt ?? null,
+      requestIdentity: result.requestIdentity,
     },
     `🔐 fix(auth): save LinkedIn session for ${profileId.slice(0, 12)}`
   );
@@ -166,7 +176,7 @@ export async function loginCommand(options: LoginOptions): Promise<void> {
     output.debug(`Created symlink: ${profileSlug} → ${profileId}`);
   }
   // If --account alias was given and differs from the profile slug, create it too
-  if (options.account && options.account !== profileSlug) {
+  if (options.account && options.account !== profileSlug && options.account !== profileId) {
     await store.accounts.createAlias(options.account, profileId);
     output.debug(`Created alias: ${options.account} → ${profileId}`);
   }

@@ -23,6 +23,7 @@ afterEach(async () => {
 describe("CLI login account identity", () => {
   it.each([
     "owner",
+    "ACoExpected",
     undefined,
   ])("preserves known profile metadata when re-login omits it (account=%s)", async (account) => {
     root = await mkdtemp(join(tmpdir(), "allman-login-"));
@@ -41,6 +42,9 @@ describe("CLI login account identity", () => {
       lastSyncAt: "2026-09-20T12:00:00.000Z",
     };
     await store.accounts.writeAuth("ACoExpected", known);
+    await store.accounts.writeConfig("ACoExpected", {
+      proxy: { host: "proxy.fixture", port: 8080 },
+    });
     await store.accounts.createAlias("owner", "ACoExpected");
     vi.mocked(runLogin).mockResolvedValue({
       success: true,
@@ -52,6 +56,9 @@ describe("CLI login account identity", () => {
       cookieJar: { cookies: [] },
     });
     await loginCommand({ store: root, account, salesnav: false });
+    expect(runLogin).toHaveBeenLastCalledWith(
+      expect.objectContaining({ proxy: { host: "proxy.fixture", port: 8080 } })
+    );
     expect(await store.accounts.readAuth("ACoExpected")).toEqual({
       ...known,
       status: "authenticated",

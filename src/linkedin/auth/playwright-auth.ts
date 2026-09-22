@@ -14,11 +14,11 @@
  *   1. Opens a browser window (headed) or attaches to a running one
  *   2. Injects existing cookies if any (may skip login form entirely;
  *      never done to a --cdp browser — that session is not ours to mutate)
- *   3. Navigates to linkedin.com/login
- *   4. Waits for the user to complete login (URL becomes /feed or /in/)
- *   5. Intercepts voyagerIdentityDashProfiles API response to extract the profile URN
- *   6. Extracts all cookies from the browser context
- *   7. Saves everything to the account RECORD.json
+ *   3. Verifies existing browser cookies against the authenticated /me endpoint
+ *   4. Opens login only if the browser session needs authentication
+ *   5. Captures the realtime app version from Shield-protected feed requests
+ *   6. Optionally captures the Sales Navigator seat, then re-verifies the export
+ *   7. Returns the verified owner and updated cookie jar for private local storage
  *
  * Re-auth flow (cookies exist but expired):
  *   Same as above — inject existing cookies first. LinkedIn may skip the login
@@ -27,19 +27,23 @@
  * Timeout: 5 minutes (configurable via LOGIN_TIMEOUT_MS env var).
  */
 
-import type { BrowserContext, Page } from "playwright";
+import type { Page, Request } from "playwright";
+import type { AccountCookies, ProxyConfig } from "../../store/types.js";
 import * as output from "../../utils/output.js";
+import { buildEmptyApiClient, LinkedInError } from "../api/client.js";
 import {
   cookiesFromPlaywright,
   isAuthenticated,
   isLinkedInCookieDomain,
   type PlaywrightCookie,
+  serializeCookieJar,
 } from "../api/cookies.js";
+import { getCurrentProfile } from "../api/endpoints/profiles.js";
 import { openBrowserContext } from "./browser.js";
 
 const LOGIN_URL = "https://www.linkedin.com/login";
-const FEED_URL_PATTERN = /linkedin\.com\/(feed|in\/|messaging)/;
-const PROFILE_URN_REGEX = /urn:li:fsd_profile:([^,)"]+)/;
+const FEED_URL = "https://www.linkedin.com/feed/";
+const FEED_URL_PATTERN = /^https:\/\/www\.linkedin\.com\/(feed|in\/|messaging)/;
 
 const LOGIN_TIMEOUT_MS = parseInt(process.env.LOGIN_TIMEOUT_MS ?? "300000", 10); // 5 minutes
 
@@ -51,6 +55,7 @@ export interface AuthResult {
   profileUrl: string | null;
   imageUrl: string | null;
   cookieJar: object;
+  requestIdentity?: AccountCookies["requestIdentity"];
   error?: string;
 }
 
@@ -69,6 +74,8 @@ export interface AuthOptions {
   identity?: string;
   /** Visit Sales Navigator to capture the seat cookie (optional; default true). */
   salesnav?: boolean;
+  /** Use the same HTTP proxy as normal CLI requests when verifying the export. */
+  proxy?: ProxyConfig;
 }
 
 /**
@@ -87,81 +94,137 @@ export async function runLogin(options: AuthOptions = {}): Promise<AuthResult> {
     identity: options.identity,
   });
   const context = session.context;
+  let page: Page | undefined;
 
-  output.info(
-    session.kind === "cdp"
-      ? `Attached to ${session.description} — complete login there if prompted.`
-      : `Opening LinkedIn via ${session.description} — please complete login in the browser window.`
-  );
+  try {
+    output.info(
+      session.kind === "cdp"
+        ? `Attached to ${session.description} — complete login there if prompted.`
+        : `Opening LinkedIn via ${session.description} — please complete login in the browser window.`
+    );
 
-  // Inject existing cookies if provided (may let us skip login entirely).
-  // Never into a --cdp browser: that session belongs to the user, and writing
-  // our stored cookies into it could clobber whatever account they're using.
-  if (options.existingCookieJar && session.kind !== "cdp") {
-    try {
-      const cookieData = options.existingCookieJar as { cookies?: PlaywrightCookie[] };
-      if (cookieData.cookies && Array.isArray(cookieData.cookies)) {
-        const playwrightCookies = cookieData.cookies
-          .map((c) => toughCookieToPlaywright(c as unknown as Record<string, unknown>))
-          .filter(Boolean) as Array<{
-          name: string;
-          value: string;
-          domain: string;
-          path: string;
-          expires?: number;
-          httpOnly?: boolean;
-          secure?: boolean;
-          sameSite?: "Strict" | "Lax" | "None";
-        }>;
-        if (playwrightCookies.length > 0) {
-          await context.addCookies(playwrightCookies);
-          output.debug(`Injected ${playwrightCookies.length} existing cookies`);
-        }
-      }
-    } catch (err) {
-      output.debug(`Failed to inject existing cookies: ${String(err)}`);
-    }
-  }
-
-  let profileUrn: string | null = null;
-  let interceptedProfileData: ProfileApiData | null = null;
-
-  const page = await context.newPage();
-
-  // Listen for profile URN in API responses (works better than route interception
-  // because it doesn't block/modify the request, just observes it)
-  page.on("response", async (response) => {
-    if (!profileUrn && response.url().includes("voyagerIdentityDashProfiles")) {
+    // Inject existing cookies if provided (may let us skip login entirely).
+    // Never into a --cdp browser: that session belongs to the user, and writing
+    // our stored cookies into it could clobber whatever account they're using.
+    if (options.existingCookieJar && session.kind !== "cdp") {
       try {
-        if (response.request().method() === "OPTIONS" || response.status() !== 200) return;
-        const body = (await response.json()) as unknown;
-        const urnMatch = JSON.stringify(body).match(PROFILE_URN_REGEX);
-        if (urnMatch?.[1]) {
-          profileUrn = `urn:li:fsd_profile:${urnMatch[1]}`;
-          interceptedProfileData = extractProfileFromApiResponse(body);
-          output.debug(`Captured profile URN from response: ${profileUrn}`);
+        const cookieData = options.existingCookieJar as { cookies?: PlaywrightCookie[] };
+        if (cookieData.cookies && Array.isArray(cookieData.cookies)) {
+          const playwrightCookies = cookieData.cookies
+            .map((c) => toughCookieToPlaywright(c as unknown as Record<string, unknown>))
+            .filter(Boolean) as Array<{
+            name: string;
+            value: string;
+            domain: string;
+            path: string;
+            expires?: number;
+            httpOnly?: boolean;
+            secure?: boolean;
+            sameSite?: "Strict" | "Lax" | "None";
+          }>;
+          if (playwrightCookies.length > 0) {
+            await context.addCookies(playwrightCookies);
+            output.debug(`Injected ${playwrightCookies.length} existing cookies`);
+          }
         }
-      } catch {
-        // Non-JSON or inaccessible response
+      } catch (err) {
+        output.debug(`Failed to inject existing cookies: ${String(err)}`);
       }
     }
-  });
 
-  try {
-    await page.goto(LOGIN_URL, { waitUntil: "domcontentloaded", timeout: 30_000 });
-  } catch {
-    // Timeout on initial navigation is OK — LinkedIn can be slow
-  }
+    // Read the actual browser identity from an owned blank page after Shield passes.
+    // Navigator fields are available before any LinkedIn navigation.
+    page = await context.newPage();
+    const requestIdentity: NonNullable<AccountCookies["requestIdentity"]> = await page.evaluate(
+      () => {
+        const nav = (
+          globalThis as unknown as { navigator: { userAgent: string; language: string } }
+        ).navigator;
+        return { userAgent: nav.userAgent, acceptLanguage: nav.language };
+      }
+    );
+    const captureVerifiedSession = async () => {
+      const rawCookies = (await context.cookies("https://www.linkedin.com")).filter((c) =>
+        isLinkedInCookieDomain(c.domain)
+      );
+      const jar = await cookiesFromPlaywright(rawCookies);
+      if (!(await isAuthenticated(jar))) {
+        throw new LinkedInError("LinkedIn session cookies are missing.", "UNAUTHENTICATED");
+      }
+      const client = buildEmptyApiClient(options.proxy, requestIdentity);
+      client.updateJar(jar);
+      const profile = await getCurrentProfile(client);
+      return { profile, cookieJar: serializeCookieJar(client.getJar()) };
+    };
 
-  // Wait for successful authentication (URL changes to /feed, /in/, or /messaging)
-  output.info(
-    `Waiting for you to complete login (up to ${Math.round(LOGIN_TIMEOUT_MS / 60000)} minutes)...`
-  );
-  try {
-    await page.waitForURL(FEED_URL_PATTERN, { timeout: LOGIN_TIMEOUT_MS });
-  } catch {
-    await page.close().catch(() => {});
-    await session.close();
+    let verified: Awaited<ReturnType<typeof captureVerifiedSession>> | undefined;
+    try {
+      verified = await captureVerifiedSession();
+    } catch (error) {
+      // Network errors and unknown identities must not trigger an unnecessary login.
+      if (!(error instanceof LinkedInError) || error.code !== "UNAUTHENTICATED") throw error;
+    }
+
+    if (!verified) {
+      try {
+        await page.goto(LOGIN_URL, { waitUntil: "domcontentloaded", timeout: 30_000 });
+      } catch {
+        // A slow initial navigation can still complete within the login deadline.
+      }
+      output.info(
+        `Waiting for you to complete login (up to ${Math.ceil(LOGIN_TIMEOUT_MS / 60000)} minutes)...`
+      );
+      try {
+        await page.waitForURL(FEED_URL_PATTERN, {
+          timeout: LOGIN_TIMEOUT_MS,
+          waitUntil: "domcontentloaded",
+        });
+      } catch {
+        throw new Error(`Login timed out after ${LOGIN_TIMEOUT_MS / 1000}s. Please try again.`);
+      }
+      verified = await captureVerifiedSession();
+    }
+
+    // Realtime requires the current voyager-web version. Capture it from actual
+    // protected browser requests rather than inventing a version or scraping
+    // the feed HTML, which can belong to a different LinkedIn frontend.
+    const [runtimeRequest] = await Promise.all([
+      page.waitForRequest((request) => Boolean(realtimeVersion(request)), { timeout: 30_000 }),
+      page.goto(FEED_URL, { waitUntil: "domcontentloaded", timeout: 30_000 }),
+    ]);
+    requestIdentity.mpVersion = realtimeVersion(runtimeRequest);
+    if (!requestIdentity.mpVersion) throw new Error("Could not verify LinkedIn realtime version.");
+    const afterCapture = await captureVerifiedSession();
+    if (afterCapture.profile.urn !== verified.profile.urn) {
+      throw new Error("LinkedIn account changed during login. No session was saved.");
+    }
+    verified = afterCapture;
+
+    if (options.salesnav !== false) {
+      const cookies = await context.cookies("https://www.linkedin.com");
+      if (!cookies.some((cookie) => cookie.name === SALESNAV_SEAT_COOKIE && cookie.value)) {
+        page ??= await context.newPage();
+        await warmSalesNavSeat(page);
+        const refreshed = await captureVerifiedSession();
+        if (refreshed.profile.urn !== verified.profile.urn) {
+          throw new Error("LinkedIn account changed during login. No session was saved.");
+        }
+        verified = refreshed;
+      }
+    }
+
+    output.success("LinkedIn session and account verified.");
+    return {
+      success: true,
+      profileUrn: verified.profile.urn,
+      name: verified.profile.name,
+      headline: verified.profile.headline,
+      profileUrl: verified.profile.profileUrl,
+      imageUrl: verified.profile.imageUrl,
+      cookieJar: verified.cookieJar,
+      requestIdentity,
+    };
+  } catch (error) {
     return {
       success: false,
       profileUrn: null,
@@ -170,117 +233,29 @@ export async function runLogin(options: AuthOptions = {}): Promise<AuthResult> {
       profileUrl: null,
       imageUrl: null,
       cookieJar: {},
-      error: `Login timed out after ${LOGIN_TIMEOUT_MS / 1000}s. Please try again.`,
+      error: error instanceof Error ? error.message : "LinkedIn login failed.",
     };
-  }
-
-  output.success("Login detected — extracting session...");
-
-  // If we haven't captured the profile URN via response listener yet,
-  // navigate to the profile page to trigger the voyagerIdentityDashProfiles API call.
-  // The response listener on `page` will set profileUrn if the call succeeds.
-  if (!profileUrn) {
-    await extractProfileUrnFromPage(page, context);
-    // profileUrn may now be set by the response listener — don't overwrite it
-  }
-
-  // Warm the Sales Navigator seat (best-effort, optional). Visiting the SalesNav
-  // app lets the SPA run its enterprise-auth handshake in-browser, which sets the
-  // seat cookies. Capturing those here means later `sales-api/*` REST calls work
-  // with no per-call handshake. Accounts without a SalesNav seat just fall
-  // through; skipped entirely when salesnav === false.
-  if (options.salesnav !== false) {
-    await warmSalesNavSeat(page);
-  }
-
-  // Extract the LinkedIn cookies from the browser context. The domain filter
-  // matters most for --cdp and --profile: a real browser's context carries
-  // cookies for every site the user visits, and none of that belongs in the
-  // account's COOKIES.json.
-  const rawCookies = (await context.cookies()).filter((c) => isLinkedInCookieDomain(c.domain));
-  const jar = await cookiesFromPlaywright(
-    rawCookies.map((c) => ({
-      name: c.name,
-      value: c.value,
-      domain: c.domain,
-      path: c.path,
-      expires: c.expires,
-      httpOnly: c.httpOnly,
-      secure: c.secure,
-      sameSite: c.sameSite,
-    }))
-  );
-
-  const isAuth = await isAuthenticated(jar);
-  if (!isAuth) {
-    await page.close().catch(() => {});
+  } finally {
+    await page?.close().catch(() => {});
     await session.close();
-    return {
-      success: false,
-      profileUrn: null,
-      name: null,
-      headline: null,
-      profileUrl: null,
-      imageUrl: null,
-      cookieJar: {},
-      error: "Authentication appeared to succeed but session cookies are missing.",
-    };
   }
-
-  // Extract profile data from page DOM if not captured via interception
-  const domProfile = (await extractProfileFromDom(page)) as DomProfileData;
-  const name = (interceptedProfileData as ProfileApiData | null)?.name ?? domProfile.name;
-  const headline =
-    (interceptedProfileData as ProfileApiData | null)?.headline ?? domProfile.headline;
-  const profileUrl = domProfile.profileUrl;
-  const imageUrl = domProfile.imageUrl;
-
-  // Close only the tab we opened; session.close() disconnects (cdp) or quits.
-  await page.close().catch(() => {});
-  await session.close();
-
-  const { serializeCookieJar } = await import("../api/cookies.js");
-  const cookieJar = serializeCookieJar(jar);
-
-  return {
-    success: true,
-    profileUrn,
-    name,
-    headline,
-    profileUrl,
-    imageUrl,
-    cookieJar,
-  };
 }
 
 // ---------------------------------------------------------------------------
 // Helpers
 // ---------------------------------------------------------------------------
 
-interface ProfileApiData {
-  name: string | null;
-  headline: string | null;
-}
-
-interface DomProfileData {
-  name: string | null;
-  headline: string | null;
-  profileUrl: string | null;
-  imageUrl: string | null;
-}
-
-function extractProfileFromApiResponse(body: unknown): ProfileApiData {
+function realtimeVersion(request: Request): string | undefined {
+  if (new URL(request.url()).origin !== "https://www.linkedin.com") return undefined;
   try {
-    const str = JSON.stringify(body);
-    // Try to find firstName/lastName in the response
-    const firstMatch = str.match(/"firstName":"([^"]+)"/);
-    const lastMatch = str.match(/"lastName":"([^"]+)"/);
-    const headlineMatch = str.match(/"headline":"([^"]+)"/);
-    const name = firstMatch && lastMatch ? `${firstMatch[1]} ${lastMatch[1]}`.trim() : null;
-    return { name, headline: headlineMatch ? (headlineMatch[1] ?? null) : null };
+    const track = JSON.parse(request.headers()["x-li-track"] ?? "{}");
+    if (track.mpName === "voyager-web" && /^\d+(?:\.\d+)+$/.test(track.mpVersion ?? "")) {
+      return track.mpVersion;
+    }
   } catch {
-    return { name: null, headline: null };
+    // Requests without a usable tracking header do not establish the app version.
   }
+  return undefined;
 }
 
 /**
@@ -329,65 +304,6 @@ async function warmSalesNavSeat(page: Page): Promise<void> {
     );
   } catch {
     output.debug("Sales Navigator warm-up skipped (navigation failed).");
-  }
-}
-
-async function extractProfileUrnFromPage(
-  page: Page,
-  _context: BrowserContext
-): Promise<string | null> {
-  // Navigate to /in/ — LinkedIn redirects to the user's own profile page,
-  // and the page load triggers a voyagerIdentityDashProfiles API call
-  // that the page-level response listener will capture.
-  try {
-    await page.goto("https://www.linkedin.com/in/", {
-      waitUntil: "domcontentloaded",
-      timeout: 15_000,
-    });
-
-    // Wait a moment for XHR responses to land (the API call is async)
-    await page.waitForTimeout(3000);
-
-    // Return the profile slug from the redirected URL as a fallback identifier
-    const url = page.url();
-    const urlMatch = url.match(/linkedin\.com\/in\/([^/?]+)/);
-    if (urlMatch?.[1]) {
-      output.debug(`Profile slug from redirect: ${urlMatch[1]}`);
-      return urlMatch[1]; // Return slug, not a full URN — caller handles lookup
-    }
-  } catch {
-    // Navigation timeout is OK
-  }
-
-  return null;
-}
-
-async function extractProfileFromDom(page: Page): Promise<DomProfileData> {
-  try {
-    // page.evaluate runs in browser context — cast to bypass Node TS lib restrictions
-    return await (page.evaluate as (fn: () => DomProfileData) => Promise<DomProfileData>)(() => {
-      // biome-ignore lint/suspicious/noExplicitAny: browser globals not typed in Node lib
-      const doc = (globalThis as any).document as {
-        querySelector: (s: string) => { textContent?: string; src?: string } | null;
-      };
-      // biome-ignore lint/suspicious/noExplicitAny: browser globals not typed in Node lib
-      const win = (globalThis as any).window as { location: { href: string } };
-      const nameEl = doc.querySelector(
-        ".artdeco-entity-lockup__title, .profile-nav-item__title, .t-24.t-bold"
-      );
-      const headlineEl = doc.querySelector(".profile-nav-item__text, .t-14.t-normal");
-      const imageEl = doc.querySelector("img.global-nav__me-photo, img.profile-picture");
-      const currentUrl = win.location.href;
-
-      return {
-        name: nameEl?.textContent?.trim() ?? null,
-        headline: headlineEl?.textContent?.trim() ?? null,
-        profileUrl: currentUrl.includes("/in/") ? currentUrl : null,
-        imageUrl: imageEl?.src ?? null,
-      };
-    });
-  } catch {
-    return { name: null, headline: null, profileUrl: null, imageUrl: null };
   }
 }
 
