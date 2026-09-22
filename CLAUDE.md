@@ -57,11 +57,16 @@ Slug = the LinkedIn `publicIdentifier` (e.g. `linkedin.com/in/sarah-chen` → `s
 
 ### Cookie management
 Every API call must:
-1. Read cookies from `accounts/{slug}/RECORD.json`
+1. Read cookies and captured browser identity from private, gitignored `{profileId}/COOKIES.json`
 2. Filter out expired cookies
 3. Build `Cookie:` header string
 4. Extract `csrf-token` from `JSESSIONID` value (strip surrounding quotes)
-5. After response: parse `Set-Cookie` headers with `tough-cookie`, merge by name, save back
+5. After response: parse `Set-Cookie` headers with `tough-cookie`, merge by name, and save back with the captured request identity
+
+`AUTH.json` is Git-tracked public account metadata. Never pass the merged `AccountRecord`
+to `writeAuth`: it includes cookies. Read `readAuth()` when changing authentication status,
+including logout. `allman status` is a local check; `status --check` verifies the session and
+owner remotely. Login must verify Shield before cookie access or browser navigation.
 
 ### URN construction for send
 ```

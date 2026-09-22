@@ -12,7 +12,7 @@ export async function logoutCommand(options: LogoutOptions): Promise<void> {
   await store.init();
 
   const profileId = await store.accounts.getDefault(options.account);
-  const existing = await store.accounts.read(profileId);
+  const existing = await store.accounts.readAuth(profileId);
 
   if (!existing) {
     error(`Account "${profileId}" not found.`, 1);
