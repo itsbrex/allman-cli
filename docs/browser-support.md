@@ -22,6 +22,10 @@ Login and query-ID capture share the browser/Shield settings. Capture uses a sep
 
 ## Isolated accounts
 
+Isolation does not prevent simultaneous use. Enable [single-profile control](single-active-profile.md)
+when only one LinkedIn account should be active. It pauses LinkedIn in inactive
+registered browsers and guards CLI commands across stores.
+
 Use three separate locations for another account: its account store, browser
 workspace/configuration, and persistent browser profile. An account alias alone
 does not isolate a browser attached through CDP. Never copy another account's

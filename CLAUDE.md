@@ -338,6 +338,23 @@ Single-context: one `CONTEXT.md` at the repo root plus ADRs in `docs/adr/`. See 
 
 For another LinkedIn account, isolate the store, `ALLMAN_BROWSER_WORKSPACE`, and browser profile together. Clear inherited CDP/browser overrides in its dedicated launcher; never copy the original account's cookies or change the user's global store selection. Use the same verified Shield build and require manual sign-in to the new identity. See [isolated accounts](docs/browser-support.md#isolated-accounts).
 
+Keep only one LinkedIn profile active across this user's Allman launchers. Use
+`session register`, `session activate <name>`, and `session status`; do not switch
+stores to bypass the active selection. `session-control.ts` owns the shared
+process lock and CLI network-command classification. An empty `connections --geo`
+array is the network default, not a local query. `status --check` resolves exactly
+one account. New commands that can reach LinkedIn must remain guarded; local-only
+commands must not initialize a session. Browser overrides and Neo MCP routing
+cannot bypass a registered CDP binding. Direct library consumers must go through
+the CLI guard or explicitly acquire/check session control themselves.
+
+`profile-pause.ts` adds only its reserved dynamic Shield rule to inactive
+registered browsers, closes their LinkedIn tabs, and preserves other tabs and
+privacy rules. Switches block inactive browsers before enabling the selected one;
+failed verification leaves CLI access paused. Never disable Shield or remove the
+pause rule to work around an inactive-account error. See
+[single-profile control](docs/single-active-profile.md).
+
 For a full connection baseline, enumerate flagship connections first, optionally export Sales Navigator's separate capped namespace, then run bounded `enrich --deep` batches. Report stored counts, failures, and quota exhaustion explicitly; Sales Navigator is not the deep-profile backend. Keep one enrichment process per account and retain the quota ledger. See [connection baseline](docs/connection-baseline.md).
 
 

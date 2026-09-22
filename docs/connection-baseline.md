@@ -78,7 +78,11 @@ Sales Navigator seat cookie** or **25/day without one**, subject to account
 configuration. These are local safeguards, not published LinkedIn allowances
 or guarantees of acceptance. Failed attempts consume capacity. The ledger
 persists across runs; do not reset it or copy the same account into another
-store to bypass it. Run one enrichment process per account at a time.
+store to bypass it. The CLI allows only one LinkedIn command at a time across
+stores and accounts. Stop a running `listen`/`start` before enrichment. With
+[single-profile control](single-active-profile.md) enabled, explicitly activate
+the desired profile before a batch; inactive accounts remain available for local
+history and relationship queries.
 
 Fetching is paced between profiles. On exhaustion the command stops and reports
 when capacity returns; it does not wait or schedule another run. For 1,427

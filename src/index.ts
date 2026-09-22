@@ -36,6 +36,7 @@ import { reactCommand } from "./commands/react.js";
 import { relationshipsCommand } from "./commands/relationships.js";
 import { searchCommand } from "./commands/search.js";
 import { sendCommand } from "./commands/send.js";
+import { sessionCommand } from "./commands/session.js";
 import { startCommand } from "./commands/start.js";
 import { statusCommand } from "./commands/status.js";
 import {
@@ -45,6 +46,7 @@ import {
   storeUseCommand,
 } from "./commands/store-cmd.js";
 import { syncCommand } from "./commands/sync.js";
+import { beginLinkedInCommand } from "./linkedin/session-control.js";
 import { setDebugMode, setJsonMode } from "./utils/output.js";
 
 function positiveInteger(value: string): number {
@@ -55,6 +57,7 @@ function positiveInteger(value: string): number {
 }
 
 const program = new Command();
+let releaseLinkedInCommand: (() => void) | null = null;
 
 program
   .name("allman")
@@ -68,7 +71,22 @@ program
     const opts = thisCommand.opts();
     if (opts.json) setJsonMode(true);
     if (opts.debug) setDebugMode(true);
+  })
+  .hook("preAction", async (_program, command) => {
+    releaseLinkedInCommand = await beginLinkedInCommand(command);
+  })
+  .hook("postAction", () => {
+    releaseLinkedInCommand?.();
+    releaseLinkedInCommand = null;
   });
+
+program
+  .command("session <action> [name]")
+  .description("Control the one active LinkedIn profile across all stores")
+  .option("-a, --account <slug>", "account to register")
+  .option("-s, --store <path>", "store to register")
+  .option("--json", "output as JSON")
+  .action(async (action, name, _opts, cmd) => sessionCommand(action, name, cmd.optsWithGlobals()));
 
 // ---------------------------------------------------------------------------
 // login
@@ -806,6 +824,7 @@ program
   );
 
 program.parseAsync(process.argv).catch((err: unknown) => {
+  releaseLinkedInCommand?.();
   process.stderr.write(`Error: ${String(err)}\n`);
   process.exit(1);
 });
