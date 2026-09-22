@@ -20,6 +20,60 @@ Configuration is saved only after successful live verification. Flags override e
 
 Login and query-ID capture share the browser/Shield settings. Capture uses a separate persistent profile for each account so injecting its cookies cannot replace a login profile's account. `--account` selects the login identity. An explicit `--profile` selects the login directory; capture uses a separate subdirectory. Browser profile locks are reported rather than retried in another browser.
 
+## Isolated accounts
+
+Use three separate locations for another account: its account store, browser
+workspace/configuration, and persistent browser profile. An account alias alone
+does not isolate a browser attached through CDP. Never copy another account's
+browser directory or cookies into the new profile.
+
+For example, initialize and sign in within an isolated shell environment:
+
+```sh
+(
+  umask 077
+  unset ALLMAN_CDP_URL ALLMAN_BROWSER ALLMAN_BROWSER_PROFILE ALLMAN_SHIELD_PATH
+  unset PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH
+  export ALLMAN_STORE="$HOME/.local/share/allman/accounts/jp/store"
+  export ALLMAN_BROWSER_WORKSPACE="$HOME/.local/share/allman/accounts/jp/browser-workspace"
+  export ALLMAN_ACCOUNT=jp
+  mkdir -p "$ALLMAN_STORE" "$ALLMAN_BROWSER_WORKSPACE"
+  allman store status
+  allman browser configure --browser browseros-neo \
+    --profile "$HOME/.local/share/allman/accounts/jp/neo-profile" \
+    --shield /absolute/path/to/linkedin-shield/.dev-build --account jp
+  allman login --account jp
+  allman status --account jp --check
+)
+```
+
+`store status` initializes the empty local store through the CLI. Configuration
+is saved only after the new profile passes live Shield verification. Login loads
+and checks Shield again before opening LinkedIn, then saves that account's
+verified cookies privately. Enter the different account's credentials manually
+in the new window. Do not sign out the original account to perform this setup.
+
+For repeated use, put the isolated environment in a dedicated launcher (for
+example, `allman-jp`) that clears inherited browser/CDP overrides, pins the
+three defaults, and forwards arguments to the same Allman executable. Use an
+explicit `login --account jp` to create or reauthenticate that alias. Keep the
+ordinary `allman` launcher and saved store selection unchanged. Explicit CLI
+flags still override launcher defaults, so do not pass another account's
+`--store`, `--profile`, or `--cdp` to the isolated launcher.
+
+If Neo needs `--enable-features=OnDeviceModelForceCpuBackend`, a small executable
+wrapper can forward that flag and all received arguments to the installed Neo
+binary. Select it with `browser configure --executable /absolute/path/to/wrapper`
+instead of `--browser`; the configuration reports `custom`, but launches that
+same Neo binary. The wrapper must not add the original browser's CDP endpoint
+or user-data directory. Login and query-ID capture then retain the same CPU flag
+and their separate persistent profiles.
+
+After login, use [the connection baseline workflow](connection-baseline.md)
+with that account's launcher or explicit store/account selection. Each account
+keeps its own quota ledger; do not create another store for the same identity
+to obtain extra capacity.
+
 ## Saved cookies and live authentication
 
 `allman status` reports saved account metadata and local cookie presence; it does not prove that LinkedIn still accepts that session. Use `allman status --check` for a read-only `/voyager/api/me` request that verifies the saved session belongs to the selected account. JSON output keeps the existing saved `status` and adds `sessionStatus` (`not_checked`, `authenticated`, `unauthenticated`, or `error`) and `sessionError`.

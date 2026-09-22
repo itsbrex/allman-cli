@@ -336,6 +336,10 @@ Single-context: one `CONTEXT.md` at the repo root plus ADRs in `docs/adr/`. See 
 
 `allman browser configure --browser browseros-neo --shield /path/to/linkedin-shield/dist` verifies and saves browser defaults. `allman browser doctor --json` checks the running extension. Every login/capture uses a persistent profile and must verify Shield before LinkedIn navigation; no unprotected fallback or ephemeral context is allowed. Capture profiles are separate per account. CDP uses the existing default context, never injects cookies, and capture requires a matching LinkedIn session. See `docs/browser-support.md`.
 
+For another LinkedIn account, isolate the store, `ALLMAN_BROWSER_WORKSPACE`, and browser profile together. Clear inherited CDP/browser overrides in its dedicated launcher; never copy the original account's cookies or change the user's global store selection. Use the same verified Shield build and require manual sign-in to the new identity. See [isolated accounts](docs/browser-support.md#isolated-accounts).
+
+For a full connection baseline, enumerate flagship connections first, optionally export Sales Navigator's separate capped namespace, then run bounded `enrich --deep` batches. Report stored counts, failures, and quota exhaustion explicitly; Sales Navigator is not the deep-profile backend. Keep one enrichment process per account and retain the quota ledger. See [connection baseline](docs/connection-baseline.md).
+
 
 ### Read-only command QA
 
