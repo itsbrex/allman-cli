@@ -96,3 +96,11 @@ for no apparent reason, a rotated queryId or decoration is the first hypothesis.
 
 `allman listen` streams **NDJSON to stdout**; every log, error, and debug line goes to **stderr**.
 This split is a contract, not a convention — agents parse stdout.
+
+## Local relationship intelligence (0.4.0-rc.1)
+
+`group`, `rank`, `icp`, `contact`, `graph`, and `intro-to` reuse the existing store and
+private mail/Attio identity workspace. See [agent contract](docs/agents/relationship-intelligence.md)
+and [release evidence](docs/releases/2026-09-22-relationship-intelligence.md).
+Open upstream issue status is not proof a feature is missing locally. This fork now
+adds observed traversal and fit/rank workflows on top of upstream's data layer.

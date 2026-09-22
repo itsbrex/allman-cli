@@ -24,11 +24,26 @@ src/commands/                One file per subcommand
 src/linkedin/auth/           Playwright-based interactive login
 src/linkedin/api/            Axios client with LinkedIn headers + cookie management
 src/linkedin/realtime/       SSE stream client with reconnect
+src/relationships/           Pure rank, ICP evidence and observed graph logic
 src/store/                   File store: RECORD.json files + JSONL messages + git
 src/utils/                   URN helpers, slug extraction, output formatting
-tests/unit/                  Fast, no network
-tests/unit/                  Unit and mocked command integration tests
+tests/unit/                  Unit, mocked network and real local CLI integration tests
 ```
+
+## Relationship intelligence
+
+Read [docs/agents/relationship-intelligence.md](docs/agents/relationship-intelligence.md)
+before changing rank, ICP, groups, or graph behavior. These commands operate on local
+evidence and must not initialize LinkedIn sessions, send/draft messages, or call model
+providers. Fit and relationship strength remain separate. Profile enrichment is not
+connection evidence; unknown strength and missing fit evidence stay unknown.
+
+Store Git must own its `.git` boundary and clear inherited repository-routing and
+interactive executable overrides. Hooks can supply `GIT_INDEX_FILE`; never let a store
+write to its parent's index. Preserve Git identity variables and normal config files.
+
+Release packaging is a dry run by default. Publication requires `--publish --repo`
+and matching origin fetch/push repositories; never hardcode upstream as a write target.
 
 ## File store layout
 

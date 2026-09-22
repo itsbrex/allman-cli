@@ -33,3 +33,28 @@ Open upstream issues are not proof of missing local code. In particular, some co
 10. End-to-end verification, docs/agent docs, release packaging and remaining-gap report.
 
 Each implementation deliverable receives a focused commit and regression coverage. Private business context, contacts, cookies and qualification results stay outside the source repository. Existing user WIP is preserved.
+
+## Verification and candidate packaging
+
+Source candidate version: `0.4.0-rc.1`. Final integration fixes also isolate store Git
+from parent repositories/hook environments, preserve unknown field observation times,
+and reject unsupported ICP flags. A recently touched person/company record is not
+proof that every field was re-observed.
+
+- CLI suite: **617 tests across 71 files passed**; typecheck passed. Lint passed
+  with eight existing informational suggestions.
+- Real subprocess integration exercises groups, ranking overrides, ICP definitions,
+  local rules, offline export/import, changed-evidence rejection, sticky overrides,
+  combined filtering and two-step introductions against synthetic stores.
+- Rejected stale imports leave the qualification file byte-identical. Private-file
+  permissions and preservation of parent Git history/index are covered.
+- Existing no-send QA remains at [command validation](../qa/2026-09-22-command-validation.md).
+  Its authenticated Sales Navigator, deep-enrichment and first-degree checks are
+  earlier-run evidence; this feature batch does not repeat outbound-capable live tests.
+- Four-target packaging and compiled native workflow results will be recorded below
+  after clean-checkout verification. Cross-compilation alone is not runtime validation.
+
+Remaining upstream scope is explicit: automatic paid/model-provider integration,
+new TUI fit/rank/graph controls, observed third-party relationship-strength evidence,
+semantic natural-language graph search, and introduction ask/draft tracking. No public
+release, push, or upstream issue mutation is performed by this batch.

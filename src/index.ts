@@ -3,6 +3,7 @@ import { graphCommand } from "./commands/graph.js";
 import { groupsCommand } from "./commands/groups.js";
 import { icpCommand } from "./commands/icp.js";
 import { rankCommand } from "./commands/rank.js";
+import { VERSION } from "./version.js";
 /**
  * allman — LinkedIn messenger from the CLI
  *
@@ -58,7 +59,7 @@ const program = new Command();
 program
   .name("allman")
   .description("LinkedIn messenger from the CLI")
-  .version("0.3.2")
+  .version(VERSION)
   .option("-a, --account <slug>", "account to use ($ALLMAN_ACCOUNT)")
   .option("-s, --store <path>", "store directory ($ALLMAN_STORE, saved selection, or ./.allman)")
   .option("--json", "output as JSON")

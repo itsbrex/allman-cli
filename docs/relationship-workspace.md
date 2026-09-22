@@ -4,15 +4,21 @@ The relationship workspace reads LinkedIn's file store, a private local Apple Ma
 
 ## Feature scope
 
-This workspace provides shared identities, observed timelines, filters, and follow-up state. The broader upstream proposals remain separate work:
+The local CLI now provides shared identities, observed timelines, follow-up state, composable groups, history-derived rank, versioned ICP qualification, and observed introduction paths. See the [release evidence](releases/2026-09-22-relationship-intelligence.md) and [CLI workflows](../README.md#local-tag-groups).
 
-| Proposal | Available foundation | Not implemented here |
+| Proposal | Implemented locally | Remaining boundaries |
 | --- | --- | --- |
-| [Relationship rank #6](https://github.com/tarkaai/allman-cli/issues/6) | Timestamped, directional LinkedIn and email events | Composite rank, latency/reciprocity factors, decay, pinning, or rank explanations |
-| [ICP qualification #7](https://github.com/tarkaai/allman-cli/issues/7) | Canonical contacts, enrichment fields, tags, company/location filters | ICP definitions, LLM qualification, confidence/reasoning, overrides, or re-qualification |
-| [Introduction graph #14](https://github.com/tarkaai/allman-cli/issues/14) | Stored first-degree and connections-of edges | Graph traversal, `intro-to`, ranked mutual paths, intro drafts, or outstanding-ask tracking |
+| [tarkaai/allman-cli#6](https://github.com/tarkaai/allman-cli/issues/6) | Explainable history score, latency/reciprocity, decay, pins, audited overrides | Heuristic, incomplete-history caveats; no seniority inference |
+| [tarkaai/allman-cli#7](https://github.com/tarkaai/allman-cli/issues/7) | Multiple versioned definitions, deterministic rules, validated offline LLM handoff, confidence/evidence, freshness, overrides and combined filters | No automatic external model/provider calls; natural-language fit needs reviewed evidence |
+| [tarkaai/allman-cli#14](https://github.com/tarkaai/allman-cli/issues/14) | Observed graph and ranked `intro-to` paths with both legs explained | Unknown peer strength stays null; no drafting, sending, ask tracking or semantic LLM search |
 
-Relationship strength and ICP fit would be separate dimensions. Existing cadence-based follow-up reminders are not relationship scores, and direct connection requests are not introductions through a mutual contact.
+Relationship strength and ICP fit remain separate dimensions. Cadence-based follow-ups are independent of scores. The companion TUI still exposes its existing relationship views; these new rank/ICP/graph workflows are CLI features.
+
+### Saved ICP context
+
+Business-specific source material can be kept privately in `icp/<name>.reference.json` under the relationship workspace. Reference files are preserved source context. Runtime definitions now live in `icp/definitions.json` and are created with `allman icp define <id> --file <definition.json>`. The original reference is not silently treated as executable configuration.
+
+The Cresa reference, `icp/cresa.reference.json`, retains the supplied Extrovert AI settings, source path and SHA-256, derived buyer/organization/footprint criteria, discovery preference, and messaging context. It also records requirements for separately explainable ICP fit and relationship strength, unknown evidence, and introduction paths backed by observed edges. Derived requirements are labeled as interpretations; scoring weights, numeric size thresholds, geography restrictions, and confidence cutoffs remain unspecified. Saving the reference alone changes no contacts or graph edges. A private versioned Cresa runtime definition now carries buyer-role, company-scale, footprint and buying-initiative requirements. It deliberately leaves unspecified thresholds unspecified. Natural-language requirements remain unknown without reviewed supporting evidence.
 
 ## Store boundary
 
@@ -28,6 +34,11 @@ Mail and relationship data live outside the Git-backed LinkedIn store:
   mail/                    local message copies
   contacts.json            local tags, cadence, confirmed identity links
   attio-lookups.json        reduced read-only CRM lookup evidence
+  rank-overrides.json       local score/pin decisions and audit history
+  icp/definitions.json     versioned runtime ICP definitions
+  icp/qualifications.json  results, evidence fingerprints and override history
+  icp/exports/             private bounded offline LLM handoffs
+  icp/*.reference.json     private ICP context; not loaded by current CLI
   relationship-settings.json
   relationship-view.json   derived TUI view
 ```

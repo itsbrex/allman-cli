@@ -3,6 +3,7 @@ import { homedir } from "node:os";
 import { join, relative } from "node:path";
 import { Client } from "@modelcontextprotocol/sdk/client/index.js";
 import { StreamableHTTPClientTransport } from "@modelcontextprotocol/sdk/client/streamableHttp.js";
+import { VERSION } from "../../version.js";
 import {
   CONNECTIONS_DECORATION_ID,
   parseConnectionsResponse,
@@ -40,7 +41,7 @@ export async function readNeoConnections(options: NeoConnectionOptions) {
   )
     throw new Error("Neo MCP requires an HTTP loopback endpoint without credentials.");
   const shield = await readShieldPackage(options.shieldPath);
-  const client = new Client({ name: "allman-cli", version: "0.3.2" });
+  const client = new Client({ name: "allman-cli", version: VERSION });
   let session: string | undefined;
   let targetId: string | undefined;
   let pageId: number | undefined;

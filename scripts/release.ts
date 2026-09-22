@@ -1,9 +1,10 @@
 #!/usr/bin/env bun
-// Cut a local allman-cli release: lint → test → build both Linux arches →
+// Package four local targets by default. Explicit publication: typecheck → lint → test → build →
 // checksum → tag → push → `gh release create` with assets.
 //
 // Usage:
-//   bun run release 2026-04-20.1-alpha
+//   bun run release 2026-04-20.1-alpha              # local dry-run by default
+//   bun run release 2026-04-20.1-alpha --publish --repo owner/allman-cli
 //   bun run release 2026-04-20.1-alpha --skip-tests   # not recommended
 //   bun run release 2026-04-20.1-alpha --dry-run      # build but don't tag/publish
 //
@@ -14,12 +15,13 @@ import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { $ } from "bun";
 import { compileAllman } from "./build.ts";
+import { assertPublicationTarget, releaseOptions } from "./release-options.ts";
 
 const ROOT = resolve(import.meta.dir, "..");
 const DIST = join(ROOT, "dist");
-const REPO = "tarkaai/allman-cli";
+
 const BIN = "allman";
-const TAG_REGEX = /^20\d{2}-\d{2}-\d{2}\.\d+(?:-(?:alpha|beta))?$/;
+
 const TARGETS = [
   { os: "linux", arch: "x64", bunTarget: "bun-linux-x64" },
   { os: "linux", arch: "arm64", bunTarget: "bun-linux-arm64" },
@@ -36,14 +38,7 @@ function log(msg: string) {
   console.log(`release: ${msg}`);
 }
 
-const args = process.argv.slice(2);
-const tag = args.find((a) => !a.startsWith("--"));
-const skipTests = args.includes("--skip-tests");
-const dryRun = args.includes("--dry-run");
-
-if (!tag) die("usage: bun run release <tag> [--skip-tests] [--dry-run]");
-if (!TAG_REGEX.test(tag))
-  die(`tag ${tag} does not match YYYY-MM-DD.N[-alpha|-beta]`);
+const { tag, repo, skipTests, dryRun } = releaseOptions(process.argv.slice(2));
 
 const isPrerelease = tag.includes("-alpha") || tag.includes("-beta");
 
@@ -72,9 +67,7 @@ async function assertOnMainPushed() {
 async function assertTagAvailable() {
   const existing = await sh(`git tag -l ${tag}`);
   if (existing) die(`tag ${tag} already exists locally`);
-  const remote = await sh(
-    `git ls-remote --tags origin refs/tags/${tag} | head -1`
-  );
+  const remote = await sh(`git ls-remote --tags origin refs/tags/${tag} | head -1`);
   if (remote) die(`tag ${tag} already exists on origin`);
 }
 
@@ -94,8 +87,17 @@ function sha256(path: string): string {
 async function main() {
   log(`cutting ${tag} (${isPrerelease ? "prerelease" : "stable"})`);
   await assertCleanTree();
-  await assertOnMainPushed();
-  await assertTagAvailable();
+  if (!dryRun) {
+    assertPublicationTarget(
+      repo as string,
+      await sh("git remote get-url origin"),
+      await sh("git remote get-url --push origin")
+    );
+    await assertOnMainPushed();
+    await assertTagAvailable();
+  }
+  log("typecheck");
+  await $`bun run typecheck`;
 
   log("lint");
   await $`bun run lint`;
@@ -112,6 +114,7 @@ async function main() {
 
   mkdirSync(DIST, { recursive: true });
   const assets: string[] = [];
+  const manifestAssets: { file: string; sha256: string; target: string }[] = [];
   for (const { os, arch, bunTarget } of TARGETS) {
     const bin = await build(os, arch, bunTarget);
     const sumPath = `${bin}.sha256`;
@@ -119,8 +122,15 @@ async function main() {
     writeFileSync(sumPath, `${sum}  ${BIN}-${os}-${arch}\n`);
     log(`sha256 ${os}-${arch}: ${sum}`);
     assets.push(bin, sumPath);
+    manifestAssets.push({ file: `${BIN}-${os}-${arch}`, sha256: sum, target: bunTarget });
   }
 
+  const manifest = join(DIST, "release-manifest.json");
+  writeFileSync(
+    manifest,
+    `${JSON.stringify({ schemaVersion: 1, tag, version: JSON.parse(readFileSync(join(ROOT, "package.json"), "utf8")).version, sourceCommit: await sh("git rev-parse HEAD"), dryRun, executedOn: `${process.platform}-${process.arch}`, assets: manifestAssets }, null, 2)}\n`
+  );
+  assets.push(manifest);
   if (dryRun) {
     log(`dry-run: built ${assets.length} assets, stopping before tag/publish`);
     return;
@@ -130,13 +140,11 @@ async function main() {
   await $`git tag ${tag}`;
   await $`git push origin ${tag}`;
 
-  log(`publishing release on ${REPO}`);
+  log(`publishing release on ${repo}`);
   const prereleaseFlag = isPrerelease ? ["--prerelease"] : [];
-  await $`gh release create ${tag} --repo ${REPO} --title ${tag} --generate-notes ${prereleaseFlag} ${assets}`;
+  await $`gh release create ${tag} --repo ${repo} --title ${tag} --generate-notes ${prereleaseFlag} ${assets}`;
 
-  const url = await sh(
-    `gh release view ${tag} --repo ${REPO} --json url --jq .url`
-  );
+  const url = await sh(`gh release view ${tag} --repo ${repo} --json url --jq .url`);
   log(`done: ${url}`);
 }
 

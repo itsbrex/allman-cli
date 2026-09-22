@@ -1068,3 +1068,20 @@ Connection freshness uses the last actual sweep observation, not a profile's lat
 enrichment timestamp. Legacy enriched records without a sweep timestamp have unknown
 freshness and require stale-edge opt-in until a later sweep observes them. Sales
 Navigator sweep rows establish first-degree edges only when their reported degree is 1.
+
+### Release candidates
+
+Version `0.4.0-rc.1` adds local relationship intelligence. `bun run release
+2026-09-22.1-beta --dry-run` runs typecheck, lint, tests, and four-target compilation
+from a clean checkout, then writes binaries, SHA-256 files and `release-manifest.json`
+under `dist/`. Local packaging is the default and works on a feature branch.
+
+Publication is a separate explicit operation: `--publish --repo owner/repository`.
+The repository must match both origin fetch and push URLs; existing clean-main and
+pushed-main checks still apply. No upstream repository is hardcoded as a release target.
+Only binaries executed on a target count as runtime-verified; cross-compilation alone
+does not establish Linux or alternate-architecture behavior.
+
+ICP definitions are workspace-wide; use `--contact` for a bounded qualification or
+review. Unsupported flags for a given ICP action are rejected. Facts without a field
+observation timestamp remain visible but cannot establish a fresh automated match.
