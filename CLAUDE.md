@@ -261,7 +261,7 @@ bun install
 bun run dev          # runs src/index.ts directly
 bun run test         # vitest (bun test invokes a different runner)
 bun run typecheck    # tsc --noEmit
-bun run build        # bun build --compile → dist/allman
+bun run build        # guarded, atomic Playwright-aware compile → dist/allman
 ```
 
 Never install packages without using `bun add <package>` (or `bun add -d <package>`

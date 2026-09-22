@@ -37,7 +37,7 @@ Requires [Bun](https://bun.sh) (latest, via asdf or direct install).
 git clone git@github.com:tarkaai/allman-cli.git
 cd allman-cli
 bun install
-bun run build          # produces dist/allman
+bun run build          # atomic Playwright-aware compile to dist/allman
 ```
 
 Add `dist/allman` to your `$PATH`, or run directly with:
@@ -919,3 +919,15 @@ MIT — see [LICENSE](./LICENSE).
 ## Read-only validation
 
 See the [2026-09-22 command coverage report](docs/qa/2026-09-22-command-validation.md) for bounded live tests, fixed defects, synthetic-only outbound tests, and remaining coverage gaps. No live communications or CRM writes were performed.
+
+### Portable build configuration
+
+Build overrides use `ALLMAN_BUILD_ENTRYPOINT`, `ALLMAN_BUILD_OUTFILE`, and
+`ALLMAN_BUILD_TARGET`. Generic `ENTRYPOINT`, `OUTFILE`, and `BUN_TARGET` variables
+are ignored. Failed compilation or dependency-layout checks preserve the previous
+executable and remove the pending artifact. The bundled Playwright application
+icon is embedded. `PLAYWRIGHT_BROWSERS_PATH=0` resolves to
+`playwright-core/.local-browsers` beside the executable; normal shared-cache and
+explicit browser paths keep Playwright semantics. Browser binaries are separate
+installations. Playwright trace-viewer/report UI assets are not allman features
+and are not packaged.
