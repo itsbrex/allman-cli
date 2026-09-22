@@ -948,3 +948,13 @@ allman group delete prospects
 `--any-tag` is OR, `--all-tags` is AND, and `--without-tags` is NOT. These predicates
 compose with employer, location, channel, account, and the original `--tag`.
 Deleting a group does not remove contacts or their tags.
+
+### Relationship rank
+
+`allman rank [contact-id]` explains a local 0–100 history score. `relationships show`
+also includes it. Model `history-v1` uses message volume, reciprocity, thread depth,
+observed initiation balance, and response latency, then applies a 90-day inactivity
+half-life. It excludes automation, group mail, unknown direction, future timestamps,
+and duplicate messages. Evidence IDs and coverage accompany every score. Incomplete
+history can distort initiation and response measurements. This heuristic is neither
+a probability nor a measure of seniority, ICP fit, or personal importance.

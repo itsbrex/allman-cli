@@ -1,5 +1,6 @@
 #!/usr/bin/env node
 import { groupsCommand } from "./commands/groups.js";
+import { rankCommand } from "./commands/rank.js";
 /**
  * allman — LinkedIn messenger from the CLI
  *
@@ -722,6 +723,13 @@ program
   .option("--channel <channel>", "linkedin or email")
   .action(async (action, name, opts, cmd) =>
     groupsCommand(action, name, { ...cmd.optsWithGlobals(), ...opts })
+  );
+
+program
+  .command("rank [contact]")
+  .description("Explain local history-derived relationship scores (no ICP blending)")
+  .action(async (contact, opts, cmd) =>
+    rankCommand(contact, { ...cmd.optsWithGlobals(), ...opts })
   );
 
 program.parseAsync(process.argv).catch((err: unknown) => {

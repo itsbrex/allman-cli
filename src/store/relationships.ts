@@ -2,11 +2,13 @@ import { join } from "node:path";
 import { type AttioAssociation, correlateAttio } from "../attio/correlation.js";
 import { normalizeLinkedInUrl, readAttioCache } from "../attio/people.js";
 import { type Contact, contactId, emailAddress, MailStore, stableId } from "../mail/store.js";
+import { type RelationshipScore, relationshipScore } from "../relationships/rank.js";
 import { companyRollups } from "./company-view.js";
 import type { Store } from "./index.js";
 import { readJson, writePrivate } from "./private-workspace.js";
 import { coalesceTimeline } from "./timeline.js";
 export interface RelationshipContact extends Contact {
+  rank?: RelationshipScore;
   linkedinUrls?: string[];
   attio?: AttioAssociation;
   company?: string | null;
@@ -14,6 +16,8 @@ export interface RelationshipContact extends Contact {
   geoUrn?: string | null;
 }
 export interface TimelineEvent {
+  /** False for group mail; absent on legacy snapshots. */
+  direct?: boolean;
   automated?: boolean;
   sourceCopies?: { account: string; id: string; source: string; thread: string }[];
   threadAliases?: string[];
@@ -217,6 +221,7 @@ export async function relationshipSnapshot(
             `https://www.linkedin.com/messaging/thread/${encodeURIComponent(id)}/`,
           references: [msg.urn],
           eligible: true,
+          direct: true,
           coverage:
             !conv.syncState.lastSyncAt || now - Date.parse(conv.syncState.lastSyncAt) > 86400000
               ? "partial"
@@ -277,6 +282,7 @@ export async function relationshipSnapshot(
       automated: m.automated ?? false,
       source: m.message_id ? `message://${encodeURIComponent(m.message_id)}` : "",
       references: m.message_id ? [m.message_id] : [],
+      direct: new Set(recipients).size === 1,
       eligible: !m.automated && !m.partial && recipients.length <= 5 && ids.length > 0,
       coverage: "partial",
     });
@@ -285,6 +291,11 @@ export async function relationshipSnapshot(
   const activeContacts = [...contacts.values()].filter(
     (c) => !c.emails.length || c.emails.some((e) => !own.has(e))
   );
+  const byContact = new Map<string, TimelineEvent[]>();
+  for (const event of all)
+    for (const id of event.contactIds) byContact.set(id, [...(byContact.get(id) ?? []), event]);
+  for (const contact of activeContacts)
+    contact.rank = relationshipScore(byContact.get(contact.id) ?? [], now);
   const runValues = Object.values(runs);
   return {
     schemaVersion: 1,
