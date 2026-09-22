@@ -1036,3 +1036,35 @@ narrow the saved group; they do not replace its predicates. `--sort` accepts `na
 `rank` (pins first), `fit` (requires `--icp`), or `recent`. `--has-facts` excludes
 contacts lacking stored profile/company facts. Relationship strength and ICP fit
 remain separate fields.
+
+### Observed introduction paths
+
+```bash
+allman graph --json
+allman intro-to 'founder of Example' --limit 10
+allman intro-to CONTACT_ID --icp sales --min-confidence 0.8
+allman intro-to 'Example' --include-stale
+```
+
+Graph reads existing first-degree sweeps, connections-of results, and reciprocal
+direct owner/contact history. Ad-hoc enrichment does not establish a connection.
+Numeric Sales Navigator identities join only through a unique observed member-ID
+bridge. Ambiguous and conflicting identities stay separate. Names and employers
+never create edges; group participation and one-way outreach create none.
+
+Queries use exact IDs/slugs or case-insensitive terms in names, roles, and companies,
+not an LLM semantic search. Results contain evidence for both steps. Edges older than
+90 days are excluded by default (`--max-age-days` adjusts this). Historical results
+require `--include-stale` and remain labeled. Partial network exports cannot establish
+absence of a relationship.
+
+A connection proves an observed edge, not its strength or willingness to introduce.
+Unknown second-leg strength remains null; the product of both strengths and target
+fit is only available when all relevant strengths are measured. Otherwise candidates
+sort by measured owner-to-connector history, then target fit. No introduction drafts,
+asks, reminders, or messages are created.
+
+Connection freshness uses the last actual sweep observation, not a profile's latest
+enrichment timestamp. Legacy enriched records without a sweep timestamp have unknown
+freshness and require stale-edge opt-in until a later sweep observes them. Sales
+Navigator sweep rows establish first-degree edges only when their reported degree is 1.

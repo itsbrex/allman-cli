@@ -29,7 +29,7 @@ Open upstream issues are not proof of missing local code. In particular, some co
 6. **Complete:** Multiple private, versioned natural-language/structured ICP definitions.
 7. **Complete:** Evidence-backed rule qualification plus bounded offline LLM export/import, unknown results and stale-result handling.
 8. **Complete:** Composable ICP/rank/tag/company/location filtering and sorting.
-9. Observed graph construction and ranked `intro-to` results with evidence on both legs.
+9. **Complete:** Observed graph construction and ranked `intro-to` results with evidence on both legs.
 10. End-to-end verification, docs/agent docs, release packaging and remaining-gap report.
 
 Each implementation deliverable receives a focused commit and regression coverage. Private business context, contacts, cookies and qualification results stay outside the source repository. Existing user WIP is preserved.

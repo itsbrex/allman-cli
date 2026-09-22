@@ -1,4 +1,5 @@
 #!/usr/bin/env node
+import { graphCommand } from "./commands/graph.js";
 import { groupsCommand } from "./commands/groups.js";
 import { icpCommand } from "./commands/icp.js";
 import { rankCommand } from "./commands/rank.js";
@@ -784,6 +785,23 @@ program
       throw new Error("Use contact list, show or timeline");
     return relationshipsCommand(action, target, [], { ...cmd.optsWithGlobals(), ...opts });
   });
+
+program
+  .command("graph")
+  .description("Read observed local relationship graph; no inferred peer relationships")
+  .option("--max-age-days <n>", "edge freshness window (default: 90)", Number)
+  .action(async (opts, cmd) => graphCommand(undefined, { ...cmd.optsWithGlobals(), ...opts }));
+program
+  .command("intro-to <description>")
+  .description("Rank observed two-step introduction paths; does not draft or send")
+  .option("--max-age-days <n>", "edge freshness window (default: 90)", Number)
+  .option("--include-stale", "include explicitly labeled stale edges")
+  .option("--icp <id>", "require fresh positive target fit")
+  .option("--min-confidence <n>", "minimum target fit confidence", Number)
+  .option("--limit <n>", "maximum returned paths, 1–100", Number)
+  .action(async (description, opts, cmd) =>
+    graphCommand(description, { ...cmd.optsWithGlobals(), ...opts })
+  );
 
 program.parseAsync(process.argv).catch((err: unknown) => {
   process.stderr.write(`Error: ${String(err)}\n`);

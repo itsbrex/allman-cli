@@ -92,6 +92,8 @@ export interface StoredConnection {
   headline?: string | null;
   /** ISO timestamp the connection was made (if reported by LinkedIn). */
   connectedAt?: string | null;
+  /** Last actual first-degree sweep observation; enrichment never refreshes this. */
+  connectionObservedAt?: string | null;
   /**
    * How this record entered the store.
    *
@@ -478,6 +480,8 @@ export class ConnectionsStore {
     // ad-hoc enrichment of the same person.
     merged.source =
       prev && (prev.source ?? "connections") === "connections" ? "connections" : c.source;
+    merged.connectionObservedAt =
+      (c.source ?? "connections") === "connections" ? nowIso : (prev?.connectionObservedAt ?? null);
     merged.firstSeenAt = prev?.firstSeenAt ?? nowIso;
     merged.lastSeenAt = nowIso;
     await writeFile(path, `${JSON.stringify(merged, null, 2)}\n`, "utf8");
