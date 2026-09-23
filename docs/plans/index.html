@@ -6,73 +6,87 @@
 <title>Plans — allman-cli</title>
 <!-- Generated dashboard. Rebuilt by `plans.mjs index` (SessionStart hook + `plans new`). Do not edit. -->
 <style>
-:root{
+:root{color-scheme:dark;
   --bg:oklch(0 0 0);--surface-1:oklch(0.169 0.004 265);--surface-2:oklch(0.214 0.005 265);
   --surface-3:oklch(0.255 0.006 265);--hairline:oklch(0.30 0.006 265);
   --hairline-strong:oklch(0.40 0.008 265);--ink:oklch(0.971 0 0);
-  --ink-muted:oklch(0.74 0.012 265);--ink-faint:oklch(0.62 0.012 265);
+  --ink-muted:oklch(0.74 0.012 265);--ink-faint:oklch(0.64 0.012 265);
   --accent:oklch(0.78 0.17 30);--accent-ink:oklch(0.17 0.03 30);
-  --focus:oklch(0.86 0.16 215);
+  --focus:oklch(0.86 0.16 215);--r:10px;
   --font-ui:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
   --font-mono:ui-monospace,"SF Mono","Cascadia Code",Menlo,monospace;
-}
+  --font-display:var(--font-ui);
+  --ease-out:cubic-bezier(.16,1,.3,1);--d-fast:120ms;--d-state:200ms}
+@media(prefers-color-scheme:light){:root{color-scheme:light;
+  --bg:#f8f7f4;--surface-1:#f4f3ef;--surface-2:#efede8;--surface-3:#e7e4dd;
+  --hairline:#e4e1db;--hairline-strong:#d5d2ca;--ink:#15171c;--ink-muted:#4b4f59;--ink-faint:#5e636d;
+  --accent:color-mix(in oklab,oklch(0.78 0.17 30) 62%,black);--accent-ink:#fff;--focus:oklch(.5 .12 245)}}
 *{box-sizing:border-box}
+html{scrollbar-color:var(--hairline-strong) transparent;accent-color:var(--accent)}
 body{margin:0;background:var(--bg);color:var(--ink);font-family:var(--font-ui);
-  font-size:.9375rem;line-height:1.55;-webkit-font-smoothing:antialiased}
+  font-size:.9375rem;line-height:1.55;-webkit-font-smoothing:antialiased;caret-color:var(--accent);
+  font-variant-numeric:tabular-nums}
 :focus-visible{outline:2px solid var(--focus);outline-offset:2px;border-radius:4px}
 ::selection{background:var(--accent);color:var(--accent-ink)}
-.wrap{max-width:900px;margin:0 auto;padding:32px 16px 64px}
-.eyebrow{font-family:var(--font-mono);font-size:.75rem;letter-spacing:.06em;
-  text-transform:uppercase;color:var(--accent);display:flex;align-items:center;gap:8px;
-  margin-bottom:12px}
-.eyebrow .dot{width:9px;height:9px;border-radius:50%;background:var(--accent);
-  box-shadow:0 0 12px -1px var(--accent)}
-h1{font-size:1.75rem;font-weight:700;letter-spacing:-.02em;margin:0 0 4px}
-.sub{color:var(--ink-faint);font-family:var(--font-mono);font-size:.75rem;margin:0 0 24px}
-.tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(140px,1fr));gap:12px;
-  margin-bottom:24px}
-.tile{background:var(--surface-1);border:1px solid var(--hairline);border-radius:12px;
-  padding:12px 16px}
-.tile .n{font-family:var(--font-mono);font-size:1.125rem;font-weight:600}
-.tile .l{font-size:.75rem;color:var(--ink-faint);text-transform:uppercase;letter-spacing:.06em}
+.wrap{max-width:900px;margin:0 auto;padding:40px 16px 64px}
+h1{font-family:var(--font-display);font-size:1.75rem;font-weight:700;
+  letter-spacing:-.02em;margin:0 0 6px;text-wrap:balance}
+h1 .repo{color:var(--ink-muted);font-weight:500}
+.sub{color:var(--ink-faint);font-family:var(--font-mono);font-size:.75rem;margin:0 0 28px;
+  display:flex;gap:6px 14px;flex-wrap:wrap}
+.sub b{color:var(--ink-muted);font-weight:600}
+.sub .live{display:inline-flex;align-items:center;gap:6px}
+.sub .live i{width:7px;height:7px;border-radius:50%;background:var(--accent);display:inline-block}
 input.search{width:100%;background:var(--surface-1);border:1px solid var(--hairline);
-  border-radius:8px;color:var(--ink);font-family:var(--font-ui);font-size:.9375rem;
-  min-height:44px;padding:0 14px;margin-bottom:16px;outline:none}
-input.search:focus{border-color:var(--hairline-strong)}
+  border-radius:var(--r);color:var(--ink);font-family:var(--font-ui);font-size:.9375rem;
+  min-height:44px;padding:0 14px;margin-bottom:20px;transition:border-color var(--d-fast)}
+input.search::placeholder{color:var(--ink-faint)}
+input.search:hover{border-color:var(--hairline-strong)}
+input.search:focus-visible{border-color:var(--accent);outline-offset:0;outline-color:transparent;box-shadow:0 0 0 3px color-mix(in oklch,var(--accent),transparent 80%)}
+h2{font-family:var(--font-mono);font-size:.75rem;font-weight:600;letter-spacing:.1em;
+  text-transform:uppercase;color:var(--ink-muted);margin:32px 0 10px;display:flex;align-items:baseline;gap:8px}
+h2:first-of-type{margin-top:0}
+h2 .n{color:var(--ink-faint);font-weight:400;letter-spacing:0}
 a.row{display:flex;align-items:center;gap:12px;background:var(--surface-1);
-  border:1px solid var(--hairline);border-radius:12px;padding:12px 16px;margin-bottom:10px;
-  color:inherit;text-decoration:none;transition:border-color .15s,transform .15s}
-a.row:hover{border-color:var(--accent);transform:translateY(-1px)}
+  border:1px solid var(--hairline);border-radius:var(--r);padding:12px 16px;margin-bottom:8px;
+  color:inherit;text-decoration:none;min-height:56px;
+  transition:border-color var(--d-fast),background var(--d-fast),transform var(--d-fast) var(--ease-out)}
+a.row:hover{border-color:var(--hairline-strong);background:var(--surface-2);transform:translateX(2px)}
+a.row:active{transform:none}
 a.row.hidden{display:none}
 .seq{font-family:var(--font-mono);font-size:.75rem;font-weight:700;flex:none;
   background:var(--surface-3);border:1px solid var(--hairline);color:var(--ink-muted);
-  padding:3px 9px;border-radius:999px;min-width:44px;text-align:center}
+  padding:3px 9px;border-radius:999px;min-width:48px;text-align:center}
 a.row.latest .seq{background:var(--accent);border-color:var(--accent);color:var(--accent-ink)}
-.rt{flex:1;min-width:0}
-.rt .t{font-weight:600;font-size:.875rem;overflow:hidden;text-overflow:ellipsis;
-  white-space:nowrap}
+.rt{flex:1;min-width:0;display:flex;flex-direction:column;gap:2px}
+.rt .t{font-weight:600;font-size:.9375rem;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .rt .f{font-family:var(--font-mono);font-size:.75rem;color:var(--ink-faint);
   overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .when{font-family:var(--font-mono);font-size:.75rem;color:var(--ink-faint);flex:none}
 .pill{font-family:var(--font-mono);font-size:10px;font-weight:700;letter-spacing:.05em;
   flex:none;background:var(--accent);color:var(--accent-ink);padding:2px 8px;
   border-radius:999px;text-transform:uppercase}
-.empty{color:var(--ink-faint);text-align:center;padding:32px;border:1px dashed var(--hairline);
-  border-radius:12px}
-@media (prefers-reduced-motion:reduce){*{transition:none!important}}
+.empty{color:var(--ink-muted);padding:40px 24px;border:1px dashed var(--hairline-strong);
+  border-radius:var(--r);text-align:center;max-width:52ch;margin:0 auto}
+.empty b{display:block;color:var(--ink);font-weight:600;margin-bottom:6px}
+.empty code{font-family:var(--font-mono);font-size:.875rem;background:var(--surface-2);padding:2px 7px;border-radius:5px}
+.none{color:var(--ink-faint);font-size:.875rem;padding:8px 0 0}
+@media(max-width:560px){.rt .t{white-space:normal;line-height:1.35}.when{display:none}.wrap{padding-top:28px}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}}
 </style>
 </head>
 <body>
 <main class="wrap">
-  <div class="eyebrow"><span class="dot"></span>plans · allman-cli · accent coral</div>
-  <h1>Plan dashboard</h1>
-  <p class="sub">regenerated 2026-08-19 04:07 UTC · newest first · #seq = creation order</p>
-  <div class="tiles">
-    <div class="tile"><div class="n">1</div><div class="l">plans</div></div>
-    <div class="tile"><div class="n">#001</div><div class="l">latest seq</div></div>
-    <div class="tile"><div class="n">2026-08-14</div><div class="l">last plan</div></div>
-  </div>
-  <input class="search" id="q" type="search" placeholder="Filter plans…" aria-label="Filter plans">
+  <h1>Plans <span class="repo">· allman-cli</span></h1>
+  <p class="sub">
+    <span><b>1</b> plan</span>
+    <span>latest <b>#001</b> · 2026-08-14</span>
+    <span><b>1</b> app</span>
+    <span class="live"><i></i>https://allman-cli.localhost/plans/</span>
+    <span>rebuilt 2026-09-23 02:37 UTC</span>
+  </p>
+  <input class="search" id="q" type="search" placeholder="Filter by title or file…" aria-label="Filter plans and apps" autocomplete="off">
+  <h2 id="h-plans">Plans <span class="n" id="n-plans">1</span></h2>
   <div id="list">
     <a class="row latest" href="2026-08-14-001-structured-location-grill.html">
       <span class="seq">#001</span>
@@ -80,15 +94,40 @@ a.row.latest .seq{background:var(--accent);border-color:var(--accent);color:var(
       <span class="pill">latest</span>
       <span class="when">2026-08-14</span>
     </a>
+    <p class="none" id="none-plans" hidden>No plans match.</p>
+  </div>
+  <h2 id="h-apps">Apps <span class="n" id="n-apps">1</span></h2>
+  <div id="apps">
+    <a class="row" href="../../apps/activity.html">
+      <span class="seq">app</span>
+      <span class="rt"><span class="t">Allman · Live contact processing</span><span class="f">apps/activity.html</span></span>
+      <span class="when">2026-09-23</span>
+    </a>
+    <p class="none" id="none-apps" hidden>No apps match.</p>
   </div>
 </main>
 <script>
-document.getElementById('q').addEventListener('input', function () {
-  var q = this.value.toLowerCase();
-  document.querySelectorAll('a.row').forEach(function (r) {
-    r.classList.toggle('hidden', q !== '' && r.textContent.toLowerCase().indexOf(q) === -1);
+(function(){
+  var q = document.getElementById('q');
+  function apply(){
+    var v = q.value.trim().toLowerCase();
+    [['list','none-plans','n-plans'],['apps','none-apps','n-apps']].forEach(function(ids){
+      var box = document.getElementById(ids[0]); if(!box) return;
+      var shown = 0;
+      box.querySelectorAll('a.row').forEach(function(r){
+        var hit = v === '' || r.textContent.toLowerCase().indexOf(v) !== -1;
+        r.classList.toggle('hidden', !hit); if(hit) shown++;
+      });
+      var none = document.getElementById(ids[1]); if(none) none.hidden = shown !== 0;
+      var n = document.getElementById(ids[2]); if(n) n.textContent = String(shown);
+    });
+  }
+  q.addEventListener('input', apply);
+  document.addEventListener('keydown', function(e){
+    if(e.key === '/' && document.activeElement !== q){ e.preventDefault(); q.focus(); }
+    if(e.key === 'Escape' && document.activeElement === q){ q.value = ''; apply(); q.blur(); }
   });
-});
+})();
 </script>
 </body>
 </html>

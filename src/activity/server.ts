@@ -2,7 +2,7 @@ import { createHash } from "node:crypto";
 import { createServer, type ServerResponse } from "node:http";
 import { readActivitySnapshot } from "./journal.js";
 import { createMetricsReader } from "./metrics.js";
-import { activityHtml, activityScript } from "./view.js";
+import { activityHtml } from "./view.js";
 
 export interface ActivityServer {
   url: string;
@@ -14,19 +14,54 @@ export async function startActivityServer(options: {
   label: string;
   accountDir?: string;
   port?: number;
+  publicOrigin?: string;
+  artifact?: { html: string; ogImage: Uint8Array };
 }): Promise<ActivityServer> {
+  const publicOrigin = options.publicOrigin ? new URL(options.publicOrigin) : undefined;
+  if (
+    publicOrigin &&
+    (!/^https?:$/.test(publicOrigin.protocol) ||
+      !publicOrigin.hostname.endsWith(".localhost") ||
+      publicOrigin.username ||
+      publicOrigin.password ||
+      publicOrigin.pathname !== "/" ||
+      publicOrigin.search ||
+      publicOrigin.hash)
+  )
+    throw new Error("Activity public origin must be a local .localhost HTTP(S) origin");
+  const html = options.artifact?.html ?? activityHtml;
   const key = createHash("sha256").update(options.root).digest("hex");
-  const scriptHash = createHash("sha256").update(activityScript).digest("base64");
+  const scriptHashes = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)]
+    .map(
+      (match) =>
+        `'sha256-${createHash("sha256")
+          .update(match[1] ?? "")
+          .digest("base64")}'`
+    )
+    .join(" ");
   const sockets = new Set<ServerResponse>();
   const metrics = options.accountDir
     ? createMetricsReader(options.accountDir, options.root)
     : undefined;
   let url = "";
   const server = createServer((req, res) => {
-    const host = new URL(url).host;
+    const listener = new URL(url);
+    const origin = publicOrigin ?? listener;
+    const request = new URL(req.url ?? "/", url);
+    const staticEntry = ["/", "/apps/activity.html", "/apps/activity-og.png"].includes(
+      request.pathname
+    );
+    // Portless uses changeOrigin and forwards the original authority separately.
+    // Trust only this loopback listener and the exact configured local origin.
+    const localProxy =
+      publicOrigin &&
+      [listener.host, `localhost:${listener.port}`].includes(req.headers.host ?? "") &&
+      req.headers["x-forwarded-host"] === publicOrigin.host &&
+      req.headers["x-forwarded-proto"] === publicOrigin.protocol.slice(0, -1);
     if (
-      req.headers.host !== host ||
-      (req.headers.origin && req.headers.origin !== new URL(url).origin)
+      (req.headers.host !== origin.host && !localProxy) ||
+      (req.headers.origin && req.headers.origin !== origin.origin) ||
+      (req.headers["sec-fetch-site"] === "cross-site" && !staticEntry)
     ) {
       res.writeHead(403).end("Local same-origin access only");
       return;
@@ -36,16 +71,20 @@ export async function startActivityServer(options: {
     res.setHeader("Referrer-Policy", "no-referrer");
     res.setHeader(
       "Content-Security-Policy",
-      `default-src 'none'; script-src 'sha256-${scriptHash}'; style-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; frame-ancestors 'none'; base-uri 'none'; form-action 'none'`
+      `default-src 'none'; script-src ${scriptHashes}; style-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; font-src data:; frame-ancestors 'none'; base-uri 'none'; form-action 'none'`
     );
     if (req.method !== "GET") {
       res.writeHead(405).end("Read-only viewer");
       return;
     }
-    const request = new URL(req.url ?? "/", url);
-    if (request.pathname === "/") {
+    if (request.pathname === "/" || request.pathname === "/apps/activity.html") {
       res.setHeader("Content-Type", "text/html; charset=utf-8");
-      res.end(activityHtml);
+      res.end(html);
+      return;
+    }
+    if (request.pathname === "/apps/activity-og.png" && options.artifact) {
+      res.setHeader("Content-Type", "image/png");
+      res.end(options.artifact.ogImage);
       return;
     }
     res.setHeader("Content-Type", "application/json");
@@ -62,6 +101,7 @@ export async function startActivityServer(options: {
       JSON.stringify({
         ...readActivitySnapshot(options.root, selected),
         label: options.label,
+        viewKey: key,
         metrics: metrics?.(),
       });
     let initial: string;
@@ -122,6 +162,9 @@ export async function startActivityServer(options: {
     await bind(requestedPort);
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== "EADDRINUSE" || requestedPort === 0) throw error;
+    // Portless owns the assigned port. An ephemeral fallback would point the proxy
+    // at the wrong listener and must fail instead of silently changing accounts.
+    if (publicOrigin || options.artifact) throw error;
     const existing = `http://127.0.0.1:${requestedPort}/`;
     try {
       const identity = (await fetch(`${existing}api/identity`, {
@@ -138,7 +181,7 @@ export async function startActivityServer(options: {
   if (!address || typeof address === "string") throw new Error("Activity server did not bind");
   url = `http://127.0.0.1:${address.port}/`;
   return {
-    url,
+    url: publicOrigin ? `${publicOrigin.origin}/apps/activity.html` : url,
     close: () =>
       new Promise<void>((resolve) => {
         for (const socket of sockets) socket.end();

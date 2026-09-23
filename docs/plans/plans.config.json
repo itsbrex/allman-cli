@@ -3,7 +3,8 @@
   "accent": "oklch(0.78 0.17 30)",
   "accentHue": 30,
   "accentName": "coral",
-  "appName": "allman-cli",
   "nextSeq": 2,
-  "createdAt": "2026-08-14T21:13:35Z"
+  "createdAt": "2026-08-14T21:13:35Z",
+  "appName": "allman-cli",
+  "port": 47829
 }

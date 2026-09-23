@@ -50,7 +50,7 @@ Each page defines `PLAN_ITEMS`, an array of decision items:
                         // seeded once — a saved reader decision always wins
 ```
 
-Reader affordances (v11, already wired in the template — do not remove):
+Reader affordances (v11–v16, already wired in the template — do not remove):
 
 - **Two views.** Overview (thesis, prose context, stat tiles, grouped one-line
   rows) and a typeform-style **focus mode** — one decision at a time, centered
@@ -62,22 +62,40 @@ Reader affordances (v11, already wired in the template — do not remove):
   **auto-advance** (~260 ms after visual feedback); pressing the same key again
   clears back to pending and never advances. Editing never auto-advances.
 - **Submit validation + review mode.** Submit with undecided items opens a
-  confirm dialog listing them; "Review them" enters review mode, where
+  confirm dialog listing them (one per line, scrollable); "Review undecided"
+  enters review mode, where
   navigation cycles ONLY the pending items (progress track dims the decided
   ones) until they're resolved — or "Submit anyway" sends them as `pending`
   (Claude skips those). With zero pending, a normal confirm dialog submits.
 - **Color coding.** Per-repo accent = approve/identity; danger = reject;
   warn = edited/pending-attention. Each group gets a stable hue from the
-  curated pool (skipping hues within Δ28° of the accent) shown on group chips,
-  card left borders, and row stripes. Kind chips: edit=accent,
-  structural=azure, verify=mint, note=amber.
+  curated pool (skipping hues within Δ28° of the accent) shown on the group
+  header dot, the group chip on the card, and the row's `dNN` id — never as a
+  fat colored side border (v18). Kind chips: edit=accent, structural=azure,
+  verify=mint, note=amber. Row badges appear only for decided or edited rows;
+  undecided is the quiet default.
+- **Icons (v18).** One inline SVG sprite (`#i-check`, `#i-x`, `#i-circle`,
+  `#i-edit`, `#i-undo`, `#i-up`, `#i-down`, `#i-theme`, `#i-motion`,
+  `#i-list`, `#i-file`), 1.75 stroke, via `icon(name)` / `btnWith()`. No
+  unicode glyphs stand in for icons in the stock template.
+- **Toolbar (v18).** One row: identity (seq + title) · status cluster
+  (connection, ✓/✗/○ counts as buttons with numeric aria-labels, theme,
+  motion, overview) · Submit. Below 980px the cluster drops to a second row
+  and the settings buttons become icon-only. Under the toolbar the summary
+  line (`N decisions · a approved · r rejected · p undecided [· e edited]`)
+  replaces the old metric tiles.
+- **Phones (v18).** Below 720px (and on any coarse pointer) the keyboard
+  footer hides, the howto shows tap copy, and the card's Approve/Reject/Edit/
+  nav actions become a fixed bottom bar inside thumb reach. Rows wrap their
+  titles instead of truncating.
 - **Progress.** Segmented track under the toolbar (one clickable segment per
   item, colored by state, gaps between groups, focus ring on the current one),
   `n / N` position on every card, live ✓/✗/○ counts in the toolbar (○ jumps
   into review mode).
 - **Persistence.** Decisions in `localStorage` (`plans:<slug>:<seq>`), reading
   position + view in `plans:<slug>:<seq>:ui` — reopening resumes where you
-  left off. `dflt` seeding runs once and never overwrites a saved decision.
+  left off. Unavailable storage falls back to in-memory state so offline review
+  still works. `dflt` seeding runs once and never overwrites a saved decision.
 - **Accessibility.** `aria-live` announcer for card changes and submit
   results, real buttons with `aria-pressed`/labels everywhere, dialogs with
   `role=dialog aria-modal`, skip link, visible focus rings, and a persisted
@@ -85,32 +103,220 @@ Reader affordances (v11, already wired in the template — do not remove):
   animation.
 - **Theme + Motion toolbar buttons** (v13) — cycle the 13-entry theme list /
   toggle motion; both persist under the shared `plan-ui` localStorage key.
-- **Submit to Claude** POSTs the full decision payload to
-  `http://127.0.0.1:47613/submit`; when the listener is offline it downloads
-  `<slug>-decisions.json` instead. A status dot pings `/ping` every 5s.
+- **Submit to Claude** POSTs the full decision payload to the always-on
+  **plans hub** at `https://<appName>.localhost/plans/_submit` (v17). The page
+  itself is served from that origin when the hub is up (`bun run plans latest`
+  opens the https URL), or from `file://` otherwise — both work. Every stamped
+  page carries a random per-plan **submission token** (`SUBMISSION_TOKEN`, sent
+  as `X-Plan-Submission-Token`); the hub reads the expected token from the page
+  on disk and rejects anything else, so a stray page or a website you happen to
+  have open cannot feed decisions to your session. When the hub is unreachable
+  the page downloads `<slug>-decisions.json` instead. A status dot pings
+  `/plans/_ping` every 5s. One submission in flight at a time (button disabled,
+  10s abort, then the JSON fallback).
 
 ### Receiving decisions (Claude side)
 
-When you expect the user to submit, start a listener in the background and let
-its exit notify you:
+**v17 and later — wait on the hub inbox.** Nothing to start per plan. Run, in
+the background so its exit notifies you:
+
+```bash
+bun run plans wait <slug>            # blocks; prints ~/.claude/plans-hub/inbox/<appName>/<slug>-<seq>.json
+bun run plans wait <slug> --timeout 1800 --seq 7   # optional bounds
+```
+
+The hub (`~/.claude/plans-hub/hub.ts`, launchd agent `sh.claude.plans-hub`,
+one Bun process for every repo) validates each submission before it lands:
+slug + seq must name a stamped page in this repo, the `X-Plan-Submission-Token`
+must match that page (timing-safe), `Origin` must be the page's own origin or
+`null` (file://), body ≤ 1 MB, JSON only, decisions ≤ 500 with the exact item
+shape. The inbox file is written atomically with mode 0600 and includes
+`receivedAt`, `app`, and `page`. `plans wait` ignores files older than its own
+start unless `--any` is passed. Never log or echo the token.
+
+Hub operations: `bun run plans hub status|install|start|stop|logs|url`
+(install once per machine; the SessionStart hook registers each repo with
+`plans hub register --quiet`, which also runs `portless alias <appName> <port>`
+once and suffixes a colliding appName). If the hub or portless is missing the
+page still opens from `file://` and falls back to the JSON download — hand that
+file to Claude.
+
+**Pages stamped before v17** still POST to `http://127.0.0.1:<port>` (`port` in
+`plans.config.json`) with `/ping` + `/submit`. For those, run the v16 loopback
+listener below (per-repo port, slug handshake, token). Never kill a listener
+that answers `/ping` — it is live, not stale.
+
+### Reviewing from your phone (v19 remote + notify)
+
+The same hub process answers any **non-`.localhost` Host** — a Tailscale
+`serve` name, a Tailscale Funnel, an ngrok or cloudflared tunnel — with
+path-prefixed routing: `/` is a review-all landing page (every registered
+repo's plans, "waiting for you" first), `/_pending` the same as JSON, and
+`/<appName>/plans/<file>.html`, `/<appName>/apps/<file>.html`,
+`/<appName>/plans/_ping|_submit` mirror the local routes. Every remote request
+needs the shared key in `~/.claude/plans-hub/hub.config.json` (`remote.secret`):
+the texted link carries `?key=…` once, the hub answers with an HttpOnly cookie
+(90 days) and redirects without the key. `.localhost` hosts never need it.
+
+Pages talk to **the origin they were served from**: the template (v19) derives
+`ENDPOINT` from `location` when the page is http(s), and the hub additionally
+rewrites the stamped `var ENDPOINT = "…";` line to the request's prefix (`""`
+locally, `"/<appName>"` remotely) while streaming the file — so pages stamped
+before v19, and even pre-v17 loopback pages, submit correctly through the hub
+and through a tunnel. A pre-v16 page (no `SUBMISSION_TOKEN`) may submit only
+from a real same-origin page, never from `Origin: null`.
+
+`plans wait` writes a marker to `~/.claude/plans-hub/waiting/<app>/<slug>-<seq>.json`
+(removed on submit / timeout / signal; stale markers whose pid is gone are
+dropped) and **texts you** the direct link + the review-all link, once per plan
+per 30 min. Channels: `imessage` (to your own handle; transport `osascript` = Messages.app
+— text, then a phone-sized PNG **preview of the page** rendered with headless
+Chromium, the pattern the GoFi Alfred workflow uses for cover art — or
+`imsg` = the imsg CLI with `--file`; first osascript send triggers a one-time
+"control Messages" Automation prompt) or `command` (any shell; message on
+stdin, `$PLANS_NOTIFY_TEXT`, preview path in `$PLANS_NOTIFY_FILE`).
+`--preview off` or `PLANS_NO_PREVIEW=1` sends text only; previews live in
+`~/.claude/plans-hub/previews/<app>/`.
+`PLANS_NO_NOTIFY=1` or `--no-notify` keeps a wait silent.
+
+```bash
+bun run plans hub remote on --provider tailscale     # tailnet-only: `tailscale serve --https=8443` → the hub (8443, not 443: portless owns 443 on every interface, and the sending Mac must reach its own ts.net URL to render iMessage link cards); phone needs the Tailscale app. --ts-port N overrides
+bun run plans hub remote on --provider funnel        # public via Tailscale Funnel (needs Funnel enabled on the tailnet)
+bun run plans hub remote on --provider ngrok         # public via an ngrok agent (launchd sh.claude.plans-hub-tunnel; random URL, free plan shows a one-time interstitial)
+bun run plans hub remote on --provider cloudflare    # public cloudflared quick tunnel (same agent slot; URL changes on restart)
+bun run plans hub remote status|off
+bun run plans hub notify set --channel imessage --to <phone or Apple ID email> [--transport osascript|imsg] [--preview on|off]
+bun run plans notify --test                          # text yourself a link now
+bun run plans hub url --remote                       # this repo's keyed remote URL
+```
+
+**Lifecycle: stamped → submitted → implemented.** Submitted = an inbox file
+(`~/.claude/plans-hub/inbox/<app>/<slug>-<seq>.json`, written by the hub, or
+adopted from a pre-v17 download with `bun run plans inbox import`).
+Implemented = a done marker (`~/.claude/plans-hub/done/<app>/<slug>-<seq>.json`)
+that Claude writes **after executing the approved items**:
+
+```bash
+bun run plans done <slug> [--items d01,d03] [--note "what shipped"] [--commit <sha>,…]
+bun run plans status [--all] [--json]      # every plan: submitted (✓/✗ counts) → implemented, plus a git hint
+```
+
+`status` also reports commits after the submission that mention `#NNN`, the
+slug, or an approved item id — a hint only; the done marker is the record. The
+landing page groups plans as Waiting → Submitted, not implemented → Implemented.
+
+**Link previews.** Every remotely served page (plan pages, apps, the landing
+page) carries Open Graph tags — `og:title` (seq stripped), `og:description`
+(repo · date · waiting/submitted), `og:url`, and an `og:image` card
+(1200×630, repo accent bar, seq pill, status badge; rendered once per page
+version with headless Chromium into `~/.claude/plans-hub/og/<app>/`, served at
+`/<app>/plans/_og/<file>.png?key=…`). A keyed **GET** is served directly with
+the cookie attached (no redirect) so LinkPresentation, which follows no
+cookies, still sees the real page. iMessage only unfurls a message that is a
+bare URL, so notifications go out as: summary text, then each link as its own
+message (one card per plan), then the optional PNG attachment (`--preview on`).
+
+`plans serve` inherits the provider: with Tailscale it sets
+`PORTLESS_TAILSCALE=1` (or `PORTLESS_FUNNEL=1`) so portless also publishes the
+served app on the tailnet (`--local` / `PLANS_SERVE_LOCAL=1` to skip). The
+ngrok/cloudflare providers cover the hub only; served apps stay LAN-only there.
 
 ```ts
-// bun run listener.ts   (adapt OUT path per session)
+// bun run listener.ts docs/plans/<plan>.html   (pre-v17 pages only; adapt OUT)
+import { randomUUID, timingSafeEqual } from "node:crypto";
+import { rename, writeFile } from "node:fs/promises";
+
 const OUT = "<scratchpad>/plan-decisions.json";
-const CORS = { "Access-Control-Allow-Origin": "*",
+const MAX_BODY_BYTES = 1_000_000;
+const planSource = await Bun.file(process.argv[2]).text();
+function stamped(pattern: RegExp, label: string) {
+  const match = planSource.match(pattern);
+  if (!match) throw new Error(`Missing stamped ${label}`);
+  return JSON.parse(match[1]);
+}
+const EXPECTED = {
+  token: stamped(/^var SUBMISSION_TOKEN = ("[^"]+");/m, "submission token"),
+  slug: stamped(/^\s*slug: (".*"),$/m, "plan slug"),
+  seq: Number(planSource.match(/^\s*seq: (\d+),$/m)?.[1]),
+};
+if (!Number.isInteger(EXPECTED.seq)) throw new Error("Missing stamped plan sequence");
+const { port } = JSON.parse(await Bun.file("docs/plans/plans.config.json").text());
+
+const CORS = { "Access-Control-Allow-Origin": "null", "Vary": "Origin",
   "Access-Control-Allow-Methods": "GET, POST, OPTIONS",
-  "Access-Control-Allow-Headers": "Content-Type" };
-Bun.serve({ port: 47613, hostname: "127.0.0.1", async fetch(req) {
+  "Access-Control-Allow-Headers": "Content-Type, X-Plan-Submission-Token" };
+function authorized(req: Request) {
+  const actual = Buffer.from(req.headers.get("x-plan-submission-token") || "");
+  const expected = Buffer.from(EXPECTED.token);
+  return actual.length === expected.length && timingSafeEqual(actual, expected);
+}
+async function readLimited(req: Request) {
+  const declared = Number(req.headers.get("content-length") || 0);
+  if (declared > MAX_BODY_BYTES) throw Object.assign(new Error("too large"), {status:413});
+  const reader = req.body?.getReader();
+  const chunks: Uint8Array[] = [];
+  let size = 0;
+  while (reader) {
+    const {done, value} = await reader.read();
+    if (done) break;
+    size += value.byteLength;
+    if (size > MAX_BODY_BYTES) { await reader.cancel(); throw Object.assign(new Error("too large"), {status:413}); }
+    chunks.push(value);
+  }
+  const body = new Uint8Array(size);
+  let offset = 0;
+  for (const chunk of chunks) { body.set(chunk, offset); offset += chunk.byteLength; }
+  return new TextDecoder().decode(body);
+}
+function validatePayload(value: any) {
+  if (!value || value.version !== 2 || value.kind !== "plan-decisions" ||
+      value.plan?.seq !== EXPECTED.seq || !Array.isArray(value.decisions) ||
+      value.decisions.length > 500) {
+    throw Object.assign(new Error("invalid payload"), {status:400});
+  }
+  const ids = new Set<string>();
+  for (const item of value.decisions) {
+    if (!item || typeof item.id !== "string" || !item.id || ids.has(item.id) ||
+        !["approved", "rejected", "pending"].includes(item.status) ||
+        typeof item.group !== "string" || typeof item.kind !== "string" ||
+        typeof item.title !== "string" || typeof item.current !== "string" ||
+        typeof item.suggested !== "string" || typeof item.edited !== "boolean") {
+      throw Object.assign(new Error("invalid decision"), {status:400});
+    }
+    ids.add(item.id);
+  }
+  return value;
+}
+Bun.serve({ port, hostname: "127.0.0.1", async fetch(req) {
+  const origin = req.headers.get("origin");
+  if (origin !== null && origin !== "null") return new Response("forbidden", {status:403});
   if (req.method === "OPTIONS") return new Response(null, {status:204, headers:CORS});
   const u = new URL(req.url);
   if (req.method === "GET" && u.pathname === "/ping")
-    return Response.json({ok:true}, {headers:CORS});
+    return Response.json({ok:true, plan:EXPECTED.slug}, {headers:CORS});
   if (req.method === "POST" && u.pathname === "/submit") {
-    await Bun.write(OUT, await req.text());
-    setTimeout(() => process.exit(0), 400);
-    return Response.json({ok:true}, {headers:CORS});
+    try {
+      if (!/^application\/json(?:;|$)/i.test(req.headers.get("content-type") || ""))
+        return new Response("unsupported media type", {status:415, headers:CORS});
+      const raw = await readLimited(req);
+      let slug = "unknown";
+      try { slug = JSON.parse(raw)?.plan?.slug ?? "unknown"; } catch {}
+      if (slug !== EXPECTED.slug) {   // another plan's payload — save aside, stay alive
+        await Bun.write(`${OUT}.foreign-${slug.replace(/[^a-z0-9-]/g, "_")}.json`, raw);
+        return Response.json({ok:false, reason:"wrong-plan", plan:EXPECTED.slug}, {headers:CORS});
+      }
+      if (!authorized(req)) return new Response("unauthorized", {status:401, headers:CORS});
+      const payload = validatePayload(JSON.parse(raw));
+      const temp = `${OUT}.${randomUUID()}.tmp`;
+      await writeFile(temp, JSON.stringify(payload, null, 2) + "\n", {flag:"wx", mode:0o600});
+      await rename(temp, OUT);
+      setTimeout(() => process.exit(0), 400);
+      return Response.json({ok:true}, {headers:CORS});
+    } catch (error: any) {
+      return new Response(error.message, {status:error.status || 400, headers:CORS});
+    }
   }
-  return new Response("plans listener", {headers:CORS});
+  return new Response("not found", {status:404, headers:CORS});
 }});
 ```
 
@@ -268,7 +474,8 @@ Plan pages need no widescreen change — `.wrap` is already capped.
   in review mode.
 - **Dialogs**: shortcut help (`?`) and submit confirm (stats, undecided list,
   Review-them / Submit-anyway / Cancel) — `role=dialog aria-modal`,
-  Esc closes, Enter fires the primary.
+  Tab is trapped inside the dialog and focus returns to the opener on close;
+  Esc closes, Enter fires the primary unless a control inside is focused.
 - **Shortcut footer** (fixed, desktop only): the whole key map at a glance.
 - **Meta strip**: seq pill + date + repo + source — provenance at a glance.
 - **Stat tiles**: decisions/approved/rejected/pending, mono numerals, colored.
@@ -328,4 +535,5 @@ card moves are a monolith-template feature until appkit grows a card board.
 Every plan page is one `.html` with all CSS + JS inline and system-font stacks.
 It must open from `file://` with no network and no build step — `bun run plans`
 (or a double-click) always works offline. The only network call is the optional
-`127.0.0.1:47613` listener ping/submit, which degrades gracefully.
+`127.0.0.1:<per-repo port>` listener ping/submit, which degrades gracefully
+(offline or busy-with-another-plan both fall back to a JSON download).

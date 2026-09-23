@@ -22,6 +22,10 @@
     "unlink": "bun scripts/dev-link.ts --remove",
     "release": "bun scripts/release.ts",
     "plans": "bun scripts/plans.mjs",
+    "activity:build": "bun scripts/build-activity-app.ts",
+    "activity:share": "bun scripts/build-activity-share.ts",
+    "activity:serve": "bun run plans serve --local --name allman-activity bun scripts/serve-activity.ts",
+    "activity:qa": "bun scripts/qa-activity-app.ts",
     "prepare": "husky"
   },
   "devDependencies": {

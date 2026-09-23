@@ -28,6 +28,63 @@ Other commands do not create activity runs. Local operations remain local.
 BrowserOS MCP imports can change store totals, but their internal browser requests
 are not counted by the CLI HTTP observer.
 
+## Plans / Appkit artifact
+
+The full dashboard is also a project-owned single-file app at `apps/activity.html`.
+It was scaffolded with the actual Plans pipeline:
+
+```bash
+bun run plans app activity --recipe workspace --title 'Allman · Live contact processing' --badge ACTIVITY
+```
+
+That scaffold already exists: do not overwrite it. `.appkit/lock.json` retains its
+Appkit 1.1.0 generation baseline. The project adds the BD Stack design, existing
+activity source, command bar, keyboard help, themes, and a reduced-motion setting.
+
+```bash
+bun run activity:build                        # refresh dashboard regions from src/activity
+bun run activity:share                        # render contact-free OG image and SMS copy
+ALLMAN_PROFILE=jp bun run activity:serve       # keep this observer running
+bun run plans activity                       # open the app via the plans picker
+```
+
+The serve script runs `bun run plans serve --local --name allman-activity bun
+scripts/serve-activity.ts`. Live URL:
+<https://allman-activity.localhost/apps/activity.html>. The dedicated local route
+preserves the existing `allman-cli.localhost` plans-hub alias. Opening the app via
+that local hub redirects to the live route. Opening a file or remote static copy
+shows “Local viewer required”; it does not fetch the private feed.
+
+The viewer captures the selected profile when started. Restart it to change the
+observed profile or load a rebuilt artifact. It never activates that profile or
+starts a LinkedIn session. Its listener binds to `127.0.0.1`, permits only the
+configured origin (including Portless's exact forwarded authority), rejects
+cross-site API requests, and serves a fixed allowlist of routes. Static page/card
+navigation is allowed so links from the plans hub work. It never serves the
+repository or account directory as a static file tree.
+
+Share assets: `apps/activity-og.png` (1200 × 630, product copy only) and
+`apps/activity-sms.txt` (draft text, never sent by the build). The PNG is served at
+`/apps/activity-og.png` and referenced by the app's Open Graph metadata. The
+`.localhost` link works on this Mac while the viewer runs; it is not a phone or
+public share link. No remote hosting, notification, or tunnel is enabled by these
+commands.
+
+The table combines search, outcome, entity type, processing step, company and
+location filters. Sort any visible column; show/hide/reorder columns; change row
+density and page size; select all filtered events across pages; review selected
+events; export selected events (including those hidden by current filters) or all
+filtered events to CSV. CSV values that could be spreadsheet formulas are escaped.
+Only column layout, sort, density and page-size preferences persist in browser
+storage. Contact rows, filters and selections do not. New events keep the current
+page and selection; a new run clears selection. “Pause view” freezes the display
+while processing continues.
+
+For repeatable UI checks, `bun scripts/qa-activity-app.ts` starts a disposable
+45-event synthetic fixture with the exact built app. Enter `append`, `new`, or
+`quit` in that terminal to test arrivals, run changes, and cleanup. No real account
+is read. `bun scripts/build-activity-app.ts --check` detects stale embedded regions.
+
 ## What the numbers mean
 
 | Value | Source and counting rule |

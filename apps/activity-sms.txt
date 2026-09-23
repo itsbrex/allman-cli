@@ -1,0 +1,2 @@
+Allman live dashboard is ready: https://allman-activity.localhost/apps/activity.html
+Daily totals, quota visibility, and a live event table with filters, sorting, column controls, selection, and CSV export. Opens on this Mac while the local viewer runs; this .localhost link will not open from a phone.

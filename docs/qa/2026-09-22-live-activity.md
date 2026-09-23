@@ -5,6 +5,61 @@ and existing local quota policy. No live sends, drafts, invitations, reactions,
 CRM writes, or mark-read actions were performed. Real contact details and cookies
 are excluded from this report.
 
+## Plans artifact port
+
+Completed the `bun run plans app activity --recipe workspace` scaffold rather than
+substituting a separate page generator. Appkit provenance is intact and reports
+the app as current, project-modified. The generated dashboard regions use the same
+styles, body, table model/controller, and event renderer as the CLI. The exact
+served inline scripts are authorized by CSP hashes; no external scripts or fonts
+are fetched.
+
+Deliverables:
+
+- `apps/activity.html`: full dashboard with BD Stack design and Appkit command bar.
+- `https://allman-activity.localhost/apps/activity.html`: Plans/Portless local route.
+- `apps/activity-og.png`: inspected 1200 × 630 card with product text only.
+- `apps/activity-sms.txt`: unsent, Mac-local share copy.
+- `scripts/qa-activity-app.ts`: disposable fixture for repeating the UI checks.
+
+Verification on the ported artifact:
+
+- Live JP UI and API agree: 5 known people, 1 deep profile, 6 recorded saves, 1
+  repeat save, 0 resolved companies. Opening it performs no LinkedIn request.
+- Opening the hub's `allman-cli.localhost/apps/activity.html` redirects to the live
+  route and shows Connected with 5 people. Cross-site navigation may read the
+  contact-free static shell/card; cross-site API reads remain rejected.
+- Synthetic 45-event run: sort by name, select all 45, navigate to page 2; all 20
+  visible rows remain selected, range is 26–45.
+- Combining Person + Deep enrichment + Meridian + San Diego yields exactly two
+  events, with 43 selections outside the active filters.
+- Hide Time, show Location, move Company first, and set Compact; reload retains
+  layout/density and clears transient selections.
+- An arriving event changes 45 to 46 while keeping page 2 and the original 45
+  selections. Pause holds 46 while another event arrives; resume displays 47.
+- Selected-only mode still shows the original 45. A fresh run clears selection;
+  switching back to the older run replays all 47 events.
+- Chromium downloaded the selected 47-row CSV successfully: header plus 47 rows,
+  including synthetic arrival records, with no download failure. Codex's in-app
+  download event did not fire; native in-app download completion remains unverified.
+- Appkit command bar opens Column settings; dashboard uses the reference's system
+  serif/mono fonts and charcoal background. At 390 × 844, document width is 390px;
+  the event table scrolls inside its 354px container. Desktop and mobile viewport
+  screenshots were visually inspected. No page console warnings or errors.
+- Host, Origin, cross-site, path traversal, POST, proxy protocol, and occupied-port
+  regressions pass. Portless's `changeOrigin` behavior is handled only for the
+  configured loopback listener and exact `.localhost` forwarded authority.
+- Canonical `bun run test --maxWorkers=2`: **689 passed**. Typecheck and lint pass
+  (lint retains eight existing informational notices). Artifact freshness check and
+  CodeDB refresh pass. Unrestricted concurrency first timed out two session CLI
+  tests; their isolated run passed. A separate experiment running Vitest under Bun
+  directly exposed an unrelated existing CDP mock failure; the canonical runner
+  above is the verified suite.
+
+The user browser exposed as Chrome reported Comet `ERR_BLOCKED_BY_CLIENT` for local
+navigation. No browser protection was changed. Live UI was verified in Codex's
+in-app browser; CSV file output was verified with disposable Chromium.
+
 ## Store reconciliation
 
 Read-only local inspection found:

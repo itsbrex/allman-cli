@@ -9,7 +9,7 @@ offline-ready, approve/reject/edit-able, numbered per repo.
 bun run plans            # interactive picker (fzf if installed, else numbered)
 bun run plans latest     # open the newest plan (highest #seq)
 bun run plans <substr>   # open first plan whose filename matches <substr>
-open docs/plans/index.html   # dashboard (auto-regenerated each session)
+open docs/plans/index.html   # dashboard (auto-regenerated each session; also https://<appName>.localhost/plans/)
 ```
 
 (No `package.json`? Use `bun scripts/plans.mjs …` — or `node scripts/plans.mjs …`
@@ -24,6 +24,12 @@ bun run plans new <slug> --title "Title" --source "where this came from"
 Stamps `YYYY-MM-DD-NNN-<slug>.html` from `.plan-template.html` with the next
 sequence number and this repo's accent color, then rebuilds the dashboard.
 Fill in the thesis paragraph and `PLAN_ITEMS` (see `DESIGN.md`).
+
+Since v16 stamping is context-aware (a title or source containing quotes or
+tags can neither break nor inject into the page), `plans new` takes a sequence
+lock so two sessions never mint the same `#NNN`, and every page carries a
+random submission token the decision listener must see (see `DESIGN.md`,
+"Receiving decisions"). Tests: `node --test ~/.claude/templates/plans/tests/`.
 
 Plan pages (v13) carry a 13-entry theme system — default **Auto** resolves to
 Cresa goldenrod on dark systems, paper on light; **Repo accent** restores the
@@ -70,6 +76,45 @@ drawer, and a keyboard layer where each overlay owns its keys.
 have not been ported to a recipe yet (e.g. `--template changes`). As of hook v9
 this folder no longer receives `.app-template*.html` copies; if your repo still
 has them, they are leftovers — `appkit doctor` lists them.
+
+## Where pages open (v17 plans hub)
+
+Every registered repo is served at `https://<appName>.localhost/plans/` by one
+always-on Bun process (`~/.claude/plans-hub/hub.ts`, launchd agent
+`sh.claude.plans-hub`, ~35 MB total for any number of repos) behind the
+portless proxy. `bun run plans latest` opens that URL when the hub answers and
+falls back to `file://` otherwise. Decisions submitted from a page land in
+`~/.claude/plans-hub/inbox/<appName>/<slug>-<seq>.json`; Claude waits for them
+with `bun run plans wait <slug>` (no per-session listener).
+
+```bash
+bun run plans hub status        # hub, agent, portless, this repo's route
+bun run plans hub install       # once per machine (launchd user agent, no sudo)
+bun run plans hub register      # done silently by the SessionStart hook each session
+bun run plans wait <slug>       # block until the reader submits; prints the inbox path
+```
+
+The hook registers the repo (`portless alias <appName> <hubPort>`, a static
+route with no process) and suffixes `appName` with `-2` if another repo already
+owns it. Without portless or the agent, pages simply keep opening from
+`file://` with the JSON download fallback.
+
+## From your phone (v19 remote + notify)
+
+Turn remote access on once per machine and the hub answers a tunnel host with
+a keyed, path-prefixed mirror of every repo: `/` lists what is waiting on you,
+`/<appName>/plans/<file>.html` is the page itself, and Submit posts back to the
+same origin. `bun run plans wait <slug>` then texts you the link.
+
+```bash
+bun run plans hub remote on --provider tailscale      # private (tailnet); or funnel | ngrok | cloudflare (public)
+bun run plans hub notify set --channel imessage --to <your iMessage handle>
+bun run plans notify --test                           # get the link on your phone now
+bun run plans hub status                              # remote + notify lines at the bottom
+```
+
+Details, security model and the per-page ENDPOINT rewrite: `DESIGN.md`
+("Reviewing from your phone").
 
 ## Serving apps (portless — REQUIRED, no raw ports)
 
@@ -118,5 +163,28 @@ This folder + `scripts/plans.mjs` are auto-scaffolded and version-upgraded from
 Plan pages themselves are never touched. Opt a repo out with an empty
 `.no-claude-plans` file at its root.
 
+Since v15 the hook also records provenance in `.plans-template.json` (commit
+it), backs up any file it replaces to `~/.claude/backups/plans/`, and never
+overwrites a copy that has been customized — either because that manifest no
+longer matches the files, or because an empty `.no-claude-plans-upgrade` sits
+at the repo root. Inspect or drive that explicitly when you want to:
+
+```bash
+node ~/.claude/templates/plans/manage-plans.mjs status "$PWD"     # current / upgrade-available / diverged
+node ~/.claude/templates/plans/manage-plans.mjs upgrade "$PWD" --expect-source <sha256 from status>
+```
+
+`adopt` (record provenance for an exact-match copy) and `install` (absent files
+only) exist too; the manager refuses Git WIP, symlinks, and custom forks.
+
 App skeletons are **not** hook-owned — see `~/.claude/templates/appkit/` and its
 `docs/ARCHITECTURE.md` for why that split exists.
+
+## QA screenshot reviewer
+
+`bun run plans app qa-review --recipe qa-review --title "QA Reviews"` creates one
+offline app for every review run. Add captures with
+`appkit qa add apps/qa-review.html --manifest receipts.json --id <unique-run-id>`.
+Carousel, notes, pass/issue status, run progress, and portable exports are included.
+Details: `~/.claude/templates/appkit/docs/QA-REVIEW.md`. Existing startup-hook
+delegation discovers this recipe without copying template internals into projects.
