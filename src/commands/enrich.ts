@@ -16,6 +16,7 @@
  * stay well under LinkedIn's thresholds.
  */
 
+import { activityPerson, activityPhase, activityQuota } from "../activity/journal.js";
 import type { LinkedInApiClient } from "../linkedin/api/client.js";
 import type { ProfileDetail } from "../linkedin/api/endpoints/profile-detail.js";
 import { loadSession } from "../linkedin/api/session.js";
@@ -86,6 +87,7 @@ export async function enrichCommand(
 
   // Single-target mode: `allman enrich <slug|url|urn>`.
   if (target) {
+    activityPhase(depth === "deep" ? "Deep enrichment" : "Core enrichment", 1);
     const identity = resolveIdentity(target);
     if (!identity) {
       output.error(
@@ -96,6 +98,7 @@ export async function enrichCommand(
     }
     const single = quota.status();
     if (!(await quota.tryConsume())) {
+      activityQuota(single.nextFreeAt);
       output.error(
         `Enrichment limit reached (${describeWindow(quota.window)}${hasSeat ? "" : " — no Sales Navigator seat"}). ` +
           `Capacity returns in ${describeWait(single.nextFreeAt)}.`,
@@ -104,6 +107,7 @@ export async function enrichCommand(
       return;
     }
     output.info(`Fetching profile "${identity}"…`);
+    activityPerson("processing", identity, { publicIdentifier: identity });
     let fetched: ProfileObservationResult | null;
     try {
       fetched = await new LinkedInProfileEnricher(session.apiClient, depth, opts.raw).fetch(
@@ -140,6 +144,13 @@ export async function enrichCommand(
     await writePersonRecord(pstore, flagshipId, fetched?.observations ?? {}, nowIso);
     cstore.git.scheduleCommit(`enrich: ${detail.publicIdentifier ?? flagshipId}`);
     await store.git.flush();
+
+    activityPerson(
+      "saved",
+      flagshipId,
+      detail,
+      `${depth === "deep" ? "Full history, education and skills" : "Core profile"} saved`
+    );
 
     if (opts.json) {
       output.printData({ flagshipId, ...toEnrichment(detail, depth), enrichDepth: depth });
@@ -252,15 +263,19 @@ export async function enrichConnections(params: EnrichPassParams): Promise<Enric
   let firstFetch = true;
   let attempted = 0;
 
+  activityPhase(depth === "deep" ? "Deep enrichment" : "Core enrichment", ids.length);
+
   for (const id of ids) {
     if (attempted >= cap) break;
 
     const record = await cstore.readConnection(id);
     if (!record) {
+      activityPerson("failed", id, {}, "Stored connection is missing");
       failed += 1;
       continue;
     }
     if (!force && !needsEnrichment(record.enrichedAt ?? null, record.enrichDepth ?? null, depth)) {
+      activityPerson("skipped", id, record, "Already enriched at the requested depth");
       skipped += 1;
       continue;
     }
@@ -269,6 +284,7 @@ export async function enrichConnections(params: EnrichPassParams): Promise<Enric
     // front) so skipped records don't burn quota.
     if (quota && !(await quota.tryConsume())) {
       quotaExhausted = true;
+      activityQuota(quota.status().nextFreeAt);
       break;
     }
 
@@ -278,16 +294,19 @@ export async function enrichConnections(params: EnrichPassParams): Promise<Enric
     attempted += 1;
 
     const identity = record.publicIdentifier ?? id;
+    activityPerson("processing", id, record);
     let fetched: ProfileObservationResult | null;
     try {
       fetched = await new LinkedInProfileEnricher(apiClient, depth, raw).fetch(identity);
     } catch (err) {
       output.warn(`  ${identity}: fetch failed (${(err as Error).message})`);
+      activityPerson("failed", id, record, "Profile request failed; see terminal details");
       failed += 1;
       continue;
     }
     const detail = fetched?.detail;
     if (!fetched || !detail) {
+      activityPerson("failed", id, record, "Profile not found or not accessible");
       output.warn(`  ${identity}: not found / not accessible`);
       failed += 1;
       continue;
@@ -297,6 +316,12 @@ export async function enrichConnections(params: EnrichPassParams): Promise<Enric
     await cstore.enrichConnection(id, toEnrichment(detail, depth), depth, nowIso);
     await writePersonRecord(pstore, id, fetched?.observations ?? {}, nowIso);
     enriched += 1;
+    activityPerson(
+      "saved",
+      id,
+      detail,
+      depth === "deep" ? "Profile, work history, education and skills saved" : "Core profile saved"
+    );
 
     if (json) {
       output.emitEvent({ flagshipId: id, ...toEnrichment(detail, depth), enrichDepth: depth });

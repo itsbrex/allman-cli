@@ -17,6 +17,8 @@ import { VERSION } from "./version.js";
  */
 
 import { Command, InvalidArgumentError } from "commander";
+import { finishActivity } from "./activity/journal.js";
+import type { ActivityServer } from "./activity/server.js";
 import { attioCommand } from "./commands/attio.js";
 import { browserConfigureCommand, browserDoctorCommand } from "./commands/browser.js";
 import { companiesCommand } from "./commands/companies.js";
@@ -46,7 +48,7 @@ import {
   storeUseCommand,
 } from "./commands/store-cmd.js";
 import { syncCommand } from "./commands/sync.js";
-import { beginLinkedInCommand } from "./linkedin/session-control.js";
+import { beginLinkedInCommand, usesLinkedIn } from "./linkedin/session-control.js";
 import { setDebugMode, setJsonMode } from "./utils/output.js";
 
 function positiveInteger(value: string): number {
@@ -56,8 +58,17 @@ function positiveInteger(value: string): number {
   return number;
 }
 
+function localPort(value: string): number {
+  const number = Number(value);
+  if (!/^\d+$/.test(value) || !Number.isSafeInteger(number) || number < 0 || number > 65535)
+    throw new InvalidArgumentError("Expected a port from 0 to 65535 (0 selects a free port).");
+  return number;
+}
+
 const program = new Command();
 let releaseLinkedInCommand: (() => void) | null = null;
+let activityServer: ActivityServer | undefined;
+process.once("exit", (code) => finishActivity(code === 0 ? "interrupted" : "failed"));
 
 program
   .name("allman")
@@ -67,6 +78,8 @@ program
   .option("-s, --store <path>", "store directory ($ALLMAN_STORE, saved selection, or ./.allman)")
   .option("--json", "output as JSON")
   .option("--debug", "enable debug output")
+  .option("--dashboard", "open the local live activity dashboard for a processing run")
+  .option("--dashboard-port <port>", "local activity port (default: 8767)", localPort)
   .hook("preAction", (thisCommand) => {
     const opts = thisCommand.opts();
     if (opts.json) setJsonMode(true);
@@ -74,10 +87,44 @@ program
   })
   .hook("preAction", async (_program, command) => {
     releaseLinkedInCommand = await beginLinkedInCommand(command);
+    const options = command.optsWithGlobals();
+    if (
+      [
+        "start",
+        "sync",
+        "listen",
+        "connections",
+        "connections-of",
+        "enrich",
+        "companies",
+        "messages",
+      ].includes(command.name()) &&
+      usesLinkedIn(command.name(), options, command.parent?.name())
+    ) {
+      try {
+        const { beginCommandActivity } = await import("./commands/activity.js");
+        activityServer = await beginCommandActivity(command.name(), options);
+      } catch {
+        process.stderr.write("Live activity unavailable; continuing with terminal progress.\n");
+      }
+    }
   })
-  .hook("postAction", () => {
+  .hook("postAction", async () => {
+    finishActivity("finished");
+    await activityServer?.close();
+    activityServer = undefined;
     releaseLinkedInCommand?.();
     releaseLinkedInCommand = null;
+  });
+
+program
+  .command("activity")
+  .description("Watch real processing events in a local read-only browser dashboard")
+  .option("--port <port>", "loopback port (default: 8767; 0 selects a free port)", localPort)
+  .option("--no-open", "print the URL without opening a browser")
+  .action(async (_opts, command) => {
+    const { activityCommand } = await import("./commands/activity.js");
+    await activityCommand(command.optsWithGlobals());
   });
 
 program
@@ -173,6 +220,7 @@ program
   .description("Verify auth (login if needed), sync from last sync date, then listen")
   .option("-a, --account <slug>", "account to use")
   .option("-s, --store <path>", "store directory")
+  .option("--no-dashboard", "disable the automatically opened live activity dashboard")
   .action(async (opts, cmd) => {
     const globalOpts = cmd.parent?.opts() ?? {};
     await startCommand({
@@ -824,6 +872,7 @@ program
   );
 
 program.parseAsync(process.argv).catch((err: unknown) => {
+  finishActivity("failed");
   releaseLinkedInCommand?.();
   process.stderr.write(`Error: ${String(err)}\n`);
   process.exit(1);

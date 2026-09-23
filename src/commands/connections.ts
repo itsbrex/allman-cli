@@ -8,6 +8,7 @@
  */
 
 import { writeFile } from "node:fs/promises";
+import { activityPerson, activityPhase } from "../activity/journal.js";
 import {
   type ConnectionRecord,
   listConnectionsPage,
@@ -155,6 +156,7 @@ export async function connectionsCommand(opts: ConnectionsOptions): Promise<void
   }
 
   output.info(`Fetching connections (page size ${pageSize}, limit ${limit})…`);
+  activityPhase("Read first-degree connections");
 
   const all: ConnectionRecord[] = [];
   let start = 0;
@@ -173,6 +175,13 @@ export async function connectionsCommand(opts: ConnectionsOptions): Promise<void
       return;
     }
     all.push(...page.records);
+    for (const person of page.records)
+      activityPerson(
+        "found",
+        safeProfileId(person.memberUrn),
+        person,
+        "First-degree connection returned by LinkedIn"
+      );
     output.info(
       `  page ${pageNum}: +${page.records.length} (running total ${all.length})${page.isLastPage ? " [last]" : ""}`
     );
@@ -196,6 +205,7 @@ export async function connectionsCommand(opts: ConnectionsOptions): Promise<void
 
   // Default: write into the git-versioned store (per-connection files + slug symlinks).
   if (!opts.noStore) {
+    activityPhase("Save first-degree connections", all.length);
     const nowIso = new Date().toISOString();
     const cstore = store.connectionsFor(session.profileId);
     for (const r of all) {
@@ -214,6 +224,7 @@ export async function connectionsCommand(opts: ConnectionsOptions): Promise<void
         },
         nowIso
       );
+      activityPerson("saved", safeProfileId(r.memberUrn), r, "Connection saved locally");
     }
     cstore.git.scheduleCommit(`connections: export ${all.length}`);
     await store.git.flush();
@@ -310,6 +321,7 @@ async function salesnavConnections(p: SalesnavSweepParams): Promise<void> {
   const { store, session, json, noStore, delayConfig } = p;
   const cap = Math.min(p.limit, SALESNAV_MAX);
   output.info(`Fetching connections via Sales Navigator (page size ${p.pageSize}, limit ${cap})…`);
+  activityPhase("Read Sales Navigator connections");
 
   const all: SalesnavConnection[] = [];
   let start = 0;
@@ -328,6 +340,8 @@ async function salesnavConnections(p: SalesnavSweepParams): Promise<void> {
     }
     reportedTotal = page.total ?? reportedTotal;
     all.push(...page.connections);
+    for (const person of page.connections)
+      activityPerson("found", person.salesnavId, person, "Sales Navigator result");
     output.info(
       `  page ${pageNum}: +${page.connections.length} (running total ${all.length}${
         reportedTotal !== null ? ` of ${reportedTotal}` : ""
@@ -353,6 +367,7 @@ async function salesnavConnections(p: SalesnavSweepParams): Promise<void> {
   }
 
   if (!noStore) {
+    activityPhase("Save Sales Navigator connections", all.length);
     const nowIso = new Date().toISOString();
     const cstore = store.connectionsFor(session.profileId);
     for (const c of all) {
@@ -385,6 +400,7 @@ async function salesnavConnections(p: SalesnavSweepParams): Promise<void> {
         },
         nowIso
       );
+      activityPerson("saved", c.salesnavId, c, "Sales Navigator profile saved locally");
     }
     cstore.git.scheduleCommit(`connections: salesnav export ${all.length}`);
     await store.git.flush();

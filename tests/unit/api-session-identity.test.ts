@@ -3,12 +3,15 @@ import { tmpdir } from "node:os";
 import { join } from "node:path";
 import axios, { type AxiosRequestConfig } from "axios";
 import { afterEach, expect, it, vi } from "vitest";
+import { beginActivity, finishActivity } from "@/activity/journal.js";
+import { readActivityMetrics } from "@/activity/metrics.js";
 import { loadSession } from "@/linkedin/api/session.js";
 import { Store } from "@/store/index.js";
 
 vi.mock("axios", () => ({ default: vi.fn() }));
 let root: string;
 afterEach(async () => {
+  finishActivity("finished");
   if (root) await rm(root, { recursive: true, force: true });
   vi.clearAllMocks();
 });
@@ -37,6 +40,9 @@ it("keeps the browser identity private and uses it after cookie updates and sess
   expect(auth).not.toHaveProperty("requestIdentity");
   expect(await store.accounts.readCookies("ACoOwner")).toMatchObject({ requestIdentity });
 
+  const activity = join(root, "activity");
+  beginActivity(activity, { command: "sync", account: "ACoOwner", label: "Fixture" });
+
   vi.mocked(axios).mockResolvedValue({
     status: 200,
     headers: { "set-cookie": ["bcookie=fixture; Path=/; Domain=.linkedin.com"] },
@@ -61,4 +67,23 @@ it("keeps the browser identity private and uses it after cookie updates and sess
   ])
     expect(headers).not.toHaveProperty(fabricated);
   expect(await store.accounts.readCookies("ACoOwner")).toMatchObject({ requestIdentity });
+  vi.mocked(axios).mockRejectedValueOnce(new Error("private transport detail"));
+  await expect(
+    second.apiClient.request({ method: "GET", url: "https://www.linkedin.com/voyager/api/me" })
+  ).rejects.toMatchObject({ code: "NETWORK_ERROR" });
+  vi.mocked(axios).mockResolvedValueOnce({
+    status: 429,
+    headers: {},
+    data: { private: "response body" },
+  });
+  await expect(
+    second.apiClient.request({ method: "GET", url: "https://www.linkedin.com/sales-api/fixture" })
+  ).rejects.toMatchObject({ code: "RATE_LIMITED" });
+  finishActivity("finished");
+  expect(readActivityMetrics(join(root, "ACoOwner"), activity).today).toMatchObject({
+    requests: 4,
+    salesnavRequests: 1,
+    requestFailures: 2,
+    rateLimited: 1,
+  });
 });

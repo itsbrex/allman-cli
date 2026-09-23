@@ -22,6 +22,7 @@
  * eat the budget for enriching people.
  */
 
+import { activityCompany, activityPhase, activityQuota } from "../activity/journal.js";
 import { type Company, companyId } from "../linkedin/api/endpoints/companies.js";
 import { loadSession } from "../linkedin/api/session.js";
 import { LinkedInCompanyEnricher } from "../linkedin/company-enricher.js";
@@ -132,7 +133,9 @@ export async function companiesCommand(
 
   // Single-company mode.
   if (target) {
+    activityPhase("Resolve company", 1);
     if (!(await quota.tryConsume())) {
+      activityQuota(quota.status().nextFreeAt);
       output.error(
         `Company lookup limit reached (${describeWindow(quota.window)}). ` +
           `Capacity returns in ${describeWait(quota.status().nextFreeAt)}.`,
@@ -140,13 +143,16 @@ export async function companiesCommand(
       );
       return;
     }
+    activityCompany("processing", target);
     const fetched = await new LinkedInCompanyEnricher(session.apiClient).fetch(target);
     const company = fetched?.company;
     if (!company) {
+      activityCompany("failed", target, {}, "Company not found or not accessible");
       output.error(`No company found for "${target}".`, 1);
       return;
     }
     await cstore.upsertCompany(toStored(company), fetched?.observations);
+    activityCompany("saved", company.id, { name: company.name }, "Company saved locally");
     if (opts.json) output.printData(company);
     else
       output.success(`Resolved ${company.name ?? company.id} — ${company.website ?? "no website"}`);
@@ -172,8 +178,10 @@ export async function companiesCommand(
   let done = 0;
   let failed = 0;
   let first = true;
+  activityPhase("Resolve companies", todo.length);
   for (const id of todo) {
     if (!(await quota.tryConsume())) {
+      activityQuota(quota.status().nextFreeAt);
       output.info(
         `Stopped early: company lookup limit reached. ` +
           `Capacity returns in ${describeWait(quota.status().nextFreeAt)} — re-run then to continue.`
@@ -182,20 +190,24 @@ export async function companiesCommand(
     }
     if (!first && !opts.noDelay) await randomPageSleep(delayConfig);
     first = false;
+    activityCompany("processing", id);
     try {
       const company = (await new LinkedInCompanyEnricher(session.apiClient).fetch(id))?.company;
       if (!company) {
         failed++;
+        activityCompany("failed", id, {}, "Company not found or not accessible");
         continue;
       }
       await cstore.upsertCompany(toStored(company));
       done++;
+      activityCompany("saved", company.id, { name: company.name }, "Company saved locally");
       if (opts.json) output.printData(company);
       else output.info(`  ${company.name ?? id} — ${company.website ?? "no website"}`);
     } catch {
       // One unreachable company (restricted, deleted, or a 403) must not end
       // a long run; the id simply stays unresolved for the next pass.
       failed++;
+      activityCompany("failed", id, {}, "Company request failed; see terminal details");
     }
   }
   output.success(`Resolved ${done} companies, ${failed} failed.`);

@@ -18,6 +18,7 @@
  * sync.complete. Final summary is the last event.
  */
 
+import { activityPerson, activityPhase } from "../activity/journal.js";
 import type { LinkedInApiClient } from "../linkedin/api/client.js";
 import { listConversations } from "../linkedin/api/endpoints/conversations.js";
 import { fetchMessages, type MessageData } from "../linkedin/api/endpoints/messages.js";
@@ -149,6 +150,12 @@ export async function syncCommand(options: SyncOptions): Promise<void> {
     }
 
     const messageLimit = options.limit ?? DEFAULT_MESSAGES_PER_CONVERSATION;
+    activityPhase("Sync conversation", 1);
+    activityPerson("processing", record.profileId || convId, {
+      name: record.name,
+      publicIdentifier: record.slug,
+      headline: record.headline,
+    });
     const messagesWritten = await syncConversationMessages(
       apiClient,
       conversations,
@@ -165,6 +172,12 @@ export async function syncCommand(options: SyncOptions): Promise<void> {
     );
 
     await store.git.flush();
+    activityPerson(
+      "saved",
+      record.profileId || convId,
+      { name: record.name, publicIdentifier: record.slug, headline: record.headline },
+      `${messagesWritten} messages saved locally`
+    );
 
     if (options.json) {
       output.emitEvent({
@@ -210,6 +223,7 @@ export async function syncCommand(options: SyncOptions): Promise<void> {
   const convLimit = options.limit ?? Number.POSITIVE_INFINITY;
 
   if (!options.json) output.info("Fetching conversation list...");
+  activityPhase("Sync conversations");
 
   outer: while (true) {
     const { conversations: convPage, nextCursor: cursor } = await listConversations(
@@ -246,6 +260,10 @@ export async function syncCommand(options: SyncOptions): Promise<void> {
 
       const contactProfileUrn = otherParticipant.entityUrn;
       const contactProfileId = contactProfileUrn.replace("urn:li:fsd_profile:", "");
+      activityPerson("processing", contactProfileId, {
+        name: otherParticipant.name,
+        headline: otherParticipant.headline,
+      });
 
       // Resolve the contact's slug — check existing record first to avoid redundant API calls
       let slug: string | null = null;
@@ -330,6 +348,12 @@ export async function syncCommand(options: SyncOptions): Promise<void> {
         slug
       );
       totalMessages += messagesWritten;
+      activityPerson(
+        "saved",
+        contactProfileId,
+        { name: fullName, publicIdentifier: slug, headline: otherParticipant.headline },
+        `${messagesWritten} messages saved locally`
+      );
 
       if (totalConversations >= convLimit) {
         nextCursor = null;

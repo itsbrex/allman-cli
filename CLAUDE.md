@@ -24,11 +24,29 @@ src/commands/                One file per subcommand
 src/linkedin/auth/           Playwright-based interactive login
 src/linkedin/api/            Axios client with LinkedIn headers + cookie management
 src/linkedin/realtime/       SSE stream client with reconnect
+src/activity/                Private processing journals, daily metrics and passive loopback viewer
 src/relationships/           Pure rank, ICP evidence and observed graph logic
 src/store/                   File store: RECORD.json files + JSONL messages + git
 src/utils/                   URN helpers, slug extraction, output formatting
 tests/unit/                  Unit, mocked network and real local CLI integration tests
 ```
+
+## Activity accounting
+
+Read [live activity](docs/live-activity.md) before changing activity counters. The
+viewer must remain a local observer: no LinkedIn session, send, draft, invitation,
+CRM write, remote asset, or extra active profile. Start processing only after the
+shared session guard succeeds. Journal explicit projections outside store Git;
+never copy raw API payloads, cookies, headers, URLs, or message bodies.
+
+Unique people, company records, quota-charged attempts, HTTP dispatches, and repeated
+saves are different measures. Read full journals rather than the 200-event UI tail.
+Preserve retained quota history before pruning and reconcile duplicate ledger/journal
+charges. Skips cost no slot; failures do. Join Sales Navigator only through unique,
+consistent numeric member IDs; display unresolved identities separately. Calendar
+days follow local timezone; quotas stay rolling and account-specific. Display actual
+overrides and label all limits as Allman policy, never official LinkedIn allowances.
+Keep historical gaps explicit; a saved Sales Navigator cookie is not a live plan check.
 
 ## Relationship intelligence
 

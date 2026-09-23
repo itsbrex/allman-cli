@@ -7,6 +7,7 @@
 
 import { appendFile } from "node:fs/promises";
 import { join } from "node:path";
+import { activityPerson, activityPhase } from "../activity/journal.js";
 import type { LinkedInApiClient } from "../linkedin/api/client.js";
 import { listConversations } from "../linkedin/api/endpoints/conversations.js";
 import { fetchMessages } from "../linkedin/api/endpoints/messages.js";
@@ -42,6 +43,7 @@ export async function listenCommand(options: ListenOptions): Promise<void> {
 
   info(`Listening for messages (${accountRecord.name ?? profileId})...`);
   info("Streaming NDJSON events to stdout. Ctrl+C to stop.");
+  activityPhase("Listen for new activity");
 
   const sseClient = new SseClient(apiClient, profileId, {
     mpVersion: accountRecord.requestIdentity?.mpVersion,
@@ -203,9 +205,21 @@ async function handleEvent(
           originToken: event.originToken ?? null,
           ...extra,
         };
+        let persisted = true;
         await conversations.appendMessages(convId, [storedMsg]).catch((err) => {
+          persisted = false;
           debug(`Failed to persist message: ${String(err)}`);
         });
+        activityPerson(
+          persisted ? "saved" : "failed",
+          convRecord?.profileId || convId,
+          { name: convRecord?.name || fromName, publicIdentifier: convRecord?.slug },
+          persisted
+            ? isFromMe
+              ? "Observed sent-message echo saved locally"
+              : "Incoming message saved locally"
+            : "Could not save incoming activity"
+        );
 
         // Bump the RECORD so the TUI sidebar (sorted by lastActivityAt)
         // surfaces the conversation at the top. Without this, messages land

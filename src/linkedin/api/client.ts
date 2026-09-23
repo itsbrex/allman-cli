@@ -18,6 +18,7 @@ import { join } from "node:path";
 import axios, { type AxiosRequestConfig, type AxiosResponse } from "axios";
 import type { CookieJar } from "tough-cookie";
 import type tunnel from "tunnel";
+import { activityRequestFinished, activityRequestStarted } from "../../activity/journal.js";
 import type { AccountRecord, ProxyConfig } from "../../store/types.js";
 import * as output from "../../utils/output.js";
 import type { RateLimiter } from "../../utils/rate-limiter.js";
@@ -235,6 +236,10 @@ export class LinkedInApiClient {
     }
 
     let response: AxiosResponse;
+    const activityRequest =
+      options.method === "GET"
+        ? activityRequestStarted(options.url.includes("/sales-api/") ? "salesnav" : "flagship")
+        : undefined;
     try {
       response = await axios(axiosConfig);
     } catch (err: unknown) {
@@ -246,9 +251,11 @@ export class LinkedInApiClient {
       if (axiosErr.response) {
         response = axiosErr.response;
       } else {
+        activityRequestFinished(activityRequest);
         throw new LinkedInError(`Network error: ${axiosErr.message ?? "unknown"}`, "NETWORK_ERROR");
       }
     }
+    activityRequestFinished(activityRequest, response.status);
 
     // Handle error status codes — includes 3xx redirects (LinkedIn 302s on session
     // expiry must throw, not silently return empty JSON).

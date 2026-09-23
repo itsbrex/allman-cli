@@ -17,6 +17,7 @@
  */
 
 import { writeFile } from "node:fs/promises";
+import { activityPerson, activityPhase } from "../activity/journal.js";
 import { searchPeopleConnectionOf } from "../linkedin/api/endpoints/people-search.js";
 import { getProfileUrnBySlug } from "../linkedin/api/endpoints/profiles.js";
 import {
@@ -213,6 +214,7 @@ async function runSalesnav(
 
   const limit = Math.min(opts.limit ?? SALESNAV_SAFETY_MAX, SALESNAV_SAFETY_MAX);
   output.info(`Searching SalesNav for connections of "${slug}" (limit ${limit})...`);
+  activityPhase("Read observed network · Sales Navigator");
 
   const rows: ResultRow[] = [];
   let start = 0;
@@ -239,6 +241,7 @@ async function runSalesnav(
     }
     if (serverTotal === null) serverTotal = page.total;
     for (const lead of page.leads) {
+      activityPerson("found", lead.salesnavId, lead, "Observed connection-of result");
       rows.push({
         salesnavId: lead.salesnavId,
         memberId: lead.memberId || null,
@@ -305,6 +308,7 @@ async function runFlagship(
 
   const limit = Math.min(opts.limit ?? FLAGSHIP_SAFETY_MAX, FLAGSHIP_SAFETY_MAX);
   output.info(`Searching flagship for connections of "${slug}" (limit ${limit})...`);
+  activityPhase("Read observed network · flagship");
 
   const rows: ResultRow[] = [];
   let start = 0;
@@ -345,6 +349,7 @@ async function runFlagship(
     }
     if (serverTotal === null) serverTotal = page.total;
     for (const hit of page.hits) {
+      activityPerson("found", hit.memberUrn, hit, "Observed connection-of result");
       rows.push({
         salesnavId: null,
         memberId: hit.memberId,
@@ -401,6 +406,7 @@ async function emit(
 
   // Default: write into the git-versioned store under connections-of/{target}/.
   if (!opts.noStore) {
+    activityPhase("Save observed network", rows.length);
     const nowIso = new Date().toISOString();
     const cstore = ctx.store.connectionsFor(ctx.profileId);
     const targetKey = ConnectionsStore.targetKeyFromUrn(ctx.targetUrn);
@@ -433,6 +439,12 @@ async function emit(
           profilePictureUrl: r.profilePictureUrl ?? null,
         },
         nowIso
+      );
+      activityPerson(
+        "saved",
+        r.memberUrn || r.salesnavId || r.memberId || "unknown",
+        r,
+        "Observed network record saved locally"
       );
     }
     cstore.git.scheduleCommit(`connections-of ${ctx.targetSlug}: ${rows.length} (${backend})`);

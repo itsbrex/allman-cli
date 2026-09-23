@@ -190,6 +190,7 @@ export function usesLinkedIn(
       return false;
   }
   return ![
+    "activity",
     "session",
     "logout",
     "conversations",

@@ -6,6 +6,7 @@
  * Kept separate from `quota.ts` so the counting logic stays pure/testable and
  * only this module knows about the store.
  */
+import { activityAttempt } from "../activity/journal.js";
 import type { Store } from "../store/index.js";
 import type { AccountConfig, AccountRateState } from "../store/types.js";
 import {
@@ -95,12 +96,14 @@ export class AccountQuota {
 
   /** Consume a slot and persist. Returns false when the window is full. */
   async tryConsume(): Promise<boolean> {
-    if (!this.quota.tryConsume()) return false;
+    const timestamp = Date.now();
+    if (!this.quota.tryConsume(timestamp)) return false;
     this.rateState = {
       ...this.rateState,
       [LEDGER_KEY[this.kind]]: this.quota.toState().timestamps,
     };
     await this.store.accounts.writeRateState(this.profileId, this.rateState);
+    if (this.kind !== "invite") activityAttempt(this.kind, timestamp);
     return true;
   }
 }

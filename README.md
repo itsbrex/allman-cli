@@ -187,7 +187,14 @@ Verify auth (login if needed), sync from the last sync date, then run `listen` i
 ```bash
 allman start
 allman start --account your-account
+allman start --no-dashboard          # keep terminal-only output
 ```
+
+`start` opens the local live activity dashboard automatically. It shows actual
+processing events, distinct people/companies observed today, repeated attempts,
+and the account's enforced rolling quotas. Run `allman activity --no-open` for a
+persistent passive viewer, or add `--dashboard` to a connection/enrichment run.
+See [daily accounting, limits and coverage](docs/live-activity.md).
 
 ---
 

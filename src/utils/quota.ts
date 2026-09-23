@@ -4,16 +4,16 @@
  *
  * These are distinct from `RateLimiter` (which paces *spacing* between calls).
  * A quota caps *volume* over a long window and — critically — **survives
- * process restarts**, because LinkedIn's own limits are per-account-per-day,
- * not per-run. Ten `allman enrich` invocations in a row must not each get a
+ * process restarts**. Ten `allman enrich` invocations in a row must not each get a
  * fresh allowance.
  *
  * On exhaustion a quota **refuses rather than sleeps**: the windows here are
  * hours-to-days, so blocking would hang the CLI. Callers stop cleanly and tell
  * the user when capacity returns.
  *
- * Defaults are seat-aware, because a Sales Navigator seat is exactly the signal
- * that an account is provisioned for higher-volume prospecting:
+ * These are Allman's configurable local guardrails, not published LinkedIn
+ * allowances or a guarantee against provider restrictions. Defaults depend on
+ * the stored Sales Navigator credential, not a live subscription check:
  *
  *                     with seat        without seat
  *   enrichment        100 / hour       25 / day
@@ -40,9 +40,8 @@ export function defaultEnrichmentQuota(hasSalesNavSeat: boolean): QuotaWindow {
 
 /**
  * Company lookups hit a different resource (`/organization/companies`) than
- * profile enrichment (`/identity/dash/profiles`), so LinkedIn meters them
- * separately. They also read org pages rather than people, which is the less
- * sensitive of the two. Given its own, more generous ledger so that resolving
+ * profile enrichment (`/identity/dash/profiles`). Allman uses a separate local
+ * ledger so that resolving
  * employers never eats the budget for enriching people.
  */
 export function defaultCompanyQuota(hasSalesNavSeat: boolean): QuotaWindow {
