@@ -79,6 +79,7 @@ program
   .option("--json", "output as JSON")
   .option("--debug", "enable debug output")
   .option("--dashboard", "open the local live activity dashboard for a processing run")
+  .option("--no-dashboard", "disable dashboard opening (overrides environment and saved settings)")
   .option("--dashboard-port <port>", "local activity port (default: 8767)", localPort)
   .hook("preAction", (thisCommand) => {
     const opts = thisCommand.opts();
@@ -117,7 +118,7 @@ program
     releaseLinkedInCommand = null;
   });
 
-program
+const activity = program
   .command("activity")
   .description("Watch real processing events in a local read-only browser dashboard")
   .option("--port <port>", "loopback port (default: 8767; 0 selects a free port)", localPort)
@@ -125,6 +126,37 @@ program
   .action(async (_opts, command) => {
     const { activityCommand } = await import("./commands/activity.js");
     await activityCommand(command.optsWithGlobals());
+  });
+
+activity
+  .command("configure")
+  .description("Save dashboard preferences beside the selected profile's default store config")
+  .option("--auto-open <boolean>", "automatically open with start: true or false")
+  .option("--url <url>", "prefer an existing local viewer after verifying its account")
+  .option("--clear-url", "use the embedded viewer")
+  .option("--ca-file <path>", "absolute local CA file for this viewer's HTTPS identity check only")
+  .option("--clear-ca-file", "use runtime default certificate trust")
+  .action(async (options) => {
+    const { activitySettingsFile, configureDashboard, parseDashboardBoolean } = await import(
+      "./activity/config.js"
+    );
+    if (
+      options.autoOpen === undefined &&
+      options.url === undefined &&
+      !options.clearUrl &&
+      options.caFile === undefined &&
+      !options.clearCaFile
+    )
+      throw new Error("Specify --auto-open, --url, --clear-url, --ca-file, or --clear-ca-file.");
+    await configureDashboard({
+      autoOpen:
+        options.autoOpen === undefined ? undefined : parseDashboardBoolean(options.autoOpen),
+      url: options.url,
+      clearUrl: options.clearUrl,
+      caFile: options.caFile,
+      clearCaFile: options.clearCaFile,
+    });
+    process.stdout.write(`Dashboard preferences saved: ${activitySettingsFile()}\n`);
   });
 
 program
@@ -220,7 +252,6 @@ program
   .description("Verify auth (login if needed), sync from last sync date, then listen")
   .option("-a, --account <slug>", "account to use")
   .option("-s, --store <path>", "store directory")
-  .option("--no-dashboard", "disable the automatically opened live activity dashboard")
   .action(async (opts, cmd) => {
     const globalOpts = cmd.parent?.opts() ?? {};
     await startCommand({

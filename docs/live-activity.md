@@ -5,6 +5,80 @@ its normal sync/listen flow. `allman start --no-dashboard` keeps terminal-only o
 The viewer observes private local journals; it never starts a LinkedIn session or
 performs a send, invitation, reaction, draft, or CRM write.
 
+## Opening preferences
+
+Preferences belong to the selected profile's `settings.json`, beside
+`default-store.json` (normally `~/.config/allman/<profile>/settings.json`, or
+`~/.config/allman/settings.json` without a named profile). They stay separate from
+store selection, so `allman store use` does not erase them. Writes are atomic and
+private (0600); existing unrelated settings are preserved.
+
+```bash
+allman activity configure --auto-open false
+allman-jp activity configure --auto-open true
+ALLMAN_DASHBOARD_AUTO_OPEN=0 allman-jp start
+allman-jp start --dashboard       # explicit one-run opt-in
+allman-jp start --no-dashboard    # explicit one-run opt-out
+```
+
+Precedence: explicit `--dashboard` / `--no-dashboard`, then
+`ALLMAN_DASHBOARD_AUTO_OPEN`, then saved `dashboard.autoOpen`, then `true`.
+Environment values accept true/false, 1/0, yes/no, on/off, case-insensitively.
+An empty variable uses the saved setting; invalid values leave processing running
+with the existing observer-unavailable warning. Auto-open applies only to `start`;
+other processing commands still require `--dashboard`. Disabling opening preserves
+activity journals and does not stop an independently running viewer.
+
+To prefer the Plans/Appkit viewer:
+
+```bash
+allman-jp activity configure --url https://allman-activity.localhost/apps/activity.html
+allman-jp activity configure --clear-url  # return to embedded viewer
+```
+
+`ALLMAN_DASHBOARD_URL` overrides the saved `dashboard.url`. Only loopback or
+`.localhost` HTTP(S) URLs without credentials, query or fragment are accepted.
+Before opening, the CLI checks `/api/identity` against the current account's
+activity workspace. A stopped viewer, bad response or different account falls back
+to the embedded dashboard. An explicit `--dashboard-port` bypasses the preferred
+URL. No saved URL means the portable embedded dashboard remains the default.
+`activity --no-open` suppresses browser opening regardless of these start settings.
+
+If the runtime does not trust Portless's local HTTPS certificate, scope its CA to
+the viewer identity request (without changing global or LinkedIn TLS trust):
+
+```bash
+allman-jp activity configure --ca-file "$HOME/.portless/ca.pem"
+allman-jp activity configure --clear-ca-file  # restore runtime default trust
+```
+
+This saves `dashboard.caFile`, an absolute path. Missing or invalid certificates
+cause embedded-viewer fallback. Both local profiles are configured with auto-open
+enabled, the Plans/Appkit URL, and this Mac's Portless CA. JP reuses the login
+viewer; Brian uses its own embedded dashboard because the viewer belongs to JP.
+
+### This Mac's login viewer
+
+LaunchAgent `~/Library/LaunchAgents/com.allman.activity-viewer.plist` starts the
+Plans/Appkit observer for JP at login and restarts it after exit. It pins Bun 1.4.2,
+Node 24.14.1, this checkout, `ALLMAN_PROFILE=jp`, and `ALLMAN_ACCOUNT=jp`. Logs live
+under `~/.config/allman/jp/logs/activity-viewer*.log`. The existing Portless system
+service supplies local HTTPS. Login starts no browser window or LinkedIn worker.
+Actual logout/login remains a manual verification step; bootstrap and live route
+identity were verified during installation.
+
+```bash
+launchctl print gui/$(id -u)/com.allman.activity-viewer
+launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/com.allman.activity-viewer.plist
+# Re-enable after bootout:
+launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.allman.activity-viewer.plist
+```
+
+To permanently disable login startup, boot out the agent first, then move its plist
+outside `~/Library/LaunchAgents`. Moving this checkout or removing pinned runtimes
+requires updating the plist. Changing the CLI default profile does not retarget
+this JP viewer; identity checks prevent another profile from opening JP data.
+
 ```bash
 allman-jp activity --no-open --port 8767  # persistent passive viewer; prints its URL
 allman-jp connections --limit 5         # another terminal, one processing command

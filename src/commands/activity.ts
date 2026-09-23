@@ -1,6 +1,9 @@
 import { spawn } from "node:child_process";
 import { createHash } from "node:crypto";
+import { readFile } from "node:fs/promises";
+import { get } from "node:https";
 import { join } from "node:path";
+import { dashboardAutoOpen, dashboardCaFile, dashboardUrl } from "../activity/config.js";
 import { activityBaseline, beginActivity } from "../activity/journal.js";
 import type { ActivityServer } from "../activity/server.js";
 import { resolveStorePath, Store } from "../store/index.js";
@@ -43,11 +46,60 @@ export async function activityCommand(options: {
   open?: boolean;
 }): Promise<ActivityServer> {
   const context = await activityContext(options);
+  const preferred = options.port === undefined ? await dashboardUrl() : undefined;
+  if (preferred) {
+    try {
+      const identityUrl = new URL("/api/identity", preferred);
+      const caFile = identityUrl.protocol === "https:" ? await dashboardCaFile() : undefined;
+      const response = caFile
+        ? await localDashboardIdentity(identityUrl, await readFile(caFile))
+        : await fetch(identityUrl, {
+            signal: AbortSignal.timeout(1500),
+            redirect: "error",
+          });
+      const identity = (await response.json()) as { app?: string; key?: string };
+      const key = createHash("sha256").update(context.root).digest("hex");
+      if (response.ok && identity.app === "allman-activity-v1" && identity.key === key) {
+        info(`Live activity: ${preferred} (local observer; no LinkedIn connection)`);
+        if (options.open !== false) openViewer(preferred);
+        return { url: preferred, close: async () => {}, reused: true };
+      }
+    } catch {
+      // An unavailable local viewer must not block processing.
+    }
+    warn(
+      "Configured dashboard is unavailable or belongs to another account; using embedded viewer."
+    );
+  }
   const { startActivityServer } = await import("../activity/server.js");
   const server = await startActivityServer({ ...context, port: options.port });
   info(`Live activity: ${server.url} (local observer; no LinkedIn connection)`);
   if (options.open !== false) openViewer(server.url);
   return server;
+}
+
+// Trust an explicitly configured local CA only for this viewer identity request.
+// Never change global TLS verification or trust for LinkedIn requests.
+async function localDashboardIdentity(url: URL, ca: Buffer): Promise<Response> {
+  return new Promise((resolve, reject) => {
+    const request = get(url, { ca, signal: AbortSignal.timeout(1500) }, (response) => {
+      if (response.statusCode !== 200) {
+        response.resume();
+        reject(new Error("Dashboard identity request failed"));
+        return;
+      }
+      const chunks: Buffer[] = [];
+      let size = 0;
+      response.on("data", (chunk: Buffer) => {
+        size += chunk.length;
+        if (size > 4096) request.destroy(new Error("Dashboard identity response is too large"));
+        else chunks.push(chunk);
+      });
+      response.on("error", reject);
+      response.on("end", () => resolve(new Response(Buffer.concat(chunks))));
+    });
+    request.on("error", reject);
+  });
 }
 
 export async function beginCommandActivity(
@@ -79,7 +131,10 @@ export async function beginCommandActivity(
     context.account
   );
   activityBaseline(rate?.enrichmentTimestamps ?? [], rate?.companyTimestamps ?? []);
-  if (options.dashboard === true || (command === "start" && options.dashboard !== false))
+  if (
+    options.dashboard === true ||
+    (command === "start" && (await dashboardAutoOpen(options.dashboard)))
+  )
     return activityCommand({ ...options, port: options.dashboardPort });
   return undefined;
 }

@@ -181,6 +181,7 @@ export function usesLinkedIn(
 ): boolean {
   if (parent === "browser") return true;
   if (parent === "store") return false;
+  if (parent === "activity" && command === "configure") return false;
   if (command === "status") return options.check === true;
   if (command === "messages") return options.sync !== false;
   if (command === "companies") return options.local !== true;

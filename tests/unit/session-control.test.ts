@@ -98,6 +98,8 @@ it.each([
   expect(usesLinkedIn(command, {})).toBe(true);
 });
 it("guards live variants while preserving local history and relationship queries", () => {
+  expect(usesLinkedIn("configure", {}, "activity")).toBe(false);
+  expect(usesLinkedIn("future-network-command", {}, "activity")).toBe(true);
   expect(usesLinkedIn("status", { check: true })).toBe(true);
   expect(usesLinkedIn("status", {})).toBe(false);
   expect(usesLinkedIn("messages", {})).toBe(true);

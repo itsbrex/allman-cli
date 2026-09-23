@@ -5,6 +5,29 @@ and existing local quota policy. No live sends, drafts, invitations, reactions,
 CRM writes, or mark-read actions were performed. Real contact details and cookies
 are excluded from this report.
 
+## Login startup and opening preferences follow-up
+
+- Dashboard port committed as `6ab1583`, with 689 tests passing in its commit hook.
+- Installed the private `com.allman.activity-viewer` LaunchAgent for JP. Bootstrap
+  reports running; the HTTPS route returns the same account identity as before
+  migration from the terminal-owned process. Actual logout/login is not exercised.
+- Saved `dashboard.autoOpen`, `dashboard.url`, and `dashboard.caFile` in each
+  profile's 0600 `settings.json`, beside its unchanged store selection. JP reuses
+  the live Plans/Appkit URL; Brian falls back to its own embedded viewer after the
+  account identity mismatch. Closing a reused observer leaves launchd's viewer up.
+- Bun did not trust Portless's certificate by default. An explicitly saved CA
+  applies only to the viewer HTTPS identity request; global/LinkedIn TLS trust is
+  unchanged. Missing CA, HTTP errors, offline viewers and wrong identities fall
+  back without weakening certificate checks.
+- 31 focused tests pass for preference persistence/isolation, flag/environment
+  precedence, real CLI parsing, account matching, fallback, and local configuration
+  while LinkedIn sessions are paused. No live `start` sync/listen operation was
+  needed: its command hook was exercised with a disposable store and mocked worker.
+- Host load caused unrelated CLI subprocess timeouts in initial full-suite runs.
+  Verification uses pinned runtimes directly on PATH, a single Vitest worker, and
+  the existing `ALLMAN_TEST_BINARY` integration-test seam. Assertions, deadlines,
+  and commit hooks remain enabled.
+
 ## Plans artifact port
 
 Completed the `bun run plans app activity --recipe workspace` scaffold rather than
