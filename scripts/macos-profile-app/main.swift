@@ -11,6 +11,7 @@ struct Configuration: Codable {
     let companionEndpoint: String
     let companionProfileDirectory: String
     let browserApplication: String
+    let sessionRegistry: String
 }
 
 struct VerifiedBrowser: Codable {
@@ -53,10 +54,11 @@ func ensureCompanionBrowser(_ config: Configuration) throws {
                                   config.companionEndpoint + "/json/version"]) == 0
     }
     if try ready() { return }
-    // -n is required: Neo otherwise focuses JP because both profiles share its bundle ID.
+    // Explicitly reopen the saved Brian profile; never borrow JP's CDP endpoint.
     let status = try run("/usr/bin/open", ["-n", "-g", "-a", config.browserApplication, "--args",
         "--user-data-dir=" + config.companionProfileDirectory,
-        "--browseros-cdp-port=9222", "about:blank"])
+        "--remote-debugging-port=9222", "--browseros-cdp-port=9222",
+        "--restore-last-session", "chrome://version"])
     guard status == 0 else {
         throw NSError(domain: "BrowserOSProfile", code: Int(status),
                       userInfo: [NSLocalizedDescriptionKey: "Could not reopen Brian's saved browser for the account-switch guard."])
@@ -73,6 +75,7 @@ func ensureCompanionBrowser(_ config: Configuration) throws {
 final class AppDelegate: NSObject, NSApplicationDelegate {
     var busy = false
     var config: Configuration?
+    var activationObserver: NSObjectProtocol?
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         do {
@@ -87,6 +90,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             item.submenu = appMenu
             menu.addItem(item)
             NSApp.mainMenu = menu
+            activationObserver = NSWorkspace.shared.notificationCenter.addObserver(
+                forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main
+            ) { [weak self] notification in
+                guard let self, !self.busy, let config = self.config,
+                      let browser = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
+                      browser.bundleIdentifier == "com.allman.browser.jp.engine" else { return }
+                let data = try? Data(contentsOf: URL(fileURLWithPath: config.sessionRegistry))
+                let registry = data.flatMap { try? JSONSerialization.jsonObject(with: $0) as? [String: Any] }
+                if registry?["active"] as? String != config.profile { self.openBrowser() }
+            }
             openBrowser()
         } catch { showFailure(error.localizedDescription) }
     }
@@ -112,7 +125,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     attributes: [.posixPermissions: 0o700])
                 let process = Process()
                 process.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
-                process.arguments = [config.launcher, "--json"]
+                process.arguments = [config.launcher, "--restore-session", "--json"]
                 process.currentDirectoryURL = URL(fileURLWithPath: config.repository)
                 process.environment = launchEnvironment(ProcessInfo.processInfo.environment, config: config)
                 let pipe = Pipe()
@@ -129,7 +142,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                         userInfo: [NSLocalizedDescriptionKey: "JP browser verification failed. Open the launcher log for details. Your saved profile was preserved."])
                 }
                 let browser = try JSONDecoder().decode(VerifiedBrowser.self, from: output)
-                guard browser.profile == config.profile, browser.shieldVerified, browser.pid > 0 else {
+                guard browser.profile == config.profile, browser.shieldVerified, browser.pid > 0,
+                      browser.endpoint == "http://127.0.0.1:9223" else {
                     throw NSError(domain: "BrowserOSProfile", code: 2,
                         userInfo: [NSLocalizedDescriptionKey: "Launcher returned an unverified browser identity."])
                 }
@@ -156,7 +170,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     self.busy = false
                     NSApp.dockTile.badgeLabel = nil
                     guard let application = NSRunningApplication(processIdentifier: browser.pid),
-                          application.bundleIdentifier == "com.browseros.BrowserClaw" else {
+                          ["com.allman.browser.jp.engine", "com.browseros.BrowserClaw"].contains(application.bundleIdentifier ?? "") else {
                         self.showFailure("Verified JP browser exited before it could be focused. Open the launcher again.")
                         return
                     }
@@ -170,6 +184,8 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                         "shieldVerified": browser.shieldVerified, "focusRequested": focused,
                         "launcherPID": ProcessInfo.processInfo.processIdentifier,
                         "bundleIdentifier": Bundle.main.bundleIdentifier ?? "",
+                        "browserBundleIdentifier": application.bundleIdentifier ?? "",
+                        "launcherAccessory": NSApp.activationPolicy() == .accessory,
                     ]
                     let receiptURL = directory.appendingPathComponent("app-launch.json")
                     do {
@@ -179,7 +195,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                     } catch { self.showFailure("Browser verified, but launch receipt could not be saved: \(error.localizedDescription)") }
                 }
             } catch {
-                DispatchQueue.main.async { self.busy = false; self.showFailure(error.localizedDescription) }
+                DispatchQueue.main.async {
+                    // Keep focus notifications from retrying while the error dialog closes.
+                    self.showFailure(error.localizedDescription)
+                    self.busy = false
+                }
             }
         }
     }
@@ -212,6 +232,7 @@ if CommandLine.arguments.contains("--self-test") {
     let app = NSApplication.shared
     let delegate = AppDelegate()
     app.delegate = delegate
-    app.setActivationPolicy(.regular)
+    // The actual branded browser owns JP's Dock icon; this is a background launcher.
+    app.setActivationPolicy(.accessory)
     app.run()
 }

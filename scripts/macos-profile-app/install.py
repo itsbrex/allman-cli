@@ -1,5 +1,5 @@
 #!/usr/bin/env python3
-"""Build the local JP launcher without copying or modifying BrowserOS neo."""
+"""Build the local JP launcher without modifying the installed BrowserOS neo."""
 import json
 import os
 from pathlib import Path
@@ -44,6 +44,7 @@ def main():
             'CFBundlePackageType': 'APPL', 'CFBundleVersion': '1',
             'CFBundleShortVersionString': '1.0', 'CFBundleIconFile': 'JP.icns',
             'NSPrincipalClass': 'NSApplication', 'NSHighResolutionCapable': True,
+            'LSUIElement': True,
             'LSMinimumSystemVersion': '13.0',
             'LSApplicationCategoryType': 'public.app-category.utilities',
         }
@@ -54,9 +55,12 @@ def main():
                   'companionEndpoint': 'http://127.0.0.1:9222',
                   'companionProfileDirectory': str(HOME_DIR / 'Library/Application Support/BrowserClaw'),
                   'browserApplication': '/Applications/BrowserOS neo.app'}
+        config['engineApplication'] = str(HOME_DIR / '.config/allman/jp/BrowserOS JP.app')
+        config['sessionRegistry'] = str(HOME_DIR / '.config/allman/session-control.json')
         (resources / 'launcher.json').write_text(json.dumps(config, indent=2) + '\n')
         run('xcrun', 'swiftc', '-swift-version', '5', '-O', '-framework', 'AppKit',
             SOURCE / 'main.swift', '-o', executable)
+        run('xcrun', 'clang', '-O2', SOURCE / 'bridge.c', '-o', resources / 'JPBridge')
         icon_tool = root / 'make-icon'
         run('xcrun', 'swiftc', '-swift-version', '5', '-framework', 'AppKit', SOURCE / 'icon.swift', '-o', icon_tool)
         iconset = root / 'JP.iconset'
