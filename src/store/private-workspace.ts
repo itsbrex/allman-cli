@@ -3,12 +3,13 @@ import { existsSync, realpathSync } from "node:fs";
 import { chmod, mkdir, open, readFile, rename, rm } from "node:fs/promises";
 import { homedir } from "node:os";
 import { dirname, isAbsolute, join, relative, resolve } from "node:path";
-import { profileConfigRoot, readStoreDefault } from "./config.js";
+import { profileConfigRoot, readStoreDefault, storeDefaultFile } from "./config.js";
 
-function profileWorkspace(storePath: string): string | undefined {
-  const profile = profileConfigRoot();
+function profileWorkspace(storePath: string, env: NodeJS.ProcessEnv): string | undefined {
+  const profile = profileConfigRoot(env);
   if (!profile) return undefined;
-  const configured = readStoreDefault();
+  if (!existsSync(storeDefaultFile(env))) return undefined;
+  const configured = readStoreDefault(env);
   const canonical = (path: string) => (existsSync(path) ? realpathSync(path) : resolve(path));
   // Explicit --store must never join another store's private mail or contact evidence.
   return configured && canonical(configured) === canonical(storePath)
@@ -16,10 +17,10 @@ function profileWorkspace(storePath: string): string | undefined {
     : undefined;
 }
 
-export function workspaceRoot(storePath: string): string {
+export function workspaceRoot(storePath: string, env: NodeJS.ProcessEnv = process.env): string {
   const root = resolve(
-    process.env.ALLMAN_RELATIONSHIP_STORE ??
-      profileWorkspace(storePath) ??
+    env.ALLMAN_RELATIONSHIP_STORE ??
+      profileWorkspace(storePath, env) ??
       join(
         homedir(),
         ".local",

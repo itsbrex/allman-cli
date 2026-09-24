@@ -2,6 +2,8 @@ import { buildApiClient, LinkedInError } from "../linkedin/api/client.js";
 import { isAuthenticated, loadCookieJar, serializeCookieJar } from "../linkedin/api/cookies.js";
 import { getCurrentProfile } from "../linkedin/api/endpoints/profiles.js";
 import { resolveStorePath, Store } from "../store/index.js";
+import { workspaceRoot } from "../store/private-workspace.js";
+import { rawCaptureEnabled } from "../store/raw-archive.js";
 import { info, printData } from "../utils/output.js";
 
 export interface StatusOptions {
@@ -46,6 +48,7 @@ export async function statusCommand(options: StatusOptions): Promise<void> {
         if (hasValidCookies) {
           try {
             const client = buildApiClient(record, async () => {}, config.proxy);
+            if (rawCaptureEnabled()) client.setRawArchive(workspaceRoot(store.root), profileId);
             const owner = await getCurrentProfile(client);
             if (owner.urn !== record.urn) throw new Error("LinkedIn session account mismatch.");
             await store.accounts.writeCookies(profileId, {

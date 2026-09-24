@@ -1,14 +1,14 @@
 #!/usr/bin/env bun
-// Disposable, synthetic browser fixture. No LinkedIn connection or real store access.
-import { mkdir, mkdtemp, readFile, rm, writeFile } from "node:fs/promises";
-import { tmpdir } from "node:os";
+// Retained synthetic browser fixture. No LinkedIn connection or real store access.
+import { mkdir, readFile, writeFile } from "node:fs/promises";
 import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { ActivityRun } from "../src/activity/journal.ts";
 import { startActivityServer } from "../src/activity/server.ts";
+import { artifactDirectory } from "./artifact-directory.ts";
 
 const repo = join(dirname(fileURLToPath(import.meta.url)), "..");
-const root = await mkdtemp(join(tmpdir(), "allman-app-qa-"));
+const root = await artifactDirectory("activity-qa");
 const journal = join(root, "activity"),
   accountDir = join(root, "account");
 await mkdir(accountDir, { recursive: true, mode: 0o700 });
@@ -56,7 +56,7 @@ async function stop() {
   stopping = true;
   run.finish("finished");
   await server.close();
-  await rm(root, { recursive: true, force: true });
+  console.log(`QA artifacts retained: ${root}`);
   process.exit(0);
 }
 process.stdin.setEncoding("utf8");

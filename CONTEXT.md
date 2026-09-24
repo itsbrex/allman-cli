@@ -53,7 +53,9 @@ API says "lead"; our domain says **connection**.
 
 ## Storage
 
-The **store** is `.allman/` — file-backed, git-versioned, one directory per account. A
+The **store** is the resolved Allman store path — file-backed, git-versioned, one
+directory per account. Named profiles commonly use `~/.config/allman/<profile>/store`;
+explicit store/config selection takes precedence. See [profile folders](docs/profile-folders.md). A
 **conversation** directory is named by its **convId** and holds a `RECORD.json` (contact +
 conversation + sync state) plus month-partitioned JSONL under `messages/`. **Symlinks** (slug →
 convId, profile id → convId, account slug → myProfileId) are the lookup index; there is no database.
@@ -104,3 +106,12 @@ private mail/Attio identity workspace. See [agent contract](docs/agents/relation
 and [release evidence](docs/releases/2026-09-22-relationship-intelligence.md).
 Open upstream issue status is not proof a feature is missing locally. This fork now
 adds observed traversal and fit/rank workflows on top of upstream's data layer.
+
+## Review artifacts
+
+An **enrichment plan** is a sealed account/store/list target set, not permission to
+expand to the whole network. A **review** is a saved projection of that plan and
+local evidence. Re-rendering its HTML does not enrich people or call providers.
+Private account reviews remain in the relationship workspace; development captures
+and recovered evidence use `artifacts/local/`. Generated public templates contain
+no private report data.

@@ -29,14 +29,14 @@ export function profileConfigRoot(env: NodeJS.ProcessEnv = process.env): string 
   return join(root, name);
 }
 
-export function storeDefaultFile(): string {
-  return join(profileConfigRoot() ?? allmanConfigRoot(), "default-store.json");
+export function storeDefaultFile(env: NodeJS.ProcessEnv = process.env): string {
+  return join(profileConfigRoot(env) ?? allmanConfigRoot(env), "default-store.json");
 }
 
-export function readStoreDefault(): string | undefined {
-  const file = storeDefaultFile();
+export function readStoreDefault(env: NodeJS.ProcessEnv = process.env): string | undefined {
+  const file = storeDefaultFile(env);
   if (!existsSync(file)) {
-    if (dirname(file) !== allmanConfigRoot())
+    if (dirname(file) !== allmanConfigRoot(env))
       throw new Error(
         `No default store configured for profile at ${file}. Run allman store use <path>.`
       );

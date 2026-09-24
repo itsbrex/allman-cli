@@ -3,7 +3,7 @@
  *
  * Default output: per-connection records + slug symlinks written into the
  * git-versioned store (idempotent). `--csv <path>` also exports a CSV; `--json`
- * streams NDJSON to stdout without storing; `--no-save` skips the store. We keep
+ * streams NDJSON while saving; `--no-save` explicitly skips the store. We keep
  * the export minimal (ids + slug + name); `--include-headline` adds the headline.
  */
 
@@ -196,11 +196,10 @@ export async function connectionsCommand(opts: ConnectionsOptions): Promise<void
     );
   }
 
-  // --json: ephemeral stream to stdout, no store write.
+  // JSON changes presentation only; --no-save is the explicit persistence opt-out.
   if (opts.json) {
     for (const r of all) output.emitEvent(serializeRecord(r, opts.includeHeadline === true));
     output.success(`Emitted ${all.length} connections as NDJSON.`);
-    return;
   }
 
   // Default: write into the git-versioned store (per-connection files + slug symlinks).
@@ -363,7 +362,6 @@ async function salesnavConnections(p: SalesnavSweepParams): Promise<void> {
   if (json) {
     for (const c of all) output.emitEvent({ ...c });
     output.success(`Emitted ${all.length} connections as NDJSON.`);
-    return;
   }
 
   if (!noStore) {

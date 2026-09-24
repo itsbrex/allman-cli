@@ -62,7 +62,8 @@ export async function connectionsNeoCommand(opts: ConnectionsOptions): Promise<v
         connectedAtMs: record.connectedAt,
         ...(opts.includeHeadline ? { headline: record.headline } : {}),
       });
-  } else if (!opts.noStore) {
+  }
+  if (!opts.noStore) {
     await mkdir(storePath, { recursive: true, mode: 0o700 });
     await store.init();
     if (!(await store.accounts.exists(owner.profileId))) {

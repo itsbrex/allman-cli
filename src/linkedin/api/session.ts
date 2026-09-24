@@ -6,6 +6,8 @@
  */
 
 import type { Store } from "../../store/index.js";
+import { workspaceRoot } from "../../store/private-workspace.js";
+import { rawCaptureEnabled } from "../../store/raw-archive.js";
 import type { AccountRecord } from "../../store/types.js";
 import { buildRateLimiter } from "../../utils/rate-limiter.js";
 import { buildApiClient, type LinkedInApiClient } from "./client.js";
@@ -60,6 +62,7 @@ export async function loadSession(store: Store, accountOption?: string): Promise
       await store.accounts.writeRateState(profileId, { lastMessageSentAt });
     }
   );
+  if (rawCaptureEnabled()) apiClient.setRawArchive(workspaceRoot(store.root), profileId);
   apiClient.updateJar(jar);
 
   return {

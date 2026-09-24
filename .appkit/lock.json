@@ -14,6 +14,20 @@
         "date": "2026-09-23",
         "repo": "allman-cli"
       }
+    },
+    "apps/target-enrichment.html": {
+      "recipe": "records",
+      "appkitVersion": "1.1.0",
+      "recipeDigest": "ec19810acf8688432d3ce9996060b52cb9fa7029cf4951d75c80f66259fff272",
+      "generatedSha": "68373a5501d62ff8e530afdf5d2efe47883331b89ddc878f0a7adc993b68d5ed",
+      "generatedAt": "2026-09-23",
+      "placeholders": {
+        "title": "Allman · Target enrichment review",
+        "badge": "ATTIO",
+        "slug": "app-target-enrichment",
+        "date": "2026-09-23",
+        "repo": "allman-cli"
+      }
     }
   }
 }

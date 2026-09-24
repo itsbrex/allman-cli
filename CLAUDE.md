@@ -4,7 +4,7 @@ LinkedIn messenger CLI. File-backed, git-versioned, designed for AI agents and h
 
 ## Stack
 
-- **Bun** (latest via asdf) — runtime and build tool
+- **Bun** (1.4.2; see `.tool-versions`) — runtime and build tool
 - **TypeScript** (strict) — language
 - **commander** — CLI framework
 - **playwright** (Chromium, headed) — browser auth only
@@ -186,7 +186,7 @@ allman store path|commit|status
   overrides.
 - Both commands **store by default** (per-entity files + slug symlinks via `ConnectionsStore`,
   git-committed, idempotent firstSeenAt/lastSeenAt). `--csv <path>` also exports; `--no-save` skips
-  the store; `--json` streams NDJSON to stdout without storing. Pages are paced with a random 2–8s
+  the store; `--json` streams NDJSON and still saves unless `--no-save` is explicit. Pages are paced with a random 2–8s
   delay (`utils/random-delay.ts`).
 
 ### Connections backends (`connections --salesnav|--flagship`)
@@ -397,3 +397,12 @@ For a full connection baseline, enumerate flagship connections first, optionally
 
 - Latest bounded live command coverage and limitations: [2026-09-22 validation](docs/qa/2026-09-22-command-validation.md). Receipts contain counts only, not credentials or contact data.
 - Preserve case in opaque LinkedIn IDs; only vanity handles may be lowercased. CLI limits/page sizes must fail before store or network access when not positive safe integers.
+
+## Durable working artifacts
+
+Use `bun run --silent artifacts:new <label>` for reports, screenshots, JSON captures,
+one-off scripts and handoffs. Keep these under Git-ignored `artifacts/local/`, never
+`/tmp`. Preserve existing archives; do not run recovered scripts automatically.
+Disposable test fixtures and browser scratch profiles may use OS temporary storage.
+See `artifacts/README.md`, `scripts/README.md` and `docs/README.md`. App and CLI
+builds are separate; `bun run build:all` rebuilds source-derived artifacts.

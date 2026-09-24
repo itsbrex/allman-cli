@@ -71,7 +71,7 @@ describe("connections-of pacing (rate limiter)", () => {
       .mockResolvedValueOnce(page(25, false))
       .mockResolvedValueOnce(page(25, false))
       .mockResolvedValueOnce(page(10, true));
-    await connectionsOfCommand("example-user-1", { json: true });
+    await connectionsOfCommand("example-user-1", { json: true, noStore: true });
     expect(leadSearchMock).toHaveBeenCalledTimes(3);
     // 3 pages → 2 inter-page delays, none after the final page
     expect(sleepMock).toHaveBeenCalledTimes(2);
@@ -79,20 +79,20 @@ describe("connections-of pacing (rate limiter)", () => {
 
   it("does not sleep when only one page is returned", async () => {
     leadSearchMock.mockResolvedValueOnce(page(5, true));
-    await connectionsOfCommand("example-user-1", { json: true });
+    await connectionsOfCommand("example-user-1", { json: true, noStore: true });
     expect(sleepMock).not.toHaveBeenCalled();
   });
 
   it("skips delays entirely when noDelay is set", async () => {
     leadSearchMock.mockResolvedValueOnce(page(25, false)).mockResolvedValueOnce(page(5, true));
-    await connectionsOfCommand("example-user-1", { json: true, noDelay: true });
+    await connectionsOfCommand("example-user-1", { json: true, noStore: true, noDelay: true });
     expect(leadSearchMock).toHaveBeenCalledTimes(2);
     expect(sleepMock).not.toHaveBeenCalled();
   });
 
   it("advances the start offset by the number of leads each page", async () => {
     leadSearchMock.mockResolvedValueOnce(page(25, false)).mockResolvedValueOnce(page(25, true));
-    await connectionsOfCommand("example-user-1", { json: true, noDelay: true });
+    await connectionsOfCommand("example-user-1", { json: true, noStore: true, noDelay: true });
     expect(leadSearchMock.mock.calls[0]?.[1]).toMatchObject({ start: 0, count: 25 });
     expect(leadSearchMock.mock.calls[1]?.[1]).toMatchObject({ start: 25, count: 25 });
   });

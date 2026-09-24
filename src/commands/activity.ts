@@ -10,14 +10,17 @@ import { resolveStorePath, Store } from "../store/index.js";
 import { workspaceRoot } from "../store/private-workspace.js";
 import { info, warn } from "../utils/output.js";
 
-export async function activityContext(options: { store?: string; account?: string }) {
+export async function activityContext(
+  options: { store?: string; account?: string },
+  env: NodeJS.ProcessEnv = process.env
+) {
   const path = resolveStorePath(options.store);
   const store = new Store({ path });
-  const account = await store.accounts.getDefault(options.account || process.env.ALLMAN_ACCOUNT);
+  const account = await store.accounts.getDefault(options.account || env.ALLMAN_ACCOUNT);
   const auth = await store.accounts.readAuth(account);
   return {
     root: join(
-      workspaceRoot(path),
+      workspaceRoot(path, env),
       "activity",
       createHash("sha256").update(account).digest("hex").slice(0, 20)
     ),

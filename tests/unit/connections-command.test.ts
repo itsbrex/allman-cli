@@ -244,3 +244,11 @@ describe("connections: enrichment safeguards", () => {
     expect(h.urls).toHaveLength(0);
   });
 });
+
+it("persists JSON connection output unless explicitly opted out", async () => {
+  await connectionsCommand({ json: true, limit: 1, noDelay: true });
+  expect(h.flagshipUpserts).toHaveLength(1);
+  h.flagshipUpserts.length = 0;
+  await connectionsCommand({ json: true, noStore: true, limit: 1, noDelay: true });
+  expect(h.flagshipUpserts).toHaveLength(0);
+});

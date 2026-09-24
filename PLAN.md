@@ -1,5 +1,8 @@
 # Allman CLI Redesign
 
+> Historical architecture proposal. For current implementation and commands, see
+> [repository map](docs/README.md) and [README](README.md). Items below are not a live backlog.
+
 ## What's wrong now
 
 1. **Slugs are broken** — LinkedIn API returns profile IDs in `profileUrl`, so all symlinks have useless base64 names instead of `alice-smith`

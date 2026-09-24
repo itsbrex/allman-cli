@@ -157,4 +157,22 @@ describe("live Shield gate", () => {
     );
     expect(page.close).toHaveBeenCalledOnce();
   });
+  it.each([
+    "goto: Target page, context or browser has been closed",
+    "page.goto: Timeout 5000ms exceeded",
+    "page.goto: net::ERR_ABORTED",
+  ])("distinguishes interrupted verification from missing installation: %s", async (message) => {
+    const page = {
+      goto: vi.fn().mockRejectedValue(new Error(message)),
+      close: vi.fn().mockResolvedValue(undefined),
+    };
+    const context = {
+      serviceWorkers: () => [],
+      newPage: async () => page,
+    } as unknown as BrowserContext;
+    await expect(verifyShield(context, await readShieldPackage(root))).rejects.toThrow(
+      "verification was interrupted"
+    );
+    expect(page.close).toHaveBeenCalledOnce();
+  });
 });

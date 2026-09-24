@@ -17,7 +17,7 @@
  * connection first appeared and was last confirmed.
  */
 import { mkdir, readdir, readFile, writeFile } from "node:fs/promises";
-import { join } from "node:path";
+import { basename, dirname, join } from "node:path";
 import type {
   GeoGranularity,
   ProfileRaw as ProfileRawPayload,
@@ -27,6 +27,8 @@ import { forceAlias } from "./alias.js";
 import type { ObservationSet, Provenance } from "./enricher.js";
 import type { StoreGit } from "./git.js";
 import { applyFieldObservations, meaningful } from "./observations.js";
+import { workspaceRoot } from "./private-workspace.js";
+import { archiveRaw } from "./raw-archive.js";
 
 /** A single role in a connection's work history. */
 export interface StoredPosition {
@@ -153,12 +155,9 @@ export interface StoredConnection {
   /** Listed skills — only populated by `enrich --deep`. */
   skills?: string[] | null;
   /**
-   * Untouched LinkedIn entity payloads, written only by `enrich --raw`.
-   *
-   * Opt-in on purpose: at ~8,900 connections an always-on raw copy would add
-   * roughly a third of a gigabyte to a git-versioned store and rewrite all of
-   * it on every re-enrichment pass. Turn it on for a sample when you suspect a
-   * field is being dropped, not for the whole network.
+   * Latest captured LinkedIn entity payloads (--raw or ALLMAN_RAW).
+   * Every captured revision is also preserved outside Git in the private raw
+   * archive. CSV/JSON exports point to that evidence instead of duplicating it.
    */
   raw?: ProfileRawPayload | null;
   /** ISO timestamp of the last successful enrichment (null if never enriched). */
@@ -594,6 +593,20 @@ export class ConnectionsStore {
   ): Promise<boolean> {
     const existing = await this.readConnection(flagshipId);
     if (!existing) return false;
+    // Preserve both the prior and new raw revisions before updating the mirror.
+    for (const [raw, observedAt] of [
+      [existing.raw, existing.enrichedAt],
+      [patch.raw, nowIso],
+    ] as const) {
+      if (raw)
+        await archiveRaw(
+          workspaceRoot(dirname(this.accountDir)),
+          basename(this.accountDir),
+          `linkedin/profile/${flagshipId}`,
+          raw,
+          observedAt ?? nowIso
+        );
+    }
     // Only overwrite fields the enrichment actually resolved; keep prior values
     // (e.g. don't wipe deep fields when re-running a core enrich).
     const merged = { ...existing } as StoredConnection & Record<string, unknown>;
@@ -601,7 +614,7 @@ export class ConnectionsStore {
       if (meaningful(v)) merged[k] = v;
     }
     merged.enrichedAt = nowIso;
-    merged.enrichDepth = depth;
+    merged.enrichDepth = existing.enrichDepth === "deep" ? "deep" : depth;
     merged.lastSeenAt = nowIso;
     const path = join(this.connectionsDir(), `${flagshipId}.json`);
     await writeFile(path, `${JSON.stringify(merged, null, 2)}\n`, "utf8");

@@ -54,30 +54,62 @@ allman-jp activity configure --clear-ca-file  # restore runtime default trust
 
 This saves `dashboard.caFile`, an absolute path. Missing or invalid certificates
 cause embedded-viewer fallback. Both local profiles are configured with auto-open
-enabled, the Plans/Appkit URL, and this Mac's Portless CA. JP reuses the login
-viewer; Brian uses its own embedded dashboard because the viewer belongs to JP.
+enabled, the Plans/Appkit URL, and this Mac's Portless CA. The active profile reuses
+the login viewer; another profile falls back to its own embedded dashboard.
 
 ### This Mac's login viewer
 
 LaunchAgent `~/Library/LaunchAgents/com.allman.activity-viewer.plist` starts the
-Plans/Appkit observer for JP at login and restarts it after exit. It pins Bun 1.4.2,
-Node 24.14.1, this checkout, `ALLMAN_PROFILE=jp`, and `ALLMAN_ACCOUNT=jp`. Logs live
-under `~/.config/allman/jp/logs/activity-viewer*.log`. The existing Portless system
-service supplies local HTTPS. Login starts no browser window or LinkedIn worker.
-Actual logout/login remains a manual verification step; bootstrap and live route
-identity were verified during installation.
+Plans/Appkit observer at login and restarts it after exit. It pins Bun 1.4.2,
+Node 24.14.1 and this checkout, with `ALLMAN_DASHBOARD_FOLLOW_ACTIVE=1`.
+The viewer follows the single-profile session registry, including each profile's
+store, account and private relationship workspace. Pausing the registry clears
+the feed; missing or invalid registry data displays an unavailable state. A switch
+clears browser rows, history selection and filters before loading the new profile.
+The viewer never activates profiles or starts LinkedIn workers.
 
 ```bash
-launchctl print gui/$(id -u)/com.allman.activity-viewer
-launchctl bootout gui/$(id -u) ~/Library/LaunchAgents/com.allman.activity-viewer.plist
-# Re-enable after bootout:
-launchctl bootstrap gui/$(id -u) ~/Library/LaunchAgents/com.allman.activity-viewer.plist
+allman activity service status
+allman activity service status --json
+allman activity service stop
+allman activity service start
+allman activity service restart
 ```
 
-To permanently disable login startup, boot out the agent first, then move its plist
-outside `~/Library/LaunchAgents`. Moving this checkout or removing pinned runtimes
-requires updating the plist. Changing the CLI default profile does not retarget
-this JP viewer; identity checks prevent another profile from opening JP data.
+These local macOS controls target only `com.allman.activity-viewer`. `start` is
+idempotent when running. `stop` unloads the current job; its installed plist still
+starts at the next login. Status reports installed, loaded, running, PID and URL
+without exposing the launch environment. Startup can briefly report loaded but
+not yet running. Other operating systems report unsupported. The controls manage
+an existing LaunchAgent; they do not install one.
+
+Logs remain under `~/.config/allman/jp/logs/activity-viewer*.log`. The existing
+Portless system service supplies local HTTPS. Login starts no browser window.
+Bootstrap, service stop/start and live identity were verified; actual logout/login
+remains a manual verification step. Before-follow backup:
+`~/.config/allman/activity-viewer-before-follow.plist`.
+
+To permanently disable login startup, stop the service, then move its plist outside
+`~/Library/LaunchAgents`. Moving this checkout or removing pinned runtimes requires
+updating the plist. The CLI default profile and active LinkedIn profile are separate;
+the login viewer follows the latter. Identity checks still protect dashboard opening.
+
+### Quick terminal status
+
+```bash
+allman statusline
+allman-jp statusline
+allman statusline --json
+```
+
+One read-only line reports the selected account, active/paused/inactive state,
+stored authentication status, saved Sales Navigator credential and rolling local
+enrichment, company and invitation limits. It includes usage, remaining slots and
+next recovery when exhausted. No contact scan, provider call or quota write occurs.
+Malformed quota inputs show unavailable instead of invented capacity. These are
+Allman's local guardrails, not LinkedIn's hidden remaining allowances or a live
+subscription/authentication check. Use `--account` or a profile launcher to select
+which account to inspect; this command does not switch profiles.
 
 ```bash
 allman-jp activity --no-open --port 8767  # persistent passive viewer; prints its URL
@@ -118,7 +150,8 @@ activity source, command bar, keyboard help, themes, and a reduced-motion settin
 ```bash
 bun run activity:build                        # refresh dashboard regions from src/activity
 bun run activity:share                        # render contact-free OG image and SMS copy
-ALLMAN_PROFILE=jp bun run activity:serve       # keep this observer running
+ALLMAN_DASHBOARD_FOLLOW_ACTIVE=1 bun run activity:serve # follow active profile
+ALLMAN_PROFILE=jp bun run activity:serve       # fixed-profile observer
 bun run plans activity                       # open the app via the plans picker
 ```
 
@@ -129,9 +162,11 @@ preserves the existing `allman-cli.localhost` plans-hub alias. Opening the app v
 that local hub redirects to the live route. Opening a file or remote static copy
 shows “Local viewer required”; it does not fetch the private feed.
 
-The viewer captures the selected profile when started. Restart it to change the
-observed profile or load a rebuilt artifact. It never activates that profile or
-starts a LinkedIn session. Its listener binds to `127.0.0.1`, permits only the
+Without `ALLMAN_DASHBOARD_FOLLOW_ACTIVE=1`, the viewer captures the selected
+profile when started. Follow mode resolves the registry on each snapshot and SSE
+poll, discarding a snapshot if the profile changed during its scan. Restart either
+mode to load a rebuilt artifact. Neither mode activates a profile or starts a
+LinkedIn session. Its listener binds to `127.0.0.1`, permits only the
 configured origin (including Portless's exact forwarded authority), rejects
 cross-site API requests, and serves a fixed allowlist of routes. Static page/card
 navigation is allowed so links from the plans hub work. It never serves the
@@ -154,10 +189,11 @@ storage. Contact rows, filters and selections do not. New events keep the curren
 page and selection; a new run clears selection. “Pause view” freezes the display
 while processing continues.
 
-For repeatable UI checks, `bun scripts/qa-activity-app.ts` starts a disposable
+For repeatable UI checks, `bun run activity:qa` starts a
 45-event synthetic fixture with the exact built app. Enter `append`, `new`, or
-`quit` in that terminal to test arrivals, run changes, and cleanup. No real account
-is read. `bun scripts/build-activity-app.ts --check` detects stale embedded regions.
+`quit` in that terminal to test arrivals, run changes, and shutdown. Synthetic
+fixtures remain under `artifacts/local/`; no real account is read.
+`bun run activity:check` detects stale embedded regions.
 
 ## What the numbers mean
 

@@ -37,6 +37,11 @@ export async function profilePause(
     ...profile.browser,
     workspace: profile.workspace,
     headless: true,
+  }).catch((error: unknown) => {
+    throw new Error(
+      `Cannot verify registered profile "${profile.name}". Reopen its same dedicated browser at ${profile.browser.cdpEndpoint}, then rerun your intended allman session activate <name>. All registered browsers must remain reachable; no LinkedIn request was made. ${error instanceof Error ? error.message : String(error)}`,
+      { cause: error }
+    );
   });
   try {
     const page = await session.context.newPage();

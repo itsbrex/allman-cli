@@ -164,6 +164,10 @@ vi.mock("@/store/index.js", async () => ({
         git: { scheduleCommit: vi.fn() },
         listConnectionIds: async () => [...h.state.records.keys()],
         readConnection: async (id: string) => h.state.records.get(id) ?? null,
+        readConnectionByKey: async (key: string) =>
+          h.state.records.get(key) ??
+          [...h.state.records.values()].find((r) => r.publicIdentifier === key) ??
+          null,
         upsertConnection: async (c: Record<string, unknown>) => {
           h.upserts.push(c);
           h.state.records.set(c.flagshipId as string, c);
@@ -384,6 +388,21 @@ describe("enrich: quota", () => {
 });
 
 describe("enrich: single target", () => {
+  it("reuses a saved deep profile by slug without requests or quota charges; force explicitly refetches", async () => {
+    h.state.records.set(ID_1, {
+      flagshipId: ID_1,
+      publicIdentifier: "cached-person",
+      enrichedAt: "yesterday",
+      enrichDepth: "deep",
+    });
+    await enrichCommand("cached-person", { deep: true, noDelay: true });
+    expect(h.urls).toHaveLength(0);
+    expect(h.state.rateState).toBeNull();
+    expect(h.out.infos.join(" ")).toContain("Using saved enrichment");
+    await enrichCommand("cached-person", { force: true, noDelay: true });
+    expect(h.urls.length).toBeGreaterThan(0);
+  });
+
   it("tags ad-hoc records as source=enrich so connect's guard ignores them", async () => {
     await enrichCommand("someone", { noDelay: true });
     expect(h.upserts[0]).toMatchObject({ source: "enrich" });

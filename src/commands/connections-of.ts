@@ -397,11 +397,10 @@ async function emit(
 ): Promise<void> {
   const { rows, total, backend } = result;
 
-  // --json: ephemeral stream to stdout, no store write.
+  // JSON changes presentation only; --no-save is the explicit persistence opt-out.
   if (opts.json) {
     for (const r of rows) output.emitEvent({ ...r, backend });
     output.success(`Emitted ${rows.length} results as NDJSON (backend: ${backend}).`);
-    return;
   }
 
   // Default: write into the git-versioned store under connections-of/{target}/.

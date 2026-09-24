@@ -132,3 +132,24 @@ The daily counter is intentionally labeled incomplete for historical requests.
 Only actual API-client GET dispatches in tracked commands are counted going forward;
 browser and realtime transport traffic remain outside that metric. See
 [counting and privacy contract](../live-activity.md).
+
+## 2026-09-23: viewer controls and active profile
+
+- Added `activity service status|start|stop|restart` for the existing macOS viewer
+  LaunchAgent. Live stop reported unloaded; start loaded the job; subsequent status
+  reported running. The HTTPS identity route reported profile `jp` and
+  `followsActiveProfile: true` after enabling follow mode in the installed plist.
+- `statusline` verified against JP's local account: account label, active state,
+  stored authentication, saved credential and enrichment/company/invite guardrails.
+  Tests cover rolling windows, overrides, read-only behavior and malformed inputs.
+- Synthetic isolated registries verify two distinct named profile workspaces,
+  inherited-profile isolation, HTTP identity/snapshot changes, paused and malformed
+  registry clearing, and an existing SSE connection dropping its old run selection.
+  No live LinkedIn profile switch or provider request was needed for these checks.
+- CLI build, typecheck, lint and generated-artifact check passed. Full run produced
+  703 passing tests and six failures under severe host contention. All affected
+  tests passed on targeted reruns with longer runtime deadlines (24/25 in the
+  six-file retry, then the remaining logout test passed in isolation). All 709
+  tests have passing evidence across these runs; no claim of one clean full run.
+- Actual logout/login and in-app CSV download remain unverified. Existing unrelated
+  checkout changes were preserved. The viewer remains a passive local observer.

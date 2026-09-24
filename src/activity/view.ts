@@ -20,12 +20,19 @@ function connect() {
   if (source) source.close();
   connection('Connecting','connecting');
   const selected = $('run-select').value;
-  source = new EventSource('/api/events'+(selected ? '?run='+encodeURIComponent(selected) : ''));
+  source = new EventSource('/api/events'+(selected ? '?run='+encodeURIComponent(selected)+'&view='+encodeURIComponent(snapshot?.viewKey || '') : ''));
   source.onopen = () => connection('Connected','connected');
   source.onerror = () => { connection('Reconnecting','offline'); text('feed-note','Connection lost. Displaying last received activity; processing status may have changed.'); };
   source.addEventListener('unavailable', () => { connection('Feed unavailable','offline'); text('feed-note','Activity records are temporarily unavailable. Retrying automatically.'); });
   source.onmessage = event => {
     pending = JSON.parse(event.data);
+    if (snapshot && pending.viewKey !== snapshot.viewKey) {
+      source.close();
+      document.querySelector('main').replaceChildren();
+      text('profile-name','Switching profile…');
+      location.reload();
+      return;
+    }
     if (paused) { text('pause-view','Resume view · updates waiting'); return; }
     snapshot = pending; render();
   };

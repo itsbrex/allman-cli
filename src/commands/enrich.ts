@@ -27,6 +27,7 @@ import {
 import type { ConnectionEnrichment, ConnectionsStore } from "../store/connections-store.js";
 import type { ObservationSet } from "../store/enricher.js";
 import { type PeopleStore, resolveStorePath, Store } from "../store/index.js";
+import { rawCaptureEnabled } from "../store/raw-archive.js";
 import { AccountQuota } from "../utils/account-quota.js";
 import * as output from "../utils/output.js";
 import { describeWait, describeWindow } from "../utils/quota.js";
@@ -46,8 +47,8 @@ export interface EnrichOptions {
   /** Fetch full work history, education, and skills. */
   deep?: boolean;
   /**
-   * Also store the untouched LinkedIn entity payloads on each record. Opt-in:
-   * see `StoredConnection.raw` for why this is not the default.
+   * Preserve raw profile revisions and the latest raw record mirror.
+   * ALLMAN_RAW enables this when no explicit option is supplied.
    */
   raw?: boolean;
   /** Re-fetch even connections that already have enrichment data. */
@@ -63,6 +64,7 @@ export async function enrichCommand(
   target: string | undefined,
   opts: EnrichOptions
 ): Promise<void> {
+  opts = { ...opts, raw: rawCaptureEnabled(opts.raw) };
   const storePath = resolveStorePath(opts.store);
   const store = new Store({ path: storePath });
   await store.init();
@@ -94,6 +96,16 @@ export async function enrichCommand(
         `Cannot resolve "${target}". Use a LinkedIn URL, profile slug, or profile id.`,
         1
       );
+      return;
+    }
+    const cached = await cstore.readConnectionByKey(identity);
+    if (
+      !opts.force &&
+      cached &&
+      !needsEnrichment(cached.enrichedAt ?? null, cached.enrichDepth ?? null, depth)
+    ) {
+      output.printData(cached);
+      output.info("Using saved enrichment; --force explicitly fetches a new observation.");
       return;
     }
     const single = quota.status();

@@ -170,7 +170,16 @@ export async function verifyShieldPage(
         waitUntil: "domcontentloaded",
         timeout: 5_000,
       });
-    } catch {
+    } catch (error) {
+      if (
+        error instanceof Error &&
+        /closed|timeout|timed out|interrupted|ERR_ABORTED/i.test(error.message)
+      ) {
+        throw new Error(
+          "LinkedIn Shield verification was interrupted: its tab closed or navigation did not finish. Check tab-management extensions and retry. This does not establish that Shield is missing. No LinkedIn navigation was started.",
+          { cause: error }
+        );
+      }
       continue;
     }
     const state = await page.evaluate(

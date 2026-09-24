@@ -34,8 +34,8 @@ successful limited sample is not a complete export. The CLI has a 35,000-record
 safety cap. A sweep is not an atomic snapshot of a changing network and does
 not delete older records that no longer appear.
 
-Do not add `--json` or `--no-save` when building the store: these are ephemeral
-export modes. A separate enumeration pass is easier to resume and audit than
+Do not add `--no-save` when building the store: it requests an ephemeral
+export. `--json` now saves records unless `--no-save` is explicit. A separate enumeration pass is easier to resume and audit than
 combining it with `--enrich --deep`.
 
 ## 3. Collect Sales Navigator fields, when available

@@ -4,6 +4,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { startActivityServer } from "../src/activity/server.ts";
 import { activityContext } from "../src/commands/activity.ts";
+import { activeActivityContext } from "../src/activity/active-profile.ts";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const publicOrigin = process.env.PORTLESS_URL;
@@ -12,9 +13,11 @@ if (publicOrigin !== "https://allman-activity.localhost")
 const port = Number(process.env.PORT);
 if (!Number.isSafeInteger(port) || port < 1 || port > 65535)
   throw new Error("Portless did not provide a valid PORT");
-const context = await activityContext({});
+const followsActiveProfile = process.env.ALLMAN_DASHBOARD_FOLLOW_ACTIVE === "1";
+const context = followsActiveProfile ? { root: "", label: "No active profile" } : await activityContext({});
 const server = await startActivityServer({
   ...context,
+  resolveContext: followsActiveProfile ? activeActivityContext : undefined,
   port,
   publicOrigin,
   artifact: {

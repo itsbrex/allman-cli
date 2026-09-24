@@ -77,3 +77,43 @@ with `ALLMAN_PROFILE`. They never scope the shared registry or command lock.
 Do not use different `XDG_CONFIG_HOME` values to isolate account settings: that
 would also select a different session-control root. Choosing a profile's launcher
 does not activate it; `session activate` remains the only account-switch workflow.
+
+## Recover after closing JP's app on this Mac
+
+`allman-jp` selects JP's store/account; ordinary commands attach to its existing
+browser. Only the launcher's login branch automatically invokes its browser opener.
+The saved JP endpoint is port 9233; Brian uses 9222.
+
+```sh
+allman-jp-browser           # reopen the existing dedicated JP profile; no new login
+allman session activate jp # preserve the single-active-profile guard
+allman-jp connections --flagship --include-headline --raw
+```
+
+If activation names another unavailable registered browser, reopen that browser's
+same persistent profile too, then retry the intended switch. Do not change CDP
+ports or use another account's browser as a workaround. Closing an app does not
+remove its saved account, cookies or local data. Plain `allman-jp status` and
+`allman exports refresh` remain local; `status --check` makes a provider request.
+
+### Shield verification and tab deduplication
+
+An installed Shield can appear unavailable if a tab-management extension closes
+Allman's temporary verification page. On this Mac, Clutter Free closed duplicate
+`about:blank` bootstrap tabs before they could navigate. JP's Clutter Free allow
+list now preserves `about:blank`, the configured Shield popup, Extension Control
+Center's sidepanel and Clutter Free's options page. Existing website exceptions
+and enabled extensions were preserved. Interrupted navigation now reports an
+interrupted verification rather than asserting that Shield is missing.
+
+`allman-jp-browser` reuses `~/.config/allman/jp/neo-profile` and verifies Shield on
+each invocation. It no longer reapplies the saved enable/disable preset merely
+because it started the browser. Use `allman-jp-browser --configure-extensions`
+only when intentionally restoring that preset. This is a local launcher option,
+not a portable Allman CLI subcommand.
+
+Account stores and browser profiles serve different purposes: sharing team exports
+does not replace the profile's cookies or installed extensions. Keep the unpacked
+Shield build at its configured path; loading that same build during startup does
+not recreate the profile or reinstall unrelated extensions. No Chrome DevTools
+MCP installation was necessary for this repair.

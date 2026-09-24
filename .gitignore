@@ -1,6 +1,9 @@
 # local bot runs
 .allman
 
+# Durable private working artifacts; never publish CRM captures or recovered logs.
+/artifacts/local/
+
 
 # dependencies (bun install)
 node_modules

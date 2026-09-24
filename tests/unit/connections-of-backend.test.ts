@@ -17,6 +17,7 @@ const h = vi.hoisted(() => ({
   searchPeople: vi.fn(),
   resolveQid: vi.fn(),
   getUrn: vi.fn(),
+  upsert: vi.fn(),
 }));
 
 vi.mock("@/linkedin/api/session.js", () => ({
@@ -40,10 +41,20 @@ vi.mock("@/linkedin/api/endpoints/people-search.js", () => ({
 vi.mock("@/linkedin/api/flagship-queryid.js", () => ({
   resolveSearchClustersQueryId: (...a: unknown[]) => h.resolveQid(...a),
 }));
-vi.mock("@/store/index.js", () => ({
+vi.mock("@/store/index.js", async () => ({
+  ConnectionsStore: (await import("@/store/connections-store.js")).ConnectionsStore,
   resolveStorePath: () => "/tmp/allman-test",
   Store: class {
     accounts = {};
+    path = "/tmp/allman-test";
+    git = { flush: vi.fn() };
+    connectionsFor() {
+      return {
+        git: { scheduleCommit: vi.fn() },
+        writeConnectionOfTarget: vi.fn(),
+        upsertConnectionOfResult: h.upsert,
+      };
+    }
     async init() {}
   },
 }));
@@ -101,6 +112,7 @@ describe("connections-of backend selection", () => {
     setSeat(true);
     await connectionsOfCommand("example-user-1", { json: true, noDelay: true });
     expect(h.leadSearch).toHaveBeenCalled();
+    expect(h.upsert).toHaveBeenCalledTimes(1);
     expect(h.searchPeople).not.toHaveBeenCalled();
   });
 
@@ -108,6 +120,7 @@ describe("connections-of backend selection", () => {
     setSeat(false);
     await connectionsOfCommand("example-user-1", { json: true, noDelay: true });
     expect(h.searchPeople).toHaveBeenCalled();
+    expect(h.upsert).toHaveBeenCalledTimes(1);
     expect(h.leadSearch).not.toHaveBeenCalled();
     expect(h.resolveSalesnav).not.toHaveBeenCalled();
   });
@@ -117,12 +130,14 @@ describe("connections-of backend selection", () => {
     h.resolveSalesnav.mockResolvedValue(null);
     await connectionsOfCommand("example-user-1", { json: true, noDelay: true });
     expect(h.searchPeople).toHaveBeenCalled();
+    expect(h.upsert).toHaveBeenCalledTimes(1);
   });
 
   it("--flagship → flagship only, never touches SalesNav (even with a seat)", async () => {
     setSeat(true);
     await connectionsOfCommand("example-user-1", { json: true, noDelay: true, flagship: true });
     expect(h.searchPeople).toHaveBeenCalled();
+    expect(h.upsert).toHaveBeenCalledTimes(1);
     expect(h.resolveSalesnav).not.toHaveBeenCalled();
     expect(h.leadSearch).not.toHaveBeenCalled();
   });
@@ -144,6 +159,7 @@ describe("connections-of backend selection", () => {
     setSeat(true);
     await connectionsOfCommand("example-user-1", { json: true, noDelay: true, salesnav: true });
     expect(h.leadSearch).toHaveBeenCalled();
+    expect(h.upsert).toHaveBeenCalledTimes(1);
     expect(h.searchPeople).not.toHaveBeenCalled();
   });
 });

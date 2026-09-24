@@ -106,7 +106,7 @@ afterEach(() => {
 
 describe("no profile-page fetches", () => {
   it("connections-of (SalesNav) only hits API endpoints, never a profile page", async () => {
-    await connectionsOfCommand("synthetic-user-1", { json: true, noDelay: true });
+    await connectionsOfCommand("synthetic-user-1", { json: true, noStore: true, noDelay: true });
     expect(requestedUrls.length).toBeGreaterThan(0);
     for (const url of requestedUrls) {
       for (const bad of PROFILE_PAGE_PATTERNS) {
@@ -121,7 +121,7 @@ describe("no profile-page fetches", () => {
   });
 
   it("connections export only hits API endpoints, never a profile page", async () => {
-    await connectionsCommand({ json: true, noDelay: true });
+    await connectionsCommand({ json: true, noStore: true, noDelay: true });
     expect(requestedUrls.length).toBeGreaterThan(0);
     for (const url of requestedUrls) {
       for (const bad of PROFILE_PAGE_PATTERNS) {

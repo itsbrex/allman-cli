@@ -9,6 +9,12 @@ export interface ActivityServer {
   close: () => Promise<void>;
   reused?: boolean;
 }
+export interface ActivityViewContext {
+  root: string;
+  label: string;
+  accountDir?: string;
+  profile?: string;
+}
 export async function startActivityServer(options: {
   root: string;
   label: string;
@@ -16,6 +22,7 @@ export async function startActivityServer(options: {
   port?: number;
   publicOrigin?: string;
   artifact?: { html: string; ogImage: Uint8Array };
+  resolveContext?: () => Promise<ActivityViewContext | null>;
 }): Promise<ActivityServer> {
   const publicOrigin = options.publicOrigin ? new URL(options.publicOrigin) : undefined;
   if (
@@ -30,7 +37,16 @@ export async function startActivityServer(options: {
   )
     throw new Error("Activity public origin must be a local .localhost HTTP(S) origin");
   const html = options.artifact?.html ?? activityHtml;
-  const key = createHash("sha256").update(options.root).digest("hex");
+  const contextKey = (context: ActivityViewContext | null) =>
+    context ? createHash("sha256").update(context.root).digest("hex") : null;
+  const key = contextKey(options);
+  const currentContext = async (): Promise<ActivityViewContext | null> => {
+    try {
+      return options.resolveContext ? await options.resolveContext() : options;
+    } catch {
+      return null;
+    }
+  };
   const scriptHashes = [...html.matchAll(/<script>([\s\S]*?)<\/script>/g)]
     .map(
       (match) =>
@@ -40,11 +56,10 @@ export async function startActivityServer(options: {
     )
     .join(" ");
   const sockets = new Set<ServerResponse>();
-  const metrics = options.accountDir
-    ? createMetricsReader(options.accountDir, options.root)
-    : undefined;
+  let metricsKey: string | null = null;
+  let metrics: ReturnType<typeof createMetricsReader> | undefined;
   let url = "";
-  const server = createServer((req, res) => {
+  const server = createServer(async (req, res) => {
     const listener = new URL(url);
     const origin = publicOrigin ?? listener;
     const request = new URL(req.url ?? "/", url);
@@ -89,24 +104,62 @@ export async function startActivityServer(options: {
     }
     res.setHeader("Content-Type", "application/json");
     if (request.pathname === "/api/identity") {
-      res.end(JSON.stringify({ app: "allman-activity-v1", key }));
+      const context = await currentContext();
+      res.end(
+        JSON.stringify({
+          app: "allman-activity-v1",
+          key: contextKey(context),
+          profile: context?.profile ?? null,
+          followsActiveProfile: Boolean(options.resolveContext),
+        })
+      );
       return;
     }
     if (!["/api/snapshot", "/api/events"].includes(request.pathname)) {
       res.writeHead(404).end("{}");
       return;
     }
-    const selected = request.searchParams.get("run") || undefined;
-    const snapshot = () =>
+    let selected = request.searchParams.get("run") || undefined;
+    let selectedKey: string | null | undefined = request.searchParams.get("view") || undefined;
+    const empty = () =>
       JSON.stringify({
-        ...readActivitySnapshot(options.root, selected),
-        label: options.label,
-        viewKey: key,
+        run: null,
+        runs: [],
+        label: "No active profile · paused or unavailable",
+        viewKey: "no-active-profile",
+        metrics: null,
+      });
+    const snapshot = async () => {
+      const context = await currentContext();
+      const activeKey = contextKey(context);
+      if (selectedKey !== undefined && activeKey !== selectedKey) selected = undefined;
+      selectedKey = activeKey;
+      if (!context) {
+        metrics = undefined;
+        metricsKey = null;
+        return empty();
+      }
+      if (metricsKey !== activeKey) {
+        metricsKey = activeKey;
+        metrics = context.accountDir
+          ? createMetricsReader(context.accountDir, context.root)
+          : undefined;
+      }
+      const result = JSON.stringify({
+        ...readActivitySnapshot(context.root, selected),
+        label: context.label,
+        profile: context.profile,
+        viewKey: activeKey,
         metrics: metrics?.(),
       });
+      // Store scans can take time: discard data if another process switched meanwhile.
+      if (options.resolveContext && contextKey(await currentContext()) !== activeKey)
+        return empty();
+      return result;
+    };
     let initial: string;
     try {
-      initial = snapshot();
+      initial = await snapshot();
     } catch {
       res.writeHead(400).end(JSON.stringify({ error: "Cannot read requested activity run" }));
       return;
@@ -121,9 +174,13 @@ export async function startActivityServer(options: {
     sockets.add(res);
     res.write(`data: ${initial}\n\n`);
     let previous = initial;
-    const poll = setInterval(() => {
+    let pending = false;
+    const poll = setInterval(async () => {
+      if (pending || res.destroyed) return;
+      pending = true;
       try {
-        const value = snapshot();
+        const value = await snapshot();
+        if (res.destroyed) return;
         if (value !== previous) {
           if (res.writableLength > 1_000_000) {
             res.end();
@@ -134,6 +191,8 @@ export async function startActivityServer(options: {
         }
       } catch {
         res.write("event: unavailable\ndata: {}\n\n");
+      } finally {
+        pending = false;
       }
     }, 400);
     const heartbeat = setInterval(() => res.write(": heartbeat\n\n"), 15000);
@@ -164,7 +223,7 @@ export async function startActivityServer(options: {
     if ((error as NodeJS.ErrnoException).code !== "EADDRINUSE" || requestedPort === 0) throw error;
     // Portless owns the assigned port. An ephemeral fallback would point the proxy
     // at the wrong listener and must fail instead of silently changing accounts.
-    if (publicOrigin || options.artifact) throw error;
+    if (publicOrigin || options.artifact || options.resolveContext) throw error;
     const existing = `http://127.0.0.1:${requestedPort}/`;
     try {
       const identity = (await fetch(`${existing}api/identity`, {

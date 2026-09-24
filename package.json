@@ -26,7 +26,21 @@
     "activity:share": "bun scripts/build-activity-share.ts",
     "activity:serve": "bun run plans serve --local --name allman-activity bun scripts/serve-activity.ts",
     "activity:qa": "bun scripts/qa-activity-app.ts",
-    "prepare": "husky"
+    "prepare": "husky",
+    "apps:build": "bun run activity:build && bun run plans index --quiet",
+    "apps:check": "bun scripts/check-apps.ts",
+    "build:all": "bun run apps:build && bun run build && bun run build:node",
+    "activity:check": "bun scripts/build-activity-app.ts --check",
+    "enrichment:build": "bun scripts/build-enrichment-review.ts",
+    "enrichment:review": "bun run src/index.ts --no-dashboard enrich-list review --html",
+    "enrichment:serve": "bun run plans serve --local --name allman-enrichment bun scripts/serve-enrichment-review.ts",
+    "enrichment:qa": "bun scripts/qa-target-enrichment.ts",
+    "plans:build": "bun run plans index --quiet",
+    "atlas:open": "open docs/browser-atlas/index.html",
+    "artifacts:new": "bun scripts/artifact-directory.ts",
+    "artifacts:recover": "python3 scripts/preserve-temp.py",
+    "test:recovery": "python3 scripts/test_preserve_temp.py",
+    "check": "bun run typecheck && bun run apps:check && bun run test:recovery && bun run test"
   },
   "devDependencies": {
     "@biomejs/biome": "^2.4.10",

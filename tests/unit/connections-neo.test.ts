@@ -48,11 +48,12 @@ afterEach(async () => {
 });
 
 describe("connections via Neo MCP", () => {
-  it("creates a private store and owner without storing browser credentials", async () => {
+  it("saves JSON output to a private store without storing browser credentials", async () => {
     const path = join(root, "store");
     await connectionsNeoCommand({
       browserosMcp: "http://127.0.0.1:9010/mcp",
       store: path,
+      json: true,
       limit: 1,
     });
     const store = new Store({ path });
@@ -77,12 +78,13 @@ describe("connections via Neo MCP", () => {
       await new Store({ path: options.store }).connectionsFor("ACoOwner").listConnectionIds()
     ).toHaveLength(1);
   });
-  it("keeps JSON exports ephemeral", async () => {
+  it("keeps JSON exports ephemeral only with explicit noStore", async () => {
     const path = join(root, "absent");
     await connectionsNeoCommand({
       browserosMcp: "http://127.0.0.1:9010/mcp",
       store: path,
       json: true,
+      noStore: true,
     });
     await expect(access(path)).rejects.toThrow();
   });

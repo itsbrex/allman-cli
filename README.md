@@ -436,7 +436,7 @@ allman connections                       # store all connections (per-file + sym
 allman connections --limit 500           # cap the number fetched
 allman connections --csv ./conns.csv     # also export a CSV
 allman connections --no-save --csv x.csv # CSV only, don't write the store
-allman connections --json                # stream NDJSON to stdout (ephemeral; no store write)
+allman connections --json                # stream NDJSON and save; add --no-save for ephemeral output
 allman connections --include-headline    # also store the headline
 allman connections --enrich              # also fetch each connection's full profile
 allman connections --enrich --deep       # ...including work history, education, skills
@@ -848,6 +848,11 @@ Per-conversation: if you sent a message in a conversation, that conversation's r
 ```
 src/index.ts                     CLI entry (commander), registers all commands
 src/commands/                    One file per subcommand
+src/activity/                    Passive dashboard, journals, service control and metrics
+src/attio/                       Identity matching, sealed list runs and review HTML
+src/exports/                     Account/team projections from saved evidence
+src/mail/                        Private mail ingestion and evidence store
+src/relationships/               Local rank, ICP, qualification and graph logic
 src/linkedin/auth/
   playwright-auth.ts             Headed Chromium login, captures cookies
 src/linkedin/api/
@@ -895,10 +900,14 @@ Configured per account via `config.json`. Applied to all API calls for that acco
 
 ## Development
 
+See [all app/build commands](scripts/README.md), [repository map](docs/README.md),
+and [durable artifact policy](artifacts/README.md). Use `bun run build:all` to
+refresh the activity app, Plans index, standalone CLI and Node entry.
+
 ```bash
 bun install
 bun run dev -- <command>        # run without building
-bun test                        # vitest (unit + integration)
+bun run test                    # Vitest (unit + integration)
 bun run build                   # compile to dist/allman (standalone binary)
 bun run lint                    # biome check
 bun run lint:fix                # biome check --write
@@ -917,7 +926,7 @@ Issues and pull requests welcome. For non-trivial changes, open an issue first s
 Before sending a PR:
 
 ```bash
-bun test
+bun run test
 bun run lint
 ```
 
@@ -1099,3 +1108,22 @@ does not establish Linux or alternate-architecture behavior.
 ICP definitions are workspace-wide; use `--contact` for a bounded qualification or
 review. Unsupported flags for a given ICP action are rejected. Facts without a field
 observation timestamp remain visible but cannot establish a fresh automated match.
+
+### Persistent team exports
+
+[Raw archives and per-profile/team CSV+JSON exports](docs/persistent-exports.md) preserve captured evidence and rebuild local team views without new provider requests. `allman exports status` shows configuration; `allman exports refresh` rebuilds from saved data.
+
+### Attio company-list enrichment
+
+Use `allman enrich-list lists`, `prepare <LIST_ID>`, and `run <RUN_ID>` for account-scoped deep enrichment with one shared browser session. `review <RUN_ID> --html` creates a private Plans/Appkit review page. Companion TUI: `:enrich-list`. See [workflow and commands](docs/attio-list-enrichment.md).
+
+### Open JP’s saved enrichment review
+
+```sh
+ALLMAN_PROFILE=jp bun run enrichment:build
+ALLMAN_PROFILE=jp bun run enrichment:serve
+```
+
+These commands render and serve the newest saved review in JP’s account. They do
+not prepare a list or start enrichment. No placeholder file path is required.
+See [apps](apps/README.md) for explicit reports, other profiles and QA.

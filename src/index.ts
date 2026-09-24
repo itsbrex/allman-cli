@@ -1,8 +1,10 @@
 #!/usr/bin/env node
+import { exportsCommand } from "./commands/exports.js";
 import { graphCommand } from "./commands/graph.js";
 import { groupsCommand } from "./commands/groups.js";
 import { icpCommand } from "./commands/icp.js";
 import { rankCommand } from "./commands/rank.js";
+import { beginAutomaticExports } from "./exports/automatic.js";
 import { VERSION } from "./version.js";
 /**
  * allman — LinkedIn messenger from the CLI
@@ -27,6 +29,7 @@ import { connectionsCommand } from "./commands/connections.js";
 import { connectionsOfCommand } from "./commands/connections-of.js";
 import { conversationsCommand } from "./commands/conversations.js";
 import { enrichCommand } from "./commands/enrich.js";
+import { enrichListCommand } from "./commands/enrich-list.js";
 import { grepCommand } from "./commands/grep.js";
 import { inboxCommand } from "./commands/inbox.js";
 import { listenCommand } from "./commands/listen.js";
@@ -49,6 +52,7 @@ import {
 } from "./commands/store-cmd.js";
 import { syncCommand } from "./commands/sync.js";
 import { beginLinkedInCommand, usesLinkedIn } from "./linkedin/session-control.js";
+import { rawCaptureEnabled, setRawCapture } from "./store/raw-archive.js";
 import { setDebugMode, setJsonMode } from "./utils/output.js";
 
 function positiveInteger(value: string): number {
@@ -68,6 +72,7 @@ function localPort(value: string): number {
 const program = new Command();
 let releaseLinkedInCommand: (() => void) | null = null;
 let activityServer: ActivityServer | undefined;
+let finishExports: (() => Promise<void>) | undefined;
 process.once("exit", (code) => finishActivity(code === 0 ? "interrupted" : "failed"));
 
 program
@@ -78,6 +83,7 @@ program
   .option("-s, --store <path>", "store directory ($ALLMAN_STORE, saved selection, or ./.allman)")
   .option("--json", "output as JSON")
   .option("--debug", "enable debug output")
+  .option("--raw", "archive raw API JSON responses privately ($ALLMAN_RAW)")
   .option("--dashboard", "open the local live activity dashboard for a processing run")
   .option("--no-dashboard", "disable dashboard opening (overrides environment and saved settings)")
   .option("--dashboard-port <port>", "local activity port (default: 8767)", localPort)
@@ -87,8 +93,11 @@ program
     if (opts.debug) setDebugMode(true);
   })
   .hook("preAction", async (_program, command) => {
+    setRawCapture(command.optsWithGlobals().raw);
+    rawCaptureEnabled(); // Validate before any browser or provider work.
     releaseLinkedInCommand = await beginLinkedInCommand(command);
     const options = command.optsWithGlobals();
+    finishExports = await beginAutomaticExports(command.name(), command.parent?.name(), options);
     if (
       [
         "start",
@@ -111,12 +120,27 @@ program
     }
   })
   .hook("postAction", async () => {
+    await finishExports?.();
+    finishExports = undefined;
     finishActivity("finished");
     await activityServer?.close();
     activityServer = undefined;
     releaseLinkedInCommand?.();
     releaseLinkedInCommand = null;
   });
+
+program
+  .command("exports <action>")
+  .description("Configure, refresh or inspect private per-profile and team CSV/JSON exports")
+  .option("--profiles <names>", "comma-separated registered profiles")
+  .option(
+    "--owner <profile=emails>",
+    "email owners, repeatable",
+    (value: string, previous: string[]) => [...previous, value],
+    [] as string[]
+  )
+  .option("--enabled <boolean>", "automatic refresh: true or false")
+  .action(async (action, options) => exportsCommand(action, options));
 
 const activity = program
   .command("activity")
@@ -126,6 +150,23 @@ const activity = program
   .action(async (_opts, command) => {
     const { activityCommand } = await import("./commands/activity.js");
     await activityCommand(command.optsWithGlobals());
+  });
+
+activity
+  .command("service <action>")
+  .description("Control the local viewer LaunchAgent: status, start, stop, restart")
+  .action(async (action) => {
+    const { controlViewerService } = await import("./activity/service.js");
+    const { printData } = await import("./utils/output.js");
+    printData(controlViewerService(action));
+  });
+
+program
+  .command("statusline")
+  .description("One-line account/session and saved local quota summary; no LinkedIn requests")
+  .action(async (_options, command) => {
+    const { statuslineCommand } = await import("./commands/statusline.js");
+    await statuslineCommand(command.optsWithGlobals());
   });
 
 activity
@@ -604,7 +645,7 @@ program
     "--geo-granularity <level>",
     "local query: keep only records at this geo precision (metro|country|unknown)"
   )
-  .option("--json", "stream NDJSON to stdout (ephemeral — does not write the store)")
+  .option("--json", "stream NDJSON to stdout; also saves unless --no-save")
   .action(async (opts, cmd) => {
     const globalOpts = cmd.parent?.opts() ?? {};
     await connectionsCommand({
@@ -644,7 +685,7 @@ program
   .option("-n, --limit <n>", "max results to fetch", positiveInteger)
   .option("--flagship", "force the flagship people-search backend (no fallback)")
   .option("--salesnav", "force the Sales Navigator backend (no fallback; errors without a seat)")
-  .option("--json", "stream NDJSON to stdout (ephemeral — does not write the store)")
+  .option("--json", "stream NDJSON to stdout; also saves unless --no-save")
   .action(async (slug: string, opts, cmd) => {
     const globalOpts = cmd.parent?.opts() ?? {};
     await connectionsOfCommand(slug, {
@@ -673,10 +714,7 @@ program
   .option("-a, --account <slug>", "account to use")
   .option("-s, --store <path>", "store directory")
   .option("--deep", "also fetch work history, education, and skills")
-  .option(
-    "--raw",
-    "also store LinkedIn's untouched payloads on each record (large — sampling aid, not for bulk runs)"
-  )
+  .option("--raw", "preserve raw profile revisions and API JSON responses in the private archive")
   .option("--force", "re-fetch even connections already enriched")
   .option("-n, --limit <n>", "max profiles to fetch this run (default: all)", positiveInteger)
   .option("--json", "stream enriched records to stdout as NDJSON")
@@ -687,7 +725,7 @@ program
       store: opts.store ?? globalOpts.store,
       json: opts.json ?? globalOpts.json,
       deep: opts.deep === true,
-      raw: opts.raw === true,
+      raw: opts.raw ?? globalOpts.raw,
       force: opts.force === true,
       limit: opts.limit ? parseInt(opts.limit, 10) : undefined,
     });
@@ -809,6 +847,23 @@ program
   );
 
 program
+  .command("enrich-list <action> [target]")
+  .description(
+    "Account-scoped lists: prepare <Attio-list-id|SalesNav-lead-list-URL> | lists | run | review | status | history | auth"
+  )
+  .option("--html", "write a private, offline HTML review (review only)")
+  .option(
+    "--refresh-links",
+    "refresh official Attio entity links using read-only queries (review only)"
+  )
+  .option("--snapshot <path>", "prepare from a complete private list snapshot")
+  .option("--codex-config <path>", "reference the existing attio-code-mode credential (auth only)")
+  .option("--limit <n>", "maximum new deep profiles in this run", positiveInteger)
+  .action(async (action, target, opts, cmd) =>
+    enrichListCommand(action, target, { ...cmd.optsWithGlobals(), ...opts })
+  );
+
+program
   .command("attio <action> [target]")
   .description(
     "Read-only Attio LinkedIn matching: candidates | lookup <url> | sync | import <file> | status"
@@ -902,7 +957,8 @@ program
     graphCommand(description, { ...cmd.optsWithGlobals(), ...opts })
   );
 
-program.parseAsync(process.argv).catch((err: unknown) => {
+program.parseAsync(process.argv).catch(async (err: unknown) => {
+  await finishExports?.();
   finishActivity("failed");
   releaseLinkedInCommand?.();
   process.stderr.write(`Error: ${String(err)}\n`);

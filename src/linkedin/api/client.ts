@@ -19,6 +19,7 @@ import axios, { type AxiosRequestConfig, type AxiosResponse } from "axios";
 import type { CookieJar } from "tough-cookie";
 import type tunnel from "tunnel";
 import { activityRequestFinished, activityRequestStarted } from "../../activity/journal.js";
+import { archiveRaw } from "../../store/raw-archive.js";
 import type { AccountRecord, ProxyConfig } from "../../store/types.js";
 import * as output from "../../utils/output.js";
 import type { RateLimiter } from "../../utils/rate-limiter.js";
@@ -68,8 +69,9 @@ async function recordFixture(
     },
   };
   await mkdir(VCR_DIR, { recursive: true });
+  await archiveRaw(VCR_DIR, "vcr", "linkedin/vcr", fixture);
   const path = join(VCR_DIR, `${key}.json`);
-  await writeFile(path, `${JSON.stringify(fixture, null, 2)}\n`, "utf8");
+  await writeFile(path, `${JSON.stringify(fixture, null, 2)}\n`, { mode: 0o600 });
   output.debug(`[VCR] Saved fixture: ${key}.json`);
 }
 
@@ -155,6 +157,10 @@ const MESSAGES_ENDPOINT = "/voyagerMessagingDashMessengerMessages";
 
 export class LinkedInApiClient {
   private jar: CookieJar;
+  private rawArchive?: { root: string; account: string };
+  setRawArchive(root: string, account: string): void {
+    this.rawArchive = { root, account };
+  }
   private readonly onCookieUpdate?: CookiePersistFn;
   private readonly rateLimiter?: RateLimiter;
   private readonly onRateStateUpdate?: RateStatePersistFn;
@@ -263,6 +269,24 @@ export class LinkedInApiClient {
       this.handleErrorResponse(response);
     }
 
+    if (this.rawArchive && options.responseType !== "stream") {
+      // No cookies, headers or request body enter the archive. Keep query variables
+      // with the response so pages and target identities can be distinguished.
+      try {
+        await archiveRaw(this.rawArchive.root, this.rawArchive.account, "linkedin/api", {
+          method: options.method,
+          url: options.url,
+          params: options.params,
+          status: response.status,
+          data: response.data,
+        });
+      } catch {
+        output.warn(
+          "Raw response could not be archived. Do not repeat a send or invitation; inspect local storage."
+        );
+      }
+    }
+
     // Merge Set-Cookie headers into jar and persist
     const setCookieHeaders = this.extractSetCookieHeaders(response);
     if (setCookieHeaders.length > 0) {
@@ -276,7 +300,11 @@ export class LinkedInApiClient {
 
     // Save fixture for VCR replay in tests
     if (IS_RECORD_MODE) {
-      recordFixture(options.method, options.url, options.params, response).catch(() => {});
+      try {
+        await recordFixture(options.method, options.url, options.params, response);
+      } catch {
+        output.warn("VCR recording failed; do not repeat a provider write to recover its output.");
+      }
     }
 
     return response.data as T;
