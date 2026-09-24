@@ -1,4 +1,4 @@
-# BrowserOS JP launcher
+# BrowserOS account launchers
 
 Native macOS launcher and branded browser with a purple JP icon. Build/install:
 
@@ -8,8 +8,8 @@ open '/Applications/BrowserOS JP.app'
 ```
 
 Requires the configured `~/.config/allman/jp/open-browser.py` launcher with
-`--json` and `--restore-session`, and the repository runtime through mise. The
-installer refuses to overwrite an existing app. No packages are installed.
+`--json` and `--restore-session`, and the repository runtime through mise. Use `--update` to replace an owned launcher after staging and signature checks;
+a private backup is retained. Unrelated applications are never replaced. No packages are installed.
 
 ## Browser identity and updates
 
@@ -120,3 +120,25 @@ The app is locally ad-hoc signed, not notarized for distribution. Its self-test
 checks bundled configuration, environment isolation and launcher availability
 without opening a browser. Internal Chromium helper process names may still say
 BrowserOS neo; the main browser's Dock identity is BrowserOS JP.
+
+## Brian launcher
+
+```sh
+python3 scripts/macos-profile-app/install.py --profile brian --update
+python3 scripts/macos-profile-app/install.py --profile jp --update
+open '/Applications/BrowserOS Brian.app'
+```
+
+BrowserOS Brian has a blue BR launcher icon. It starts or reuses the original
+Neo engine and saved BrowserClaw profile on fixed CDP port 9222, verifies Shield,
+then activates Brian through the session guard. JP uses its purple engine on
+9223. Missing companion browsers are opened through their existing launchers.
+Brian's running engine retains the vendor Neo Dock icon; the accessory adds no
+second Dock process. Pin or open the Brian launcher to guarantee launch flags.
+Opening the original Neo application directly cannot add flags to an already
+running process. If it was started without the required flags, quit it normally
+and open BrowserOS Brian. No browser is forcibly stopped.
+
+Brian follows vendor updates in the original app without copying its engine.
+JP keeps its existing isolated backend and follows engine updates on cold starts.
+Rebuilding either helper preserves additional installed configuration fields.

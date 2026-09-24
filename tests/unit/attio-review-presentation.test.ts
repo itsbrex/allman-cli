@@ -15,8 +15,12 @@ const presentation = template.slice(
   template.indexOf("function dateParts"),
   template.indexOf("function closeSheet")
 );
+const outreach = template.slice(
+  template.indexOf("function savedEmail"),
+  template.indexOf("function openSheet")
+);
 const ui = runInNewContext(
-  `${helpers}\n${presentation}\n({displayDate,dateRange,profileDetails,latestJobChange,careerChange,careerSummary,matchesCareerFilters})`,
+  `${helpers}\n${presentation}\n${outreach}\n({displayDate,dateRange,profileDetails,latestJobChange,careerChange,careerSummary,matchesCareerFilters,savedEmail,mailtoDraft})`,
   { URL }
 );
 const profile = {
@@ -53,6 +57,26 @@ const profile = {
 };
 
 describe("enrichment drawer presentation", () => {
+  it("uses only explicit valid recipients and encodes draft parameters", () => {
+    for (const invalid of [
+      null,
+      "javascript:alert(1)",
+      "a@example.test\r\nBcc:other@example.test",
+      "a@example.test,b@example.test",
+    ])
+      expect(ui.savedEmail(invalid)).toBe("");
+    const uri = new URL(
+      ui.mailtoDraft(
+        "person+tag@example.test",
+        "Plans & timing\nFollow-up",
+        "Hi,\n\nLet's compare notes?"
+      )
+    );
+    expect(decodeURIComponent(uri.pathname)).toBe("person+tag@example.test");
+    expect(uri.searchParams.get("subject")).toBe("Plans & timing Follow-up");
+    expect(uri.searchParams.get("body")).toBe("Hi,\n\nLet's compare notes?");
+    expect(ui.mailtoDraft(undefined, "Check-in", "Hello")).toMatch(/^mailto:\?subject=/);
+  });
   it("renders linked work and education timelines without raw provider objects", () => {
     const html = ui.profileDetails(profile);
     expect(html).toContain('datetime="2024-04">Apr 2024</time> – Present');

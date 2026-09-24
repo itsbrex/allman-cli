@@ -1,4 +1,4 @@
-import { createHash } from "node:crypto";
+import { createHash, randomBytes } from "node:crypto";
 import { createServer, type ServerResponse } from "node:http";
 import { readActivitySnapshot } from "./journal.js";
 import { createMetricsReader } from "./metrics.js";
@@ -15,6 +15,10 @@ export interface ActivityViewContext {
   accountDir?: string;
   profile?: string;
 }
+export interface ActivityProfileControls {
+  read: () => { active: string | null; profiles: Array<{ name: string }> };
+  activate: (name: string) => Promise<void>;
+}
 export async function startActivityServer(options: {
   root: string;
   label: string;
@@ -23,6 +27,7 @@ export async function startActivityServer(options: {
   publicOrigin?: string;
   artifact?: { html: string; ogImage: Uint8Array };
   resolveContext?: () => Promise<ActivityViewContext | null>;
+  profileControls?: ActivityProfileControls;
 }): Promise<ActivityServer> {
   const publicOrigin = options.publicOrigin ? new URL(options.publicOrigin) : undefined;
   if (
@@ -59,6 +64,8 @@ export async function startActivityServer(options: {
   let metricsKey: string | null = null;
   let metrics: ReturnType<typeof createMetricsReader> | undefined;
   let url = "";
+  const controlToken = randomBytes(32).toString("hex");
+  let switching = false;
   const server = createServer(async (req, res) => {
     const listener = new URL(url);
     const origin = publicOrigin ?? listener;
@@ -88,6 +95,67 @@ export async function startActivityServer(options: {
       "Content-Security-Policy",
       `default-src 'none'; script-src ${scriptHashes}; style-src 'unsafe-inline'; connect-src 'self'; img-src 'self' data:; font-src data:; frame-ancestors 'none'; base-uri 'none'; form-action 'none'`
     );
+    if (request.pathname === "/api/profiles" && options.profileControls) {
+      res.setHeader("Content-Type", "application/json");
+      if (req.method === "GET") {
+        try {
+          res.end(
+            JSON.stringify({
+              ...options.profileControls.read(),
+              enabled: true,
+              switching,
+              token: controlToken,
+            })
+          );
+        } catch {
+          res.writeHead(503).end(JSON.stringify({ error: "Profile registry unavailable" }));
+        }
+        return;
+      }
+      if (req.method === "POST") {
+        if (
+          req.headers.origin !== origin.origin ||
+          req.headers["x-allman-control-token"] !== controlToken ||
+          req.headers["content-type"] !== "application/json"
+        ) {
+          res
+            .writeHead(403)
+            .end(JSON.stringify({ error: "Reload this dashboard before switching accounts" }));
+          return;
+        }
+        if (switching) {
+          res.writeHead(409).end(JSON.stringify({ error: "An account switch is already running" }));
+          return;
+        }
+        switching = true;
+        try {
+          let body = "";
+          for await (const chunk of req) {
+            body += chunk.toString();
+            if (Buffer.byteLength(body) > 4096) throw new Error("Request too large");
+          }
+          const name: unknown = JSON.parse(body).profile;
+          if (
+            typeof name !== "string" ||
+            !options.profileControls.read().profiles.some((p) => p.name === name)
+          ) {
+            res.writeHead(400).end(JSON.stringify({ error: "Choose a registered account" }));
+            return;
+          }
+          await options.profileControls.activate(name);
+          res.end(JSON.stringify({ ...options.profileControls.read(), enabled: true }));
+        } catch (error) {
+          res.writeHead(409).end(
+            JSON.stringify({
+              error: error instanceof Error ? error.message : "Account switch failed",
+            })
+          );
+        } finally {
+          switching = false;
+        }
+        return;
+      }
+    }
     if (req.method !== "GET") {
       res.writeHead(405).end("Read-only viewer");
       return;
@@ -103,6 +171,10 @@ export async function startActivityServer(options: {
       return;
     }
     res.setHeader("Content-Type", "application/json");
+    if (request.pathname === "/api/profiles") {
+      res.end(JSON.stringify({ enabled: false }));
+      return;
+    }
     if (request.pathname === "/api/identity") {
       const context = await currentContext();
       res.end(

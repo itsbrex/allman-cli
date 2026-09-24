@@ -1,5 +1,19 @@
 import { activityContext } from "../commands/activity.js";
+import { sessionCommand } from "../commands/session.js";
 import { readSessionRegistry } from "../linkedin/session-control.js";
+
+export const activityProfileControls = {
+  read() {
+    const registry = readSessionRegistry();
+    return {
+      active: registry?.active ?? null,
+      profiles: registry?.profiles.map(({ name }) => ({ name })) ?? [],
+    };
+  },
+  async activate(name: string) {
+    await sessionCommand("activate", name, {});
+  },
+};
 
 /** Resolve the registry on every snapshot. Never mutate process-wide profile settings. */
 export async function activeActivityContext() {

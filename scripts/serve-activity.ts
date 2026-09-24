@@ -4,7 +4,7 @@ import { dirname, join } from "node:path";
 import { fileURLToPath } from "node:url";
 import { startActivityServer } from "../src/activity/server.ts";
 import { activityContext } from "../src/commands/activity.ts";
-import { activeActivityContext } from "../src/activity/active-profile.ts";
+import { activeActivityContext, activityProfileControls } from "../src/activity/active-profile.ts";
 
 const root = join(dirname(fileURLToPath(import.meta.url)), "..");
 const publicOrigin = process.env.PORTLESS_URL;
@@ -18,6 +18,7 @@ const context = followsActiveProfile ? { root: "", label: "No active profile" } 
 const server = await startActivityServer({
   ...context,
   resolveContext: followsActiveProfile ? activeActivityContext : undefined,
+  profileControls: followsActiveProfile ? activityProfileControls : undefined,
   port,
   publicOrigin,
   artifact: {

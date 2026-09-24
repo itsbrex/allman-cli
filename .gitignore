@@ -43,3 +43,6 @@ report.[0-9]_.[0-9]_.[0-9]_.[0-9]_.json
 
 # Claude Code local settings (per-user)
 .claude/settings.local.json
+
+# Local design-tool cache
+.impeccable/hook.cache.json

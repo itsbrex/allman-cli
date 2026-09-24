@@ -259,4 +259,9 @@ dialog{color:var(--txt-1);background:var(--bg-1);border:1px solid var(--line-2);
 @media(prefers-reduced-motion:reduce){html{scroll-behavior:auto}
 *,*:before,*:after{animation:none!important;transition:none!important}
 .daily-stat:hover{transform:none}}
+
+.account-controls{display:flex;align-items:center;flex-wrap:wrap;gap:10px;padding-bottom:12px;font:11px var(--mono)}
+.account-controls[hidden]{display:none!important}.account-controls select,.account-controls button{min-height:36px}
+#account-status{color:var(--txt-2);flex:1;min-width:200px}.account-controls button:disabled{opacity:.55;cursor:default}
+@media(max-width:740px){.account-controls select,.account-controls button{min-height:44px}#account-status{flex-basis:100%;line-height:1.6}}
 `;

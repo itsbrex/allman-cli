@@ -1,0 +1,97 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-09-24T19:10:00Z",
+  "title": "Design System: Allman target review",
+  "extensions": {
+    "motion": [
+      {
+        "name": "--review-fast",
+        "value": "120ms",
+        "purpose": "Review interaction feedback"
+      },
+      {
+        "name": "--review-slide",
+        "value": "220ms",
+        "purpose": "Review interaction feedback"
+      },
+      {
+        "name": "--review-curve",
+        "value": "cubic-bezier(.2,0,0,1)",
+        "purpose": "Review interaction feedback"
+      },
+      {
+        "name": "--review-press",
+        "value": ".96",
+        "purpose": "Review interaction feedback"
+      }
+    ],
+    "shadows": [
+      {
+        "name": "shadow-pop",
+        "value": "0 16px 36px rgba(0,0,0,.45)",
+        "purpose": "Modal separation"
+      }
+    ],
+    "breakpoints": [
+      {
+        "name": "mobile",
+        "value": "760px"
+      },
+      {
+        "name": "tablet",
+        "value": "1100px"
+      },
+      {
+        "name": "wide",
+        "value": "2000px"
+      }
+    ]
+  },
+  "components": [
+    {
+      "name": "Review button",
+      "kind": "button",
+      "refersTo": "review-button",
+      "description": "Persistent reversible review choice.",
+      "html": "<button class=\"review-button\">Verified</button>",
+      "css": ".review-button{min-width:44px;min-height:44px;padding:9px 14px;border:1px solid var(--input);border-radius:var(--r-sm);background:var(--bg-1);color:var(--txt);font:600 14px/1.4 var(--sans)}"
+    },
+    {
+      "name": "Evidence finding",
+      "kind": "chip",
+      "description": "Color plus explicit evidence label.",
+      "html": "<span class=\"finding\">Company ID matches</span>",
+      "css": ".finding{display:inline-flex;padding:6px 8px;border-radius:6px;font:500 14px/1.45 var(--sans);background:var(--finding-matched-bg);color:var(--finding-matched-fg)}"
+    },
+    {
+      "name": "Review note",
+      "kind": "input",
+      "description": "Labeled note saved as typed.",
+      "html": "<label>Note or next action<textarea class=\"note\"></textarea></label>",
+      "css": "label{font:14px/1.5 var(--sans);color:var(--txt)}.note{display:block;width:100%;min-height:100px;margin-top:8px;padding:10px;border:1px solid var(--input);border-radius:var(--r-sm);background:var(--bg);color:var(--txt);font:16px/1.5 var(--sans)}"
+    },
+    {
+      "name": "Record navigation",
+      "kind": "nav",
+      "description": "Move through current filtered records.",
+      "html": "<nav aria-label=\"Review navigation\"><button>Prev</button><button>Next</button></nav>",
+      "css": "nav{display:flex;gap:6px}button{min-height:44px;min-width:44px;padding:8px;border:1px solid var(--input);border-radius:var(--r-sm);background:var(--bg-1);color:var(--txt);font:600 14px var(--sans)}"
+    },
+    {
+      "name": "Mobile record",
+      "kind": "card",
+      "description": "Stacked record with readable finding and review action.",
+      "html": "<article><strong>Person name</strong><p>Target company</p></article>",
+      "css": "article{padding:16px;border:1px solid var(--line-2);border-radius:var(--r);background:var(--bg-1);color:var(--txt);font:16px/1.5 var(--sans)}p{color:var(--txt-2);font-size:14px}"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Prospect Review Desk",
+    "overview": "Calm, direct, readable, action-oriented.",
+    "keyCharacteristics": [
+      "Evidence and local review outcomes remain distinct.",
+      "Primary actions remain visible while evidence scrolls.",
+      "Report administration is secondary to reviewing people."
+    ]
+  }
+}

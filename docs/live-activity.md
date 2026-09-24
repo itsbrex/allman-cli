@@ -43,7 +43,6 @@ activity workspace. A stopped viewer, bad response or different account falls ba
 to the embedded dashboard. An explicit `--dashboard-port` bypasses the preferred
 URL. No saved URL means the portable embedded dashboard remains the default.
 `activity --no-open` suppresses browser opening regardless of these start settings.
-
 If the runtime does not trust Portless's local HTTPS certificate, scope its CA to
 the viewer identity request (without changing global or LinkedIn TLS trust):
 
@@ -66,7 +65,12 @@ The viewer follows the single-profile session registry, including each profile's
 store, account and private relationship workspace. Pausing the registry clears
 the feed; missing or invalid registry data displays an unavailable state. A switch
 clears browser rows, history selection and filters before loading the new profile.
-The viewer never activates profiles or starts LinkedIn workers.
+The account selector can explicitly activate a saved profile through the existing
+session guard. It verifies Shield and pauses other LinkedIn accounts before
+changing the active profile. Both browsers must be open; failed verification
+leaves access paused. Opening the page alone never activates a profile.
+Controls require the exact local origin and a per-viewer token; passive embedded
+viewers do not expose them. No LinkedIn processing worker is started.
 
 ```bash
 allman activity service status

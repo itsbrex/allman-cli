@@ -10,7 +10,7 @@
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"/>
 <title>Allman · Target enrichment review</title>
-<meta name="description" content="Allman · Target enrichment review — single-file app skeleton"/>
+<meta name="description" content="Allman · Target enrichment review — account-scoped prospect review"/>
 <meta name="theme-color" content="#000000"/>
 <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 16 16'%3E%3Crect width='16' height='16' fill='%23000'/%3E%3Crect x='3' y='3' width='10' height='10' fill='%23fafafa'/%3E%3C/svg%3E"/>
 <style>
@@ -107,7 +107,7 @@ header{display:flex;align-items:flex-end;justify-content:space-between;gap:20px;
 .chip:hover{background:var(--elev-1);color:var(--txt)}
 .chip.on{background:var(--accent);border-color:transparent;color:var(--accent-contrast)}
 .chip .c{font-size:10px;color:var(--txt-3)}
-.chip.on .c{color:inherit;opacity:.6}
+.chip.on .c{color:inherit;opacity:1}
 .spacer{flex:1}
 .count-note{color:var(--txt-3);font-family:var(--mono);font-size:11px;text-transform:uppercase;letter-spacing:.05em}
 
@@ -516,10 +516,39 @@ details{font-size:13px;line-height:1.9}summary{cursor:pointer;font-weight:600}
 @media(prefers-reduced-motion:reduce){*,*::before,*::after{animation-duration:.01ms!important;animation-iteration-count:1!important;transition-duration:.01ms!important;scroll-behavior:auto!important}}
 
 /* Preserve the Appkit type family and gold theme; improve compact overlay legibility. */
-.cb-badge,.cb-group,.cb-footer,.ci-note{font-size:11px}.cb-inputrow{padding-block:8px}.cb-footer{padding-block:10px}.cb-dialog,.modal{border:0}
+.cb-badge,.cb-group,.cb-footer,.ci-note{font-size:14px}.cb-item{font-size:15px}.cb-footer{height:auto;min-height:44px;flex-wrap:wrap}.cb-inputrow{padding-block:8px}.cb-footer{padding-block:10px}.cb-dialog,.modal{border:0}
+/* Review workbench tokens. Keep operational text readable at every viewport. */
+:root{--review-body:1rem;--review-small:.875rem;--review-title:clamp(1.25rem,1.1rem + .5vw,1.75rem);--review-gap:16px;--review-pad:clamp(16px,2vw,28px);--review-hit:44px;--review-panel:min(900px,56vw);--review-fast:120ms;--review-slide:220ms;--review-curve:cubic-bezier(.2,0,0,1);--review-press:.96}
+html{scroll-behavior:auto}body{font-size:var(--review-body)}
+.wrap{max-width:2400px;padding-top:24px}.brand h1{font:600 var(--review-title)/1.3 var(--sans);letter-spacing:-.02em;text-wrap:balance}.brand .sub{font:var(--review-small)/1.5 var(--sans);letter-spacing:0;text-transform:none}
+.review-intro{margin:16px 0;padding:var(--review-pad);background:var(--bg-1)}.review-intro h2{font-size:var(--review-title);margin:0 0 8px}.review-intro p{max-width:75ch}.report-tools{margin-top:12px}.report-tools>summary{width:fit-content}.review-actions{margin:12px 0}.review-guide{font-size:var(--review-small);margin:12px 0 0}
+.kpi .l,.chip,.chip .c,.count-note,.career-filters label,.career-filters p{font:var(--review-small)/1.5 var(--sans);text-transform:none;letter-spacing:0}.kpi .n{font:600 1.75rem/1.15 var(--sans)}.kpi{padding:12px 16px}.kpis{gap:12px}
+.search-wrap input,.career-filters select,.review-note{font:var(--review-body)/1.5 var(--sans)}.search-wrap input,.career-filters select{min-height:var(--review-hit)}
+.chip,.btn-primary,.btn-outline,.copyrow button,.linkbtn,.empty-action,.sortbtn,summary,.platform-link,.drawer-entity-links .platform-link{min-height:var(--review-hit)}
+.btn-primary,.btn-outline,.copyrow button,.linkbtn,.empty-action{display:inline-flex;align-items:center;justify-content:center;gap:8px;border:1px solid var(--input);border-radius:var(--r-sm);padding:9px 14px;font:600 var(--review-small)/1.4 var(--sans);cursor:pointer;text-decoration:none}
+.btn-outline,.copyrow button,.linkbtn{background:var(--bg-1);color:var(--txt)}button:disabled{opacity:.45;cursor:not-allowed}.platform-link{min-width:var(--review-hit);width:var(--review-hit);height:var(--review-hit)}
+summary{display:list-item;align-content:center;padding-block:8px}button,input,select,textarea{touch-action:manipulation}textarea,input,select{max-width:100%}
+#records table{font-size:var(--review-body)}#records thead th,#records td.mono .evidence-link{font:var(--review-small)/1.5 var(--sans)}#records .entity-name{font-size:var(--review-body)}.finding,.badge,.role-badge,.skill-list li{font:500 var(--review-small)/1.45 var(--sans);letter-spacing:0;text-transform:none}.badge{white-space:normal}.row-review{margin-top:8px;display:flex;align-items:center;gap:8px;flex-wrap:wrap}.row-review button{min-height:var(--review-hit)}.row-decision{font-size:var(--review-small);color:var(--txt-2)}
+.mobile-label,.mobile-sort{display:none}.career-filters{gap:12px}.career-filters p{color:var(--txt-2)}.career-filters select{border-color:var(--input)}
+.drawer{width:var(--review-panel);height:100dvh;max-height:100dvh;transition:transform var(--review-slide) var(--review-curve);box-shadow:var(--shadow-pop);border:0}.drawer .dh{flex:none;padding:var(--review-pad);padding-right:72px;max-height:25dvh;overflow:auto}.drawer h2{font-size:var(--review-title);padding:0;text-wrap:balance}.drawer .co{font:var(--review-small)/1.5 var(--sans)}.drawer .dh .x{top:12px;right:12px;width:var(--review-hit);height:var(--review-hit);font-size:26px}
+.drawer .db{min-height:0;padding:var(--review-pad);overscroll-behavior:contain;scroll-padding-block:16px;scrollbar-width:thin}.drawer .db::-webkit-scrollbar{display:block;width:8px}.drawer .fld{display:grid;grid-template-columns:minmax(110px,1fr) 3fr;gap:12px}.drawer .fld .k,.drawer .fld .v{font:var(--review-small)/1.6 var(--sans);text-transform:none;letter-spacing:0;text-align:left}.drawer .fld .k{color:var(--txt-2)}
+.drawer .eh,.timeline-title,.drawer .eitem .et{font-size:var(--review-body)}.drawer .eh{font-weight:600;color:var(--txt)}.drawer .eh .ec,.drawer .eitem .em,.timeline-meta,.timeline-copy,.timeline-dates,.timeline-more,.career-summary .summary-source,.job-change p{font:var(--review-small)/1.65 var(--sans);color:var(--txt-2)}.career-summary p,.timeline-company{font-size:var(--review-body);line-height:1.65}.career-summary,.drawer .eitem,.timeline-copy{max-width:75ch}.esec{margin-top:24px;padding-top:20px}.job-change{margin-block:24px}.job-change h3{font-size:var(--review-body)}.job-change .change-date{font-size:1.75rem}.timeline-item{padding-bottom:28px}
+.review-dock{flex:none;padding:12px var(--review-pad);background:var(--bg-2);border-block:1px solid var(--line-2)}.review-decisions{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px;margin:0}.review-decisions button{min-width:0}.review-decisions [data-decision=investigate][aria-pressed=true]{background:var(--finding-review-bg);color:var(--finding-review-fg)}.review-decisions [data-decision=skip][aria-pressed=true]{background:var(--bg-3);color:var(--txt)}
+.review-dock-meta{display:flex;align-items:center;justify-content:space-between;gap:12px;margin-top:6px}.record-nav{display:flex;align-items:center;gap:6px}.record-nav button{padding:8px;min-width:var(--review-hit)}#decision-status{font-size:var(--review-small);line-height:1.35;max-width:40ch}#decision-status[data-error=true]{color:var(--finding-review-fg)}.review-context{font-size:var(--review-small);color:var(--txt-2);margin-bottom:12px}.review-note{margin:8px 0;border-radius:var(--r-sm);border-color:var(--input);resize:vertical;min-height:100px}.note-tools{display:flex;align-items:center;justify-content:space-between;gap:12px}.note-tools button{flex:none}.decision-help,.outreach-help{font-size:var(--review-small);color:var(--txt-2);line-height:1.6}
+.quick-actions{display:flex;align-items:center;flex-wrap:wrap;gap:8px;margin:16px 0 8px}.outreach-editor label{display:block;margin:12px 0 4px}.outreach-editor input,.outreach-editor textarea{display:block;width:100%;font:var(--review-body)/1.5 var(--sans);padding:10px;border:1px solid var(--input);border-radius:var(--r-sm);background:var(--bg);color:var(--txt)}.outreach-editor textarea{min-height:170px;resize:vertical}.outreach-editor p{margin:8px 0}.evidence-summary{display:flex;gap:8px;flex-wrap:wrap}.first-review-hint{font-size:var(--review-small);color:var(--txt-2);margin-block:8px 14px}body:has(.drawer.on){overflow:hidden}.wrap[inert]{user-select:none}
+html[data-input=keyboard] *,html[data-theme-changing] *{transition:none!important;animation:none!important}html[data-input=keyboard]{scroll-behavior:auto}
+@media(hover:hover) and (pointer:fine){.review-decisions button,.quick-actions button,.quick-actions a,.row-review button{transition:transform var(--review-fast) var(--review-curve),background-color var(--review-fast),color var(--review-fast)}.btn-outline:hover{background:var(--bg-3)}.review-decisions button:active,.quick-actions button:active,.quick-actions a:active,.row-review button:active{transform:scale(var(--review-press))}}
+@media(min-width:2000px){:root{--review-panel:min(1100px,42vw)}.drawer .db{padding-inline:clamp(28px,4vw,80px)}.wrap{padding-top:32px}}
+@media(max-width:1100px){:root{--review-panel:min(760px,85vw)}}
+@media(max-width:760px){.wrap{padding:16px 16px 40px}.brand h1{font-size:1.25rem}.brand .sub{font-size:var(--review-small)}.review-intro{padding:16px}.review-intro h2{font-size:1.25rem}.review-guide{gap:8px}.kpis{display:none}.toolbar{gap:8px}.chips{gap:8px}.career-filters label{flex:1 1 140px;width:auto}.career-filters p{display:none}.mobile-sort{display:flex;align-items:center;gap:12px;margin-bottom:12px;font-size:var(--review-small)}.mobile-sort select{min-height:var(--review-hit);font:inherit;background:var(--bg-1);color:var(--txt);border:1px solid var(--input);border-radius:var(--r-sm);padding:8px}
+ #records table,#records tbody,#records tr,#records td{display:block;min-width:0!important;width:100%!important;max-width:none!important}#records thead{display:none}#records .tablecard{background:transparent;border:0;overflow:visible}#records .scroll{overflow:visible}#records tbody tr{padding:16px;margin-bottom:12px;border:1px solid var(--line-2);border-radius:var(--r);background:var(--bg-1)}#records tbody td{position:static!important;box-shadow:none!important;border:0;padding:8px 0!important;background:transparent!important;overflow:visible}#records tbody td:first-child{padding-top:0!important}#records tbody td.hide-sm{display:block!important}.mobile-label{display:block;color:var(--txt-2);font-size:var(--review-small);margin-bottom:4px}.entity-cell>div{min-width:0}.row-review{justify-content:space-between}.row-review button{flex:1}.platform-links{gap:4px}
+ .drawer{width:100vw}.drawer .dh{padding:16px 64px 12px 16px;max-height:22dvh}.drawer h2{font-size:1.125rem}.drawer .db{padding:16px}.review-dock{order:3;padding:10px 12px max(10px,env(safe-area-inset-bottom))}.review-dock-meta{gap:4px}#decision-status{font-size:var(--review-small)}.review-dock .btn-outline{padding-inline:7px}.review-decisions button{padding-inline:4px}.drawer .fld{grid-template-columns:1fr;gap:4px}.drawer .co .platform-links{display:none}.outreach-editor input{font-size:16px}.scrim{backdrop-filter:none}.review-actions{display:grid;grid-template-columns:1fr}.quick-actions>.btn-outline{flex:1}.quick-actions>.platform-links{width:100%}.brand{flex:1;min-width:0}.brand .dot{display:none}
+}
+@media(max-height:500px){.drawer .dh{padding-block:8px;max-height:22dvh}.review-dock{padding-block:6px}.review-dock-meta{margin:0}.drawer .co{display:none}}
+@media(prefers-reduced-motion:reduce){.drawer,.scrim,.review-decisions button,.quick-actions a,.quick-actions button{transition:none!important;transform:none}.drawer:not(.on){visibility:hidden}.review-decisions button:active,.quick-actions a:active,.quick-actions button:active{transform:none}}
 </style></head>
 <body>
-<div class="wrap">
+<main class="wrap">
   <header>
     <div class="brand">
       <h1><span class="dot" aria-hidden="true"></span> Allman · Target enrichment review</h1>
@@ -538,16 +567,17 @@ details{font-size:13px;line-height:1.9}summary{cursor:pointer;font-weight:600}
     <div>
     <h2 id="review-title">Choose a list. Keep the account. Reuse one session.</h2>
     <p id="review-summary">Import a review.json from allman enrich-list review. All contact data stays in this browser.</p></div>
-    <div class="review-actions"><label class="btn-primary" for="report-import">Import report</label><input id="report-import" type="file" accept="application/json" hidden>
+    <details class="report-tools"><summary>Report tools &amp; run details</summary><p id="report-detail"></p>
+    <div class="review-actions"><button type="button" class="btn-primary" id="import-report">Import report</button><input id="report-import" type="file" accept="application/json" hidden>
     <button class="btn-primary" id="download-review">Export review decisions</button><button class="btn-primary" id="export-csv">Export visible CSV</button></div>
-    <div class="review-guide"><span id="link-guide"></span><output id="review-progress" aria-live="polite">No decisions saved yet</output></div>
     <details><summary>How to run this again — CLI and TUI</summary><ol>
       <li>Launch Allman in the account you want to use.</li>
       <li>CLI: <code>allman enrich-list lists --json</code>, then <code>allman enrich-list prepare &lt;LIST_ID_OR_SALESNAV_URL&gt; --json</code>.</li>
       <li>Run the returned shortlist: <code>allman enrich-list run &lt;RUN_ID&gt; --json</code>. Resume with the same command.</li>
       <li>Open this review: <code>allman enrich-list review &lt;RUN_ID&gt; --html --json</code>.</li>
       <li>TUI: <code>:enrich-list</code> → select an Attio list or paste a Sales Navigator lead list URL → Enter prepares → R runs/resumes → V creates the HTML review.</li>
-    </ol><p>Exact identity matches only. One browser preflight and one session per run. Pacing and account quota remain active. Already deep-enriched profiles skip. Stop on first error. Source lists remain read-only.</p></details>
+    </ol><p>Exact identity matches only. One browser preflight and one session per run. Pacing and account quota remain active. Already deep-enriched profiles skip. Stop on first error. Source lists remain read-only.</p></details><div class="review-guide"><span id="link-guide"></span></div></details>
+    <div class="review-guide"><output id="review-progress" aria-live="polite">No decisions saved yet</output></div>
   </section>
   <section id="records" role="tabpanel" aria-labelledby="tab-records">
     <div class="kpis" id="kpis"></div>
@@ -571,9 +601,11 @@ details{font-size:13px;line-height:1.9}summary{cursor:pointer;font-weight:600}
       <button type="button" id="reset-career" class="btn-outline">Clear change filters</button>
       <p id="career-filter-note">Based on saved work history; uncertain dates are excluded from recent windows.</p>
     </div>
-    <div class="tablecard"><div class="scroll"><table aria-label="Records">
+    <label class="mobile-sort">Sort records <select id="mobile-sort"><option value="name:1">Name A–Z</option><option value="name:-1">Name Z–A</option><option value="updated:-1">Newest observation</option><option value="updated:1">Oldest observation</option><option value="company:1">Target company</option><option value="current:1">Current employer</option><option value="stage:1">Finding</option></select></label>
+    <p class="first-review-hint">Open a profile, check the evidence, then mark your review. Decisions stay in this browser.</p>
+    <div class="tablecard"><div class="scroll"><table aria-label="Records" role="table">
       <thead><tr id="head"></tr></thead>
-      <tbody id="body"></tbody>
+      <tbody role="rowgroup" id="body"></tbody>
     </table></div></div>
   </section>
 
@@ -589,11 +621,15 @@ details{font-size:13px;line-height:1.9}summary{cursor:pointer;font-weight:600}
       <tbody id="pbody"></tbody>
     </table></div></div>
   </section>
-</div>
+</main>
 
 <div class="scrim" id="scrim" aria-hidden="true"></div>
 <aside class="drawer" id="drawer" role="dialog" aria-modal="true" aria-labelledby="dname" aria-describedby="dco" aria-hidden="true" inert>
   <div class="dh"><button type="button" class="x" id="dx" aria-label="Close record details" title="Close details">×</button><h2 id="dname"></h2><div class="co" id="dco"></div></div>
+  <div class="review-dock" id="review-dock" role="group" aria-label="Your local review">
+    <div class="review-decisions"><button type="button" class="btn-outline" data-decision="verified" title="Evidence checked and consistent">Verified</button><button type="button" class="btn-outline" data-decision="investigate" title="More evidence needed">Investigate</button><button type="button" class="btn-outline" data-decision="skip" title="Defer this record">Skip</button></div>
+    <div class="review-dock-meta"><p id="decision-status" role="status" aria-live="polite"></p><nav class="record-nav" aria-label="Review navigation"><button type="button" class="btn-outline" id="review-prev" aria-label="Previous record">Prev</button><button type="button" class="btn-outline" id="review-next" aria-label="Next record">Next</button></nav></div>
+  </div>
   <div class="db" id="ddb"></div>
 </aside>
 <div class="cb-overlay" id="cbov" aria-hidden="true" hidden></div>
@@ -628,6 +664,7 @@ details{font-size:13px;line-height:1.9}summary{cursor:pointer;font-weight:600}
 // Private reports are embedded only in generated files outside the repository.
 const REPORT=/* ALLMAN_REPORT */null;
 const DATA=[];
+const decisionMemory=new Map(),unsavedDecisionKeys=new Set();
 let report=null;
 /* ── columns ── */
 const COLS=[{k:'name',label:'Person'},{k:'company',label:'Target company'},
@@ -637,7 +674,7 @@ const LS='app-target-enrichment';
 const def={changeDays:'all',changeKind:'all',q:'',stat:'saved',src:'all',sortK:'name',sortDir:1,view:'records',boardStat:'all',pSortK:'',pSortDir:-1,theme:'auto',motion:'full'};
 let st=load();
 function load(){try{return Object.assign({},def,JSON.parse(localStorage.getItem(LS)||'{}'))}catch(e){return Object.assign({},def)}}
-function save(){localStorage.setItem(LS,JSON.stringify(st))}
+function save(){try{localStorage.setItem(LS,JSON.stringify(st))}catch{ /* Preferences remain usable for this session. */ }}
 
 /* ── helpers ── */
 const norm=s=>(s||'').toLowerCase();
@@ -666,6 +703,7 @@ const ICONS={
  missing:'<circle cx="12" cy="12" r="9"/><path d="m8 8 8 8m0-8-8 8"/>',
  search:'<circle cx="10" cy="10" r="6"/><path d="m15 15 6 6"/>',
  hint:'<path d="M9 18h6m-5 3h4M8 15a6 6 0 1 1 8 0c-1 1-1 2-1 3H9c0-1 0-2-1-3Z"/>',
+ mail:'<rect x="3" y="5" width="18" height="14" rx="2"/><path d="m3 6 9 7 9-7"/>',
  clock:'<circle cx="12" cy="12" r="9"/><path d="M12 6v6l4 2"/>'
 };
 function icon(key){return `<svg class="ui-icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${ICONS[key]||ICONS.evidence}</svg>`}
@@ -693,7 +731,7 @@ function platformLinks(r){return `<span class="platform-links">${(r.attioUrls||[
 function personCell(r){const type=r.source==='Company coverage'?'company':'person';const url=platformUrl(r.linkedinUrl,'linkedin')||platformUrl(r.attioUrls?.[0],'attio')||platformUrl(r.sourceUrls?.[0],'linkedin');return `<div class="entity-cell"><span class="entity-kind">${icon(type)}</span><div><div class="entity-name">${url?`<a href="${h(url)}" target="_blank" rel="noopener noreferrer" title="Open ${h(r.name)} (new tab)">${h(r.name)}</a>`:evidenceLink(r,'Open entity details',h(r.name))}</div>${platformLinks(r)}</div></div>`}
 function companyCell(r){if(r.source==='Company coverage')return r.domains?.length?r.domains.map(domain=>`<div class="company-line">${externalLink('https://'+domain,domain,'globe')||evidenceLink(r,'View company evidence',h(domain))}</div>`).join(''):evidenceLink(r,'View company evidence','Website unavailable');const entities=r.companyEntities||[];return entities.length?entities.map(c=>`<div class="company-line">${externalLink(c.attioUrl,c.name,'attio')||externalLink(c.linkedinUrl,c.name,'linkedin')||evidenceLink(r,'View company evidence',h(c.name))}<span class="platform-links">${externalLink(c.linkedinUrl,c.name,'linkedin',true)}${externalLink(c.website,c.name,'globe',true)}</span></div>`).join(''):evidenceLink(r,'View company evidence',h(r.company||'Company unavailable'))}
 function currentCell(r){return r.currentEntities?.length?r.currentEntities.map(c=>`<div class="company-line">${externalLink(c.linkedinUrl,c.name,'linkedin')||evidenceLink(r,'View current role evidence',h(c.name))}</div>`).join(''):evidenceLink(r,'View current evidence',h(r.current||'Not observed'))}
-function reviewProgress(){const all=decisions();const keys=new Set(DATA.map(r=>r.id));const n=Object.entries(all).filter(([id,v])=>keys.has(id)&&['verified','investigate','skip'].includes(v.status)).length;document.getElementById('review-progress').innerHTML=icon(n?'check':'evidence')+`<span>${n?n+' review decision'+(n===1?'':'s')+' saved locally':'Ready for your review'}</span>`}
+function reviewProgress(){const all=decisions();const keys=new Set(DATA.map(r=>r.id));const n=Object.entries(all).filter(([id,v])=>keys.has(id)&&['verified','investigate','skip'].includes(v.status)).length;document.getElementById('review-progress').innerHTML=icon(n?'check':'evidence')+`<span>${n?n+' review decision'+(n===1?'':'s')+(unsavedDecisionKeys.has(decisionKey())?' · export before closing':' saved locally'):'Ready for your review'}</span>`}
 function stageColor(s){return {won:'var(--txt-2)',lost:'var(--destructive)',closed:'var(--txt-3)',open:'var(--txt)'}[stageKind(s)];}
 function valueCell(r){return num(r.value)?`<span class="money">${fmtMoneyFull(r.value)}</span>`:'<span class="muted">—</span>';}
 
@@ -743,13 +781,13 @@ function renderHead(){
 
 function renderBody(){
   const rows=visible();
-  const tb=document.getElementById('body');
+  const tb=document.getElementById('body'),reviewStates=decisions();
   if(!rows.length){tb.innerHTML=`<tr class="empty-row"><td colspan="${COLS.length}">No records match current search and filters<button type="button" class="empty-action" id="clearfilters">Clear filters</button></td></tr>`;}
-  else tb.innerHTML=rows.map(r=>`<tr id="record-${encodeURIComponent(r.id)}" data-i="${DATA.indexOf(r)}" tabindex="0"><td class="person">${personCell(r)}</td><td>${companyCell(r)}</td><td>${currentCell(r)}</td><td>${evidenceLink(r,'Review finding',stageBadge(r.stage))}</td><td class="mono hide-sm">${evidenceLink(r,'View observation provenance',`${icon('clock')}<time datetime="${h(r.updated||'')}">${h(r.updated||'Not observed')}</time>`)}</td></tr>`).join('');
-  if(!matchMedia('(prefers-reduced-motion: reduce)').matches&&st.motion!=='reduced'){tb.getAnimations().forEach(a=>a.cancel());tb.animate([{opacity:.72},{opacity:1}],{duration:140,easing:'ease-out'});}
+  else tb.innerHTML=rows.map(r=>`<tr role="row" id="record-${encodeURIComponent(r.id)}" data-i="${DATA.indexOf(r)}" tabindex="0"><td role="cell" class="person">${personCell(r)}<div class="row-review"><button type="button" class="btn-outline" data-evidence="${h(r.id)}" aria-label="Review ${h(r.name)}">Review profile</button><span class="row-decision" data-review-state="${h(r.id)}">${h(reviewStates[r.id]?.status||'Unreviewed')}</span></div></td><td role="cell"><span class="mobile-label" aria-hidden="true">Target company</span>${companyCell(r)}</td><td role="cell"><span class="mobile-label" aria-hidden="true">Current LinkedIn roles</span>${currentCell(r)}</td><td role="cell"><span class="mobile-label" aria-hidden="true">Finding</span>${evidenceLink(r,'Review finding',stageBadge(r.stage))}</td><td role="cell" class="mono hide-sm"><span class="mobile-label" aria-hidden="true">Observed</span>${evidenceLink(r,'View observation provenance',`${icon('clock')}<time datetime="${h(r.updated||'')}">${h(r.updated||'Not observed')}</time>`)}</td></tr>`).join('');
+  // Table updates remain instant for repeated searching and keyboard navigation.
   wireRows('#body tr[data-i]','i');
   const clear=document.getElementById('clearfilters');
-  if(clear)clear.onclick=()=>{st.q='';st.stat='all';st.src='all';save();renderAll();document.getElementById('q').focus();};
+  if(clear)clear.onclick=()=>{st.q='';st.stat='all';st.src='all';st.changeDays='all';st.changeKind='all';save();renderAll();document.getElementById('q').focus();};
   document.getElementById('cnote').textContent=`${rows.length} of ${DATA.length} shown`;
 }
 
@@ -854,40 +892,71 @@ function renderAll(){
   renderViewTabs();
   if(st.view==='board'){renderBoard();return;}
   renderKpis();renderChips();renderHead();renderBody();
+  document.getElementById('mobile-sort').value=st.sortK+':'+st.sortDir;
   document.getElementById('q').value=st.q;
   document.getElementById('qclear').style.display=st.q?'block':'none';}
 
 /* ── drawer ── */
 let drawerPrevFocus=null;
 function fld(k,v){return v?`<div class="fld"><span class="k">${h(k)}</span><span class="v">${h(v)}</span></div>`:'';}
-function openSheet(r){
+function savedEmail(value){
+  return typeof value==='string'&&value.length<=254&&/^[A-Z0-9.!#$%&'*+\/=?^_`{|}~-]+@[A-Z0-9](?:[A-Z0-9.-]*[A-Z0-9])?\.[A-Z]{2,}$/i.test(value)?value:'';
+}
+function outreachDraft(r){
+  const name=String(r.name||'').split(/\s+/)[0]||'there';
+  return {email:savedEmail(r.email),subject:'Workplace planning'+(r.company?' at '+r.company:''),body:`Hi ${name},\n\nI wanted to check in about your team's workplace plans. Are there any upcoming lease dates, space needs, or location decisions where a quick conversation would be useful?\n\nHappy to compare notes whenever it suits you.\n\nBest,\n${report?.accountName||''}`};
+}
+function mailtoDraft(email,subject,body){return 'mailto:'+encodeURIComponent(savedEmail(email))+'?subject='+encodeURIComponent(subject.replace(/[\r\n]+/g,' '))+'&body='+encodeURIComponent(body)}
+function openSheet(r,focusTarget='dx'){
   if(!drawerOpen())drawerPrevFocus=document.activeElement;
   document.getElementById('dname').innerHTML=profileEntity(r,r.name||'(no name)');
   document.getElementById('dco').innerHTML=companyCell(r);
-  const url=safeUrl(r.url);
-  document.getElementById('ddb').innerHTML=
-    `<div style="margin-bottom:6px">${statusBadge(r)}${r.stage?` ${stageBadge(r.stage)}`:''}</div>`+
-    `<div class="drawer-entity-links">${platformLinks(r)}</div><div class="fld"><span class="k">Target company</span><div class="v">${companyCell(r)}</div></div><div class="fld"><span class="k">Current LinkedIn</span><div class="v">${currentCell(r)}</div></div>`+fld('Observed',displayDate(r.updated))+
-    fld('Source',r.source)+
-    (url?`<div class="copyrow"><a class="linkbtn" href="${h(url)}" target="_blank" rel="noopener noreferrer">Open record ↗</a></div>`:'')+
-    profileDetails(r)+sectionsBlock({...r,sections:(r.sections||[]).filter(s=>s.title!=='Profile')})+
-    `<div class="copyrow">
-       <button type="button" data-c="${h(r.name)}">Copy name</button>
-       <button type="button" data-c="${h(blob(r))}">Copy summary</button>
-     </div>`;
-  const decision=decisions()[r.id]||{};
-  const review=document.createElement('div');
-  review.innerHTML=`<div class="esec"><div class="eh">Your review · local only</div><label for="decision-note">Note</label><textarea id="decision-note" class="review-note" placeholder="Evidence to verify or next action"></textarea><div class="review-decisions"><button class="btn-primary" data-decision="verified">Verified</button><button class="btn-primary" data-decision="investigate">Investigate</button><button class="btn-primary" data-decision="skip">Skip</button></div><p id="decision-status" role="status" aria-live="polite"></p></div>`;
-  document.getElementById('ddb').append(review);
-  const note=document.getElementById('decision-note'); note.value=decision.note||'';
-  document.getElementById('decision-status').textContent=decision.status?'Saved locally · '+decision.status:'Unreviewed';document.querySelectorAll('[data-decision]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.decision===decision.status)));
-  const put=status=>{const all=decisions();all[r.id]={status:status||all[r.id]?.status||'unreviewed',note:note.value,at:new Date().toISOString()};localStorage.setItem(decisionKey(),JSON.stringify(all));document.getElementById('decision-status').innerHTML=icon('check')+'<span>Saved locally · '+h(all[r.id].status)+'</span>';reviewProgress();document.querySelectorAll('[data-decision]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.decision===all[r.id].status)))};
-  note.onchange=()=>put();review.querySelectorAll('[data-decision]').forEach(b=>b.onclick=()=>put(b.dataset.decision));
-  document.querySelectorAll('#ddb [data-c]').forEach(b=>b.onclick=()=>copy(b.dataset.c));
-  document.getElementById('scrim').classList.add('on');
-  const drawer=document.getElementById('drawer');
-  drawer.inert=false;drawer.setAttribute('aria-hidden','false');drawer.classList.add('on');
-  requestAnimationFrame(()=>document.getElementById('dx').focus());
+  const decision=decisions()[r.id]||{},draft=outreachDraft(r),isPerson=r.source!=='Company coverage';
+  const rows=visible(),index=rows.findIndex(x=>x.id===r.id),db=document.getElementById('ddb');
+  db.innerHTML=`<p class="review-context">Record ${index+1} of ${rows.length} in this view · ${h(r.source)}</p>`+
+    `<details id="review-notes"><summary>Review note &amp; decision guide${decision.note?' · note saved':''}</summary><p class="decision-help">Verified = evidence checked and consistent. Investigate = more evidence needed. Skip = defer. These choices never update Attio or LinkedIn.</p><label for="decision-note">Note or next action</label><textarea id="decision-note" class="review-note" maxlength="20000" placeholder="What needs checking? What happens next?"></textarea><div class="note-tools"><span class="decision-help">Notes save as you type.</span><button type="button" class="btn-outline" id="clear-decision">Reset review</button></div></details>`+
+    `<div class="quick-actions">${isPerson?`<a class="btn-outline" id="draft-email" href="${h(mailtoDraft(draft.email,draft.subject,draft.body))}">${icon('mail')}Draft email</a>`:''}<button type="button" class="btn-outline" id="copy-brief">Copy brief</button>${platformLinks(r)}</div>`+
+    (isPerson?`<p class="outreach-help" id="recipient-status">${draft.email?'Saved recipient: '+h(draft.email):'No saved email. Add the recipient in your mail app.'} Opens a draft; you review and send.</p><details class="outreach-editor"><summary>Edit email draft</summary><label for="draft-recipient">Recipient email (optional)</label><input id="draft-recipient" type="email" autocomplete="off" value="${h(draft.email)}" placeholder="Add a known address"><label for="draft-subject">Subject</label><input id="draft-subject" value="${h(draft.subject)}"><label for="draft-body">Message</label><textarea id="draft-body"></textarea><p class="outreach-help">Draft edits stay here until you switch records. Copy or open the draft first.</p><button type="button" class="btn-outline" id="copy-draft">Copy email draft</button></details>`:'')+
+    `<div class="esec evidence-summary">${statusBadge(r)}${r.stage?stageBadge(r.stage):''}</div>`+
+    `<div class="fld"><span class="k">Target company</span><div class="v">${companyCell(r)}</div></div><div class="fld"><span class="k">Current LinkedIn</span><div class="v">${currentCell(r)}</div></div>`+fld('Observed',displayDate(r.updated))+
+    profileDetails(r)+sectionsBlock({...r,sections:(r.sections||[]).filter(s=>s.title!=='Profile')});
+  const note=document.getElementById('decision-note');note.value=decision.note||'';
+  const status=document.getElementById('decision-status');
+  const updateState=(value,persisted=true)=>{
+    status.dataset.error=String(!persisted);
+    status.textContent=persisted?(value.status&&value.status!=='unreviewed'?'Saved locally · '+value.status:value.note?'Note saved · unreviewed':'Unreviewed'):'Not saved to browser storage. Export decisions before closing.';
+    document.querySelectorAll('[data-decision]').forEach(b=>b.setAttribute('aria-pressed',String(b.dataset.decision===value.status)));
+    document.getElementById('clear-decision').disabled=!value.status||value.status==='unreviewed';
+    for(const el of document.querySelectorAll('[data-review-state]'))if(el.dataset.reviewState===r.id)el.textContent=value.status&&value.status!=='unreviewed'?value.status:'Unreviewed';
+  };
+  updateState(decision,!unsavedDecisionKeys.has(decisionKey()));
+  const put=choice=>{
+    const all=decisions();all[r.id]={status:choice||all[r.id]?.status||'unreviewed',note:note.value,at:new Date().toISOString()};
+    decisionMemory.set(decisionKey(),all);let persisted=true;
+    try{localStorage.setItem(decisionKey(),JSON.stringify(all));unsavedDecisionKeys.delete(decisionKey())}catch{persisted=false;unsavedDecisionKeys.add(decisionKey())}
+    updateState(all[r.id],persisted);reviewProgress();
+    document.querySelector('#review-notes summary').textContent='Review note & decision guide'+(note.value?(persisted?' · note saved':' · unsaved note'):'');
+  };
+  note.oninput=()=>put();document.querySelectorAll('[data-decision]').forEach(b=>b.onclick=()=>put(b.dataset.decision));
+  document.getElementById('clear-decision').onclick=()=>put('unreviewed');
+  document.getElementById('copy-brief').onclick=()=>copy([blob(r),...(r.positions||[]).filter(p=>p.current).map(p=>[p.title,p.company,p.startDate].filter(Boolean).join(' · ')),note.value].filter(Boolean).join('\n'),'Profile brief copied');
+  if(isPerson){
+    const recipient=document.getElementById('draft-recipient'),subject=document.getElementById('draft-subject'),body=document.getElementById('draft-body'),link=document.getElementById('draft-email');body.value=draft.body;
+    const updateDraft=()=>{
+      const invalid=!!recipient.value&&!savedEmail(recipient.value);recipient.setAttribute('aria-invalid',String(invalid));
+      if(invalid){link.removeAttribute('href');link.setAttribute('aria-disabled','true')}else{link.href=mailtoDraft(recipient.value,subject.value,body.value);link.removeAttribute('aria-disabled')}
+      document.getElementById('recipient-status').textContent=invalid?'Enter one valid email address, or leave it blank.':recipient.value?'Recipient: '+recipient.value+' · opens in your mail app.':'No saved email. Add the recipient in your mail app. Opens a draft; you review and send.';
+    };
+    [recipient,subject,body].forEach(el=>el.oninput=updateDraft);
+    document.getElementById('copy-draft').onclick=()=>copy('Subject: '+subject.value+'\n\n'+body.value,'Email draft copied');
+  }
+  for(const [id,step] of [['review-prev',-1],['review-next',1]]){
+    const button=document.getElementById(id);button.disabled=!rows[index+step];button.onclick=()=>openSheet(rows[index+step],id);
+  }
+  db.scrollTop=0;
+  document.getElementById('scrim').classList.add('on');document.querySelector('main.wrap').inert=true;
+  const drawer=document.getElementById('drawer');drawer.inert=false;drawer.setAttribute('aria-hidden','false');drawer.classList.add('on');
+  requestAnimationFrame(()=>{const target=document.getElementById(focusTarget);(target.disabled?document.getElementById('dx'):target).focus()});
 }
 // Pure presentation helpers also exercised by fixture tests.
 function dateParts(value){
@@ -982,6 +1051,7 @@ function sectionsBlock(r){
 }
 function closeSheet(){
   document.getElementById('scrim').classList.remove('on');
+  document.querySelector('main.wrap').inert=false;
   const drawer=document.getElementById('drawer');
   drawer.classList.remove('on');drawer.setAttribute('aria-hidden','true');drawer.inert=true;
   if(drawerPrevFocus&&drawerPrevFocus.focus)drawerPrevFocus.focus();
@@ -1009,7 +1079,7 @@ function toast(msg,kind,opts){
 
 /* ── confirm modal ── */
 let modalDone=null;
-function focusables(root){return [...root.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]),[tabindex]:not([tabindex="-1"])')].filter(el=>!el.hidden&&el.getClientRects().length&&!el.closest('[inert]'));}
+function focusables(root){return [...root.querySelectorAll('a[href],button:not([disabled]),input:not([disabled]),textarea:not([disabled]),select:not([disabled]),summary,[tabindex]:not([tabindex="-1"])')].filter(el=>!el.hidden&&el.getClientRects().length&&!el.closest('[inert]'));}
 function trapFocus(e,root){
   if(e.key!=='Tab')return false;
   const els=focusables(root);if(!els.length){e.preventDefault();return true;}
@@ -1052,9 +1122,11 @@ const THEMES=[['auto','Auto (system)'],['mono','Mono'],['graphite','Graphite'],[
 const prefersLight=window.matchMedia('(prefers-color-scheme: light)');
 const resolveTheme=t=>t==='auto'?(prefersLight.matches?'paper':'goldenrod'):t;
 function setThemeAttr(t){
+  document.documentElement.dataset.themeChanging='true';
   const r=resolveTheme(t);
   if(r==='mono')delete document.documentElement.dataset.theme;
   else document.documentElement.dataset.theme=r;
+  void document.documentElement.offsetWidth;requestAnimationFrame(()=>delete document.documentElement.dataset.themeChanging);
 }
 function applyTheme(t,announce){
   if(!THEMES.some(x=>x[0]===t))t='auto';
@@ -1363,24 +1435,35 @@ st.view='records';st.src='all';if(!['all','saved','employer','unmatched','hints'
 renderAll();
 
 function decisionKey(){return 'allman-target-review:'+report?.account+':'+report?.runId}
-function decisions(){try{return JSON.parse(localStorage.getItem(decisionKey())||'{}')}catch{return {}}}
+function decisions(){
+ const key=decisionKey();if(unsavedDecisionKeys.has(key))return decisionMemory.get(key)||{};
+ try{const value=JSON.parse(localStorage.getItem(key)||'{}');if(value&&typeof value==='object'&&!Array.isArray(value)){decisionMemory.set(key,value);return value}}catch{}
+ return decisionMemory.get(key)||{};
+}
 function hydrate(value){
- if(value?.version!==1||!value.account||!value.list||!value.summary||!Array.isArray(value.profiles)||!Array.isArray(value.unmatched)||!Array.isArray(value.hints))throw new Error('Invalid Allman review report');
+ const text=v=>typeof v==='string',objects=a=>Array.isArray(a)&&a.every(x=>x&&typeof x==='object'&&!Array.isArray(x)),strings=a=>Array.isArray(a)&&a.every(text);
+ if(value?.version!==1||!text(value.account)||!text(value.accountName)||!text(value.runId)||!text(value.observedAt)||!text(value.list?.name)||!value.summary||!objects(value.profiles)||!objects(value.unmatched)||!objects(value.hints)||!objects(value.companies||[]))throw new Error('Invalid Allman review report');
+ if(!value.profiles.every(p=>text(p.flagshipId)&&text(p.name)&&strings(p.expectedCompanies)&&strings(p.currentCompanies)&&strings(p.methods)&&objects(p.positions||[])&&objects(p.education||[])&&Array.isArray(p.skills||[]))||!value.unmatched.every(p=>text(p.personId)&&text(p.name)&&strings(p.companies))||!value.hints.every(p=>text(p.flagshipId)&&text(p.name)&&strings(p.companies))||!(value.companies||[]).every(c=>text(c.id)&&text(c.name)&&strings(c.domains)&&strings(c.urls)))throw new Error('Invalid report records');
  report=value;DATA.length=0;const sourceName=value.source?.kind==='salesnav'?'Sales Navigator':'Attio';
- for(const p of value.profiles)DATA.push({id:p.flagshipId,name:p.name,sourceUrls:p.sourceUrls||[],attioUrls:p.attioUrls||[],linkedinUrl:p.linkedinUrl,companyEntities:p.companyEntities||[],currentEntities:p.currentEntities||[],company:p.expectedCompanies.join(' · '),current:p.currentCompanies.join(' · '),stage:p.employer,employer:p.employer,saved:p.saved,status:p.saved?'active':'open',owner:value.accountName,source:'Selected profiles',updated:p.enrichedAt?.slice(0,10)||'',url:p.linkedinUrl,
+ for(const p of value.profiles)DATA.push({id:p.flagshipId,name:p.name,sourceUrls:p.sourceUrls||[],attioUrls:p.attioUrls||[],linkedinUrl:p.linkedinUrl,email:savedEmail(p.email),companyEntities:p.companyEntities||[],currentEntities:p.currentEntities||[],company:p.expectedCompanies.join(' · '),current:p.currentCompanies.join(' · '),stage:p.employer,employer:p.employer,saved:p.saved,status:p.saved?'active':'open',owner:value.accountName,source:'Selected profiles',updated:p.enrichedAt?.slice(0,10)||'',url:p.linkedinUrl,
  positions:p.positions||[],education:p.education||[],skills:p.skills||[],observedAt:value.observedAt,
  sections:[{title:'Profile',items:[{title:p.title,meta:p.location,url:p.linkedinUrl},{title:p.headline||'',meta:'',url:p.linkedinUrl},{title:p.about,meta:''}]},{title:'Employer evidence',items:[{title:p.employerEvidence?.reason||FINDINGS[p.employer]?.[2]||'Employer evidence unavailable',meta:'Compare linked Target company and current LinkedIn roles above.'}]},{title:'Match evidence',items:[{title:p.methods.map(x=>({'flagship-id':'LinkedIn profile ID','linkedin-url':'LinkedIn profile URL','public-identifier':'LinkedIn handle'}[x]||x.replaceAll('-',' '))).join(', '),meta:sourceName+' name: '+(p.attioName||p.name),url:p.attioUrls?.[0]||p.sourceUrls?.[0],platform:p.attioUrls?.[0]?'attio':'linkedin'}]}]});
- for(const p of value.unmatched)DATA.push({id:p.personId,name:p.name,sourceUrls:p.sourceUrl?[p.sourceUrl]:[],attioUrls:p.attioUrl?[p.attioUrl]:[],linkedinUrl:p.linkedinUrl,companyEntities:p.companyEntities||[],company:p.companies.join(' · '),current:'Not fetched',stage:p.outcome,status:'open',source:'Unmatched list',sections:[{title:'Why excluded',items:[{title:p.outcome==='missing-identity'?'No exact stored LinkedIn identity resolved for this list member':p.outcome==='not-in-account'?'List identity not found among this account’s stored connections':'Manual identity or employment review needed',meta:'Excluded from enrichment. Name-only matches never trigger profile requests.'},{title:'Open '+sourceName+' person',url:p.attioUrl||p.sourceUrl,platform:p.attioUrl?'attio':'linkedin'}]},{title:'Name-only candidates · verify identity',items:(p.nameCandidates||[]).map(x=>({title:x.publicIdentifier||'Stored LinkedIn profile',url:x.publicIdentifier?'https://www.linkedin.com/in/'+encodeURIComponent(x.publicIdentifier):'',meta:[x.headline,x.evidence].filter(Boolean).join(' · ')}))}]});
- for(const p of value.hints)DATA.push({id:'hint-'+p.flagshipId,name:p.name,linkedinUrl:p.linkedinUrl,companyEntities:p.companyEntities||[],company:p.companies.join(' · '),current:p.headline,stage:p.reason,status:'open',source:'Local hints',sections:[{title:'Candidate only',items:[{title:'Not selected for enrichment',meta:'Stored company or headline hint; verify identity and Target company relationship first.'},{title:'Open stored LinkedIn profile',url:p.linkedinUrl}]}]});
+ for(const p of value.unmatched)DATA.push({id:p.personId,name:p.name,sourceUrls:p.sourceUrl?[p.sourceUrl]:[],attioUrls:p.attioUrl?[p.attioUrl]:[],linkedinUrl:p.linkedinUrl,email:savedEmail(p.email),companyEntities:p.companyEntities||[],company:p.companies.join(' · '),current:'Not fetched',stage:p.outcome,status:'open',source:'Unmatched list',sections:[{title:'Why excluded',items:[{title:p.outcome==='missing-identity'?'No exact stored LinkedIn identity resolved for this list member':p.outcome==='not-in-account'?'List identity not found among this account’s stored connections':'Manual identity or employment review needed',meta:'Excluded from enrichment. Name-only matches never trigger profile requests.'},{title:'Open '+sourceName+' person',url:p.attioUrl||p.sourceUrl,platform:p.attioUrl?'attio':'linkedin'}]},{title:'Name-only candidates · verify identity',items:(p.nameCandidates||[]).map(x=>({title:x.publicIdentifier||'Stored LinkedIn profile',url:x.publicIdentifier?'https://www.linkedin.com/in/'+encodeURIComponent(x.publicIdentifier):'',meta:[x.headline,x.evidence].filter(Boolean).join(' · ')}))}]});
+ for(const p of value.hints)DATA.push({id:'hint-'+p.flagshipId,name:p.name,linkedinUrl:p.linkedinUrl,email:savedEmail(p.email),companyEntities:p.companyEntities||[],company:p.companies.join(' · '),current:p.headline,stage:p.reason,status:'open',source:'Local hints',sections:[{title:'Candidate only',items:[{title:'Not selected for enrichment',meta:'Stored company or headline hint; verify identity and Target company relationship first.'},{title:'Open stored LinkedIn profile',url:p.linkedinUrl}]}]});
  for(const c of value.companies||[])DATA.push({id:'company-'+c.id,name:c.name,attioUrls:c.attioUrl?[c.attioUrl]:[],linkedinUrl:c.linkedinUrl||c.urls[0]||'',website:c.website,domains:c.domains,company:c.domains.join(' · '),current:`${c.attioPeople} ${sourceName} people · ${c.selected} selected · ${c.saved} saved`,stage:c.selected?'Has account matches':'No account matches',source:'Company coverage',url:c.urls[0]||'',sections:[{title:'Company evidence',items:[{title:'Open Target company',url:c.attioUrl,platform:'attio'},{title:'Open LinkedIn company',url:c.linkedinUrl||c.urls[0]}]}]});
  const s=value.summary;document.getElementById('review-title').textContent=value.list.name+' · '+value.accountName;
- document.getElementById('review-summary').textContent=`${s.companies} target companies → ${s.attioPeople} ${sourceName} people → ${s.selected} unique stored connections. ${s.saved} deep profiles saved; ${s.selected-s.saved} pending. ${s.duplicateAttioRecords} duplicate source record(s) deduplicated. ${s.missingIdentity} missing usable identity; ${s.notInAccount} not found in this account. ${s.nameReviewCandidates||0} unmatched records have name-only candidates to inspect. Employer findings require human review; no source records have been edited.`;
- document.getElementById('meta').textContent='Account '+value.accountName+' · snapshot '+value.observedAt.slice(0,16).replace('T',' ')+' UTC · '+value.runId;
+ document.getElementById('report-detail').textContent=`${s.companies} target companies → ${s.attioPeople} ${sourceName} people → ${s.selected} unique stored connections. ${s.saved} deep profiles saved; ${s.selected-s.saved} pending. ${s.duplicateAttioRecords} duplicate source record(s) deduplicated. ${s.missingIdentity} missing usable identity; ${s.notInAccount} not found in this account. ${s.nameReviewCandidates||0} unmatched records have name-only candidates to inspect. Employer findings require human review; no source records have been edited.`;
+ document.getElementById('review-summary').textContent=`${s.saved} deep profiles ready to review · ${s.selected-s.saved} pending · ${s.companies} target companies. Source records remain unchanged.`;
+ document.getElementById('meta').textContent='Account '+value.accountName+' · snapshot '+value.observedAt.slice(0,16).replace('T',' ')+' UTC';
  st.view='records';renderAll();reviewProgress();
 }
 for(const [id,key] of [['change-days','changeDays'],['change-kind','changeKind']])document.getElementById(id).onchange=e=>{st[key]=e.target.value;save();renderAll()};
 document.getElementById('reset-career').onclick=()=>{st.changeDays='all';st.changeKind='all';save();renderAll()};
-document.getElementById('report-import').onchange=async e=>{try{hydrate(JSON.parse(await e.target.files[0].text()));toast('Private report loaded','success')}catch{toast('Could not load report','error')}};
+document.getElementById('import-report').onclick=()=>document.getElementById('report-import').click();
+document.getElementById('report-import').onchange=async e=>{const file=e.target.files?.[0];if(!file)return;try{if(file.size>25000000)throw new Error('Too large');hydrate(JSON.parse(await file.text()));toast('Private report loaded','success')}catch{toast('Report not loaded. Choose an Allman review.json under 25 MB; your current view is unchanged.','error')}finally{e.target.value=''}};
+document.getElementById('mobile-sort').onchange=e=>{const [key,dir]=e.target.value.split(':');st.sortK=key;st.sortDir=Number(dir);save();renderAll()};
+document.addEventListener('keydown',()=>document.documentElement.dataset.input='keyboard',true);
+document.addEventListener('pointerdown',()=>document.documentElement.dataset.input='pointer',true);
 document.getElementById('download-review').onclick=()=>{if(!report)return;download(JSON.stringify({account:report.account,runId:report.runId,list:report.list,decisions:decisions()},null,2),'review-decisions.json','application/json')};
 document.getElementById('export-csv').onclick=exportCSV;
 document.getElementById('link-guide').innerHTML=`${icon('attio')} Attio <span>·</span> ${icon('linkedin')} LinkedIn <span>·</span> ${icon('globe')} Website <span>·</span> ${icon('evidence')} Finding & date open evidence`;

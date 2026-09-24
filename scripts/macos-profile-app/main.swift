@@ -12,6 +12,11 @@ struct Configuration: Codable {
     let companionProfileDirectory: String
     let browserApplication: String
     let sessionRegistry: String
+    let companionLauncher: String?
+    let account: String?
+
+    var expectedEndpoint: String { profile == "brian" ? "http://127.0.0.1:9222" : "http://127.0.0.1:9223" }
+    var browserIdentifiers: [String] { profile == "brian" ? ["com.browseros.BrowserClaw"] : ["com.allman.browser.jp.engine", "com.browseros.BrowserClaw"] }
 }
 
 struct VerifiedBrowser: Codable {
@@ -26,7 +31,7 @@ func launchEnvironment(_ inherited: [String: String], config: Configuration) -> 
     var env = inherited.filter { !$0.key.hasPrefix("ALLMAN_") && !$0.key.hasPrefix("PLAYWRIGHT_") }
     env["PATH"] = config.runtimePath
     env["ALLMAN_PROFILE"] = config.profile
-    env["ALLMAN_ACCOUNT"] = config.profile
+    env["ALLMAN_ACCOUNT"] = config.account ?? config.profile
     return env
 }
 
@@ -54,22 +59,23 @@ func ensureCompanionBrowser(_ config: Configuration) throws {
                                   config.companionEndpoint + "/json/version"]) == 0
     }
     if try ready() { return }
-    // Explicitly reopen the saved Brian profile; never borrow JP's CDP endpoint.
-    let status = try run("/usr/bin/open", ["-n", "-g", "-a", config.browserApplication, "--args",
-        "--user-data-dir=" + config.companionProfileDirectory,
-        "--remote-debugging-port=9222", "--browseros-cdp-port=9222",
-        "--restore-last-session", "chrome://version"])
-    guard status == 0 else {
-        throw NSError(domain: "BrowserOSProfile", code: Int(status),
-                      userInfo: [NSLocalizedDescriptionKey: "Could not reopen Brian's saved browser for the account-switch guard."])
+    let companion = config.companionLauncher ?? URL(fileURLWithPath: config.repository)
+        .appendingPathComponent("scripts/macos-profile-app/open_brian.py").path
+    let process = Process()
+    process.executableURL = URL(fileURLWithPath: "/usr/bin/python3")
+    process.arguments = [companion, "--restore-session", "--json"]
+    process.currentDirectoryURL = URL(fileURLWithPath: config.repository)
+    process.environment = launchEnvironment(ProcessInfo.processInfo.environment, config: config)
+    let pipe = Pipe()
+    process.standardOutput = pipe
+    process.standardError = pipe
+    try process.run()
+    let output = pipe.fileHandleForReading.readDataToEndOfFile()
+    process.waitUntilExit()
+    guard process.terminationStatus == 0, try ready() else {
+        throw NSError(domain: "BrowserOSProfile", code: 3,
+            userInfo: [NSLocalizedDescriptionKey: "Companion browser could not be verified. " + (String(data: output, encoding: .utf8) ?? "Inspect the browser log.")])
     }
-    let deadline = Date().addingTimeInterval(45)
-    while Date() < deadline {
-        if try ready() { return }
-        Thread.sleep(forTimeInterval: 0.5)
-    }
-    throw NSError(domain: "BrowserOSProfile", code: 3,
-                  userInfo: [NSLocalizedDescriptionKey: "Brian's saved browser did not expose CDP. JP was not activated; reopen Brian's browser and retry."])
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate {
@@ -83,17 +89,17 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
             let menu = NSMenu()
             let item = NSMenuItem()
             let appMenu = NSMenu()
-            appMenu.addItem(withTitle: "Open JP Browser", action: #selector(openBrowser), keyEquivalent: "o").target = self
+            appMenu.addItem(withTitle: "Open " + config!.name, action: #selector(openBrowser), keyEquivalent: "o").target = self
             appMenu.addItem(withTitle: "Show Launcher Log", action: #selector(showLog), keyEquivalent: "l").target = self
             appMenu.addItem(.separator())
-            appMenu.addItem(withTitle: "Quit JP Launcher", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
+            appMenu.addItem(withTitle: "Quit " + config!.name + " Launcher", action: #selector(NSApplication.terminate(_:)), keyEquivalent: "q")
             item.submenu = appMenu
             menu.addItem(item)
             NSApp.mainMenu = menu
             activationObserver = NSWorkspace.shared.notificationCenter.addObserver(
                 forName: NSWorkspace.didActivateApplicationNotification, object: nil, queue: .main
             ) { [weak self] notification in
-                guard let self, !self.busy, let config = self.config,
+                guard let self, !self.busy, let config = self.config, config.profile == "jp",
                       let browser = notification.userInfo?[NSWorkspace.applicationUserInfoKey] as? NSRunningApplication,
                       browser.bundleIdentifier == "com.allman.browser.jp.engine" else { return }
                 let data = try? Data(contentsOf: URL(fileURLWithPath: config.sessionRegistry))
@@ -139,11 +145,11 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: log.path)
                 guard process.terminationStatus == 0 else {
                     throw NSError(domain: "BrowserOSProfile", code: Int(process.terminationStatus),
-                        userInfo: [NSLocalizedDescriptionKey: "JP browser verification failed. Open the launcher log for details. Your saved profile was preserved."])
+                        userInfo: [NSLocalizedDescriptionKey: "Browser verification failed. Open the launcher log for details. Your saved profile was preserved."])
                 }
                 let browser = try JSONDecoder().decode(VerifiedBrowser.self, from: output)
                 guard browser.profile == config.profile, browser.shieldVerified, browser.pid > 0,
-                      browser.endpoint == "http://127.0.0.1:9223" else {
+                      browser.endpoint == config.expectedEndpoint else {
                     throw NSError(domain: "BrowserOSProfile", code: 2,
                         userInfo: [NSLocalizedDescriptionKey: "Launcher returned an unverified browser identity."])
                 }
@@ -164,14 +170,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
                 try FileManager.default.setAttributes([.posixPermissions: 0o600], ofItemAtPath: log.path)
                 guard activation.terminationStatus == 0 else {
                     throw NSError(domain: "BrowserOSProfile", code: Int(activation.terminationStatus),
-                        userInfo: [NSLocalizedDescriptionKey: "JP browser opened, but account activation failed. Keep both registered browsers open, then retry. Open the launcher log for details."])
+                        userInfo: [NSLocalizedDescriptionKey: "Browser opened, but account activation failed. Keep both registered browsers open, then retry. Open the launcher log for details."])
                 }
                 DispatchQueue.main.async {
                     self.busy = false
                     NSApp.dockTile.badgeLabel = nil
                     guard let application = NSRunningApplication(processIdentifier: browser.pid),
-                          ["com.allman.browser.jp.engine", "com.browseros.BrowserClaw"].contains(application.bundleIdentifier ?? "") else {
-                        self.showFailure("Verified JP browser exited before it could be focused. Open the launcher again.")
+                          config.browserIdentifiers.contains(application.bundleIdentifier ?? "") else {
+                        self.showFailure("Verified browser exited before it could be focused. Open the launcher again.")
                         return
                     }
                     if #available(macOS 14.0, *) { NSApp.yieldActivation(to: application) }
@@ -208,7 +214,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate {
         NSApp.dockTile.badgeLabel = "!"
         NSApp.activate(ignoringOtherApps: true)
         let alert = NSAlert()
-        alert.messageText = "BrowserOS JP could not finish opening"
+        alert.messageText = (config?.name ?? "Browser") + " could not finish opening"
         alert.informativeText = message
         alert.addButton(withTitle: "OK")
         alert.addButton(withTitle: "Open Log")
@@ -221,7 +227,7 @@ if CommandLine.arguments.contains("--self-test") {
     let env = launchEnvironment(["ALLMAN_PROFILE": "brian", "ALLMAN_CDP_URL": "wrong",
                                  "PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH": "wrong", "KEEP": "yes"], config: config)
     precondition(env["ALLMAN_PROFILE"] == config.profile)
-    precondition(env["ALLMAN_ACCOUNT"] == config.profile)
+    precondition(env["ALLMAN_ACCOUNT"] == (config.account ?? config.profile))
     precondition(env["ALLMAN_CDP_URL"] == nil)
     precondition(env["PLAYWRIGHT_CHROMIUM_EXECUTABLE_PATH"] == nil)
     precondition(env["KEEP"] == "yes" && env["PATH"] == config.runtimePath)

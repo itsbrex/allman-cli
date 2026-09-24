@@ -16,17 +16,55 @@ function element(tag, className, value) { const el = document.createElement(tag)
 function initials(name) { return String(name).split(/\s+/).filter(Boolean).slice(0,2).map(s=>s[0]).join('').toUpperCase(); }
 function badge(status) { return element('span','badge '+status,labels[status] || status); }
 function connection(value, kind) { text('connection-label',value); $('connection').className='connection '+kind; }
+let accountState = null, accountBusy = false;
+function renderAccountControls() {
+  if (!accountState?.enabled) { $('account-controls').hidden = true; return; }
+  $('account-controls').hidden = false;
+  const selected = $('account-select').value || accountState.active;
+  $('account-select').replaceChildren(...accountState.profiles.map(p => new Option(p.name, p.name)));
+  if (accountState.profiles.some(p => p.name === selected)) $('account-select').value = selected;
+  const name = $('account-select').value;
+  $('activate-account').textContent = accountBusy ? 'Switching…' : 'Activate '+name;
+  $('activate-account').disabled = accountBusy || accountState.switching || !name || name === accountState.active;
+  $('account-select').disabled = accountBusy || accountState.switching;
+  if (!accountBusy) text('account-status',accountState.active ? accountState.active+' active · other LinkedIn accounts paused' : 'LinkedIn paused · choose an account');
+}
+async function loadAccountControls() {
+  try {
+    const response = await fetch('/api/profiles');
+    if (!response.ok) return;
+    accountState = await response.json(); renderAccountControls();
+  } catch { /* Passive journal viewing remains available without controls. */ }
+}
+$('account-select').addEventListener('change',renderAccountControls);
+$('activate-account').addEventListener('click',async () => {
+  if (accountBusy || !accountState?.token) return;
+  const name = $('account-select').value;
+  accountBusy = true; renderAccountControls();
+  text('account-status','Verifying '+name+' and pausing other LinkedIn accounts…');
+  try {
+    const response = await fetch('/api/profiles',{method:'POST',headers:{'Content-Type':'application/json','X-Allman-Control-Token':accountState.token},body:JSON.stringify({profile:name})});
+    const result = await response.json();
+    if (!response.ok) throw new Error(result.error || 'Account switch failed');
+    accountBusy = false; await loadAccountControls();
+    location.reload();
+  } catch (error) {
+    accountBusy = false; await loadAccountControls();
+    text('account-status',String(error.message || error));
+  }
+});
 function connect() {
   if (source) source.close();
   connection('Connecting','connecting');
   const selected = $('run-select').value;
   source = new EventSource('/api/events'+(selected ? '?run='+encodeURIComponent(selected)+'&view='+encodeURIComponent(snapshot?.viewKey || '') : ''));
-  source.onopen = () => connection('Connected','connected');
+  source.onopen = () => { connection('Connected','connected'); void loadAccountControls(); };
   source.onerror = () => { connection('Reconnecting','offline'); text('feed-note','Connection lost. Displaying last received activity; processing status may have changed.'); };
   source.addEventListener('unavailable', () => { connection('Feed unavailable','offline'); text('feed-note','Activity records are temporarily unavailable. Retrying automatically.'); });
   source.onmessage = event => {
     pending = JSON.parse(event.data);
     if (snapshot && pending.viewKey !== snapshot.viewKey) {
+      if (accountBusy) { document.querySelector('main').hidden = true; return; }
       source.close();
       document.querySelector('main').replaceChildren();
       text('profile-name','Switching profile…');
@@ -42,6 +80,7 @@ function render() {
   renderMetrics();
   const run = snapshot.run;
   text('profile-name',snapshot.label || 'Allman');
+  if (accountState?.enabled && (snapshot.profile || null) !== accountState.active) void loadAccountControls();
   const selected = $('run-select').value;
   $('run-select').replaceChildren(new Option('Follow latest run',''));
   for (const r of snapshot.runs) $('run-select').add(new Option(r.command+' · '+new Date(r.startedAt).toLocaleString([], {month:'short',day:'numeric',hour:'2-digit',minute:'2-digit'})+' · '+labels[r.status],r.id));
@@ -162,6 +201,10 @@ export const activityHtml = `<!doctype html>
     <a class="nav-link" href="#events"><span>03</span><span class="nav-label">Event stream</span></a>
   </nav>
   <div class="view-controls"><label class="sr-only" for="run-select">Select processing run</label><select id="run-select"><option value="">Follow latest run</option></select><button type="button" id="pause-view" class="button" aria-pressed="false">Pause view</button></div>
+</div><div class="wrap account-controls" id="account-controls" hidden>
+  <label for="account-select">LinkedIn account</label><select id="account-select" aria-describedby="account-status"></select>
+  <button type="button" class="button" id="activate-account">Activate account</button>
+  <span id="account-status" role="status" aria-live="polite"></span>
 </div></div>
 <main class="wrap content">
 <section class="section" id="daily-panel" aria-label="Today's totals and limits" hidden>

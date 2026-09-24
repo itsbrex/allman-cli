@@ -21,4 +21,10 @@ while [ -L "$SOURCE" ]; do
 done
 ROOT="$(cd -P "$(dirname "$SOURCE")/.." && pwd)"
 
-exec bun "$ROOT/src/index.ts" "$@"
+# Resolve the checkout runtime without changing the caller's working directory.
+BUN_BIN=bun
+if command -v mise >/dev/null 2>&1; then
+  BUN_BIN="$(mise --cd "$ROOT" which bun)"
+fi
+
+exec "$BUN_BIN" "$ROOT/src/index.ts" "$@"
