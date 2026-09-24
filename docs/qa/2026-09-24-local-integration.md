@@ -19,7 +19,9 @@ in `459155a`, root profile/store/enrichment work in `17716ab`, and merged both
 into `main` through `9b09cc8`. Integration retained the decomposed app, six
 relationship views, fit/rank/introductions, QA reviewer, Attio list picker,
 profile-specific store resolution, and compact/relative date controls.
-Runtime/build safeguards are in `42008a7`.
+Runtime/build safeguards are in `42008a7`; TUI main finishes at `0124087`.
+CLI feature integration is `f11e1db`; the remaining merge records the already
+applied shim branch without replacing newer behavior.
 
 Both `feat/upstream-dev-shims` branches carried independently committed copies
 of already-present changes. Integration retains the newer scripts, manifest
@@ -69,9 +71,12 @@ No LinkedIn HTTP fetch, CRM write, invitation or message was requested by these 
 
 ## Verification
 
-- CLI: 759 tests passed across 92 files; an additional source-shim regression
-  passed afterward. Initial baseline concurrency timeouts passed against the
-  rebuilt binary; final full run used one worker and the fresh executable.
+- CLI: 760 tests passed across 93 files in the commit gate, including the
+  source-shim regression. Initial baseline concurrency timeouts passed against the
+  rebuilt binary; final serialized run used one worker and the fresh executable. The commit
+  runner now honors `VITEST_MAX_WORKERS=1`; a later duplicate-branch merge hook
+  hit a 5-second subprocess timeout under the default two workers, so its
+  verification was rerun with that supported single-worker setting.
 - TUI: 148 tests passed, including merged command/date/profile behavior and new
   runtime-shim regression. Typecheck passed in both repositories.
 - Lint passed with existing warnings; no claim of warning-free output.
