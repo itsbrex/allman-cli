@@ -3,7 +3,9 @@ import { exportsCommand } from "./commands/exports.js";
 import { graphCommand } from "./commands/graph.js";
 import { groupsCommand } from "./commands/groups.js";
 import { icpCommand } from "./commands/icp.js";
+import { logsCommand } from "./commands/logs.js";
 import { rankCommand } from "./commands/rank.js";
+import { configureHttpLog } from "./diagnostics/http-log.js";
 import { beginAutomaticExports } from "./exports/automatic.js";
 import { VERSION } from "./version.js";
 /**
@@ -93,6 +95,7 @@ program
     if (opts.debug) setDebugMode(true);
   })
   .hook("preAction", async (_program, command) => {
+    configureHttpLog();
     setRawCapture(command.optsWithGlobals().raw);
     rawCaptureEnabled(); // Validate before any browser or provider work.
     releaseLinkedInCommand = await beginLinkedInCommand(command);
@@ -128,6 +131,22 @@ program
     releaseLinkedInCommand?.();
     releaseLinkedInCommand = null;
   });
+
+program
+  .command("logs")
+  .description(
+    "Read selected profile HTTP, browser, launcher and shared viewer logs; no provider requests"
+  )
+  .option("-f, --follow", "follow new lines, creation and rotation until Ctrl-C")
+  .option(
+    "-n, --lines <n>",
+    "last lines per file (1–10000; bounded to final 64 KiB)",
+    positiveInteger,
+    100
+  )
+  .option("--source <source>", "all, http, browser, launcher or viewer", "all")
+  .option("--paths", "list selected log paths without reading their contents")
+  .action(async (opts) => logsCommand(opts));
 
 program
   .command("exports <action>")

@@ -114,3 +114,50 @@ it("keeps prior raw revisions and deep coverage through later core and non-raw u
   );
   expect(revisions.sort()).toEqual(["new", "old"]);
 });
+
+it.each([
+  302, 401, 403, 429, 500,
+])("archives HTTP %s before throwing without copying headers", async (status) => {
+  const client = new LinkedInApiClient({ account: { cookieJar: null } as AccountRecord });
+  client.setRawArchive(root, "account");
+  vi.mocked(axios).mockRejectedValue({
+    response: {
+      status,
+      headers: {
+        "retry-after": "125",
+        "set-cookie": "secret-cookie",
+        authorization: "secret-header",
+      },
+      data: { message: "provider failure", detail: { code: "fixture" } },
+    },
+  });
+  await expect(
+    client.request({ method: "GET", url: "https://www.linkedin.com/sales-api/fixture" })
+  ).rejects.toMatchObject({ statusCode: status });
+  const [account] = await readdir(join(root, "raw"));
+  const [file] = await readdir(join(root, "raw", account ?? ""));
+  const evidence = await readFile(join(root, "raw", account ?? "", file ?? ""), "utf8");
+  expect(evidence).not.toContain("secret-");
+  expect(JSON.parse(evidence).payload).toMatchObject({
+    status,
+    data: { message: "provider failure" },
+    retryAfterSeconds: 125,
+  });
+});
+
+it.each([
+  [undefined, "reset time is unknown"],
+  ["invalid", "reset time is unknown"],
+  ["125", "125s minimum"],
+  ["0", "0s minimum"],
+])("reports provider Retry-After %s without a fabricated delay", async (header, message) => {
+  const client = new LinkedInApiClient({ account: { cookieJar: null } as AccountRecord });
+  vi.mocked(axios).mockResolvedValue({ status: 429, headers: { "retry-after": header }, data: {} });
+  await expect(
+    client.request({
+      method: "GET",
+      url: "https://www.linkedin.com/sales-api/fixture?token=secret",
+    })
+  ).rejects.toThrow(message);
+  expect(vi.mocked(axios)).toHaveBeenCalledTimes(1);
+});

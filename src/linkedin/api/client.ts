@@ -19,8 +19,10 @@ import axios, { type AxiosRequestConfig, type AxiosResponse } from "axios";
 import type { CookieJar } from "tough-cookie";
 import type tunnel from "tunnel";
 import { activityRequestFinished, activityRequestStarted } from "../../activity/journal.js";
+import { recordHttp } from "../../diagnostics/http-log.js";
 import { archiveRaw } from "../../store/raw-archive.js";
 import type { AccountRecord, ProxyConfig } from "../../store/types.js";
+import { requestEndpoint, retryAfterSeconds } from "../../utils/http-diagnostics.js";
 import * as output from "../../utils/output.js";
 import type { RateLimiter } from "../../utils/rate-limiter.js";
 import {
@@ -241,6 +243,8 @@ export class LinkedInApiClient {
       } as tunnel.HttpsOverHttpOptions);
     }
 
+    const startedAt = Date.now();
+    const endpoint = requestEndpoint(options.url);
     let response: AxiosResponse;
     const activityRequest =
       options.method === "GET"
@@ -258,33 +262,54 @@ export class LinkedInApiClient {
         response = axiosErr.response;
       } else {
         activityRequestFinished(activityRequest);
+        recordHttp({
+          method: options.method,
+          endpoint,
+          durationMs: Date.now() - startedAt,
+          outcome: "network-error",
+        });
+        output.debug(`${options.method} ${endpoint} → network error`);
         throw new LinkedInError(`Network error: ${axiosErr.message ?? "unknown"}`, "NETWORK_ERROR");
       }
     }
     activityRequestFinished(activityRequest, response.status);
 
-    // Handle error status codes — includes 3xx redirects (LinkedIn 302s on session
-    // expiry must throw, not silently return empty JSON).
-    if (response.status >= 300 && response.status !== 304) {
-      this.handleErrorResponse(response);
-    }
+    output.debug(`${options.method} ${endpoint} → ${response.status}`);
+    const retryAfter = retryAfterSeconds(response.headers["retry-after"]);
 
+    let rawPath: string | undefined;
     if (this.rawArchive && options.responseType !== "stream") {
       // No cookies, headers or request body enter the archive. Keep query variables
       // with the response so pages and target identities can be distinguished.
       try {
-        await archiveRaw(this.rawArchive.root, this.rawArchive.account, "linkedin/api", {
+        rawPath = await archiveRaw(this.rawArchive.root, this.rawArchive.account, "linkedin/api", {
           method: options.method,
           url: options.url,
           params: options.params,
           status: response.status,
           data: response.data,
+          ...(retryAfter === undefined ? {} : { retryAfterSeconds: retryAfter }),
         });
       } catch {
         output.warn(
           "Raw response could not be archived. Do not repeat a send or invitation; inspect local storage."
         );
       }
+    }
+
+    recordHttp({
+      method: options.method,
+      endpoint,
+      status: response.status,
+      durationMs: Date.now() - startedAt,
+      outcome: "response",
+      retryAfterSeconds: retryAfter,
+      rawPath,
+    });
+
+    // Archive and diagnose failures before throwing, including rejected Axios responses.
+    if (response.status >= 300 && response.status !== 304) {
+      this.handleErrorResponse(response, `${options.method} ${endpoint}`, retryAfter);
     }
 
     // Merge Set-Cookie headers into jar and persist
@@ -295,8 +320,6 @@ export class LinkedInApiClient {
         await this.onCookieUpdate(this.jar);
       }
     }
-
-    output.debug(`${options.method} ${options.url} → ${response.status}`);
 
     // Save fixture for VCR replay in tests
     if (IS_RECORD_MODE) {
@@ -310,7 +333,11 @@ export class LinkedInApiClient {
     return response.data as T;
   }
 
-  private handleErrorResponse(response: AxiosResponse): never {
+  private handleErrorResponse(
+    response: AxiosResponse,
+    endpoint: string,
+    retryAfter?: number
+  ): never {
     const status = response.status;
 
     if (status === 401 || status === 302) {
@@ -350,7 +377,11 @@ export class LinkedInApiClient {
 
     if (status === 429) {
       throw new LinkedInError(
-        "LinkedIn rate limit hit. Wait 60s before retrying.",
+        `LinkedIn rate limit hit (HTTP 429; ${endpoint}). ${
+          retryAfter === undefined
+            ? "LinkedIn supplied no usable Retry-After; reset time is unknown. Stop and retry later."
+            : `LinkedIn Retry-After: ${retryAfter}s minimum; this does not guarantee the restriction clears. Stop before retrying.`
+        }`,
         "RATE_LIMITED",
         429
       );

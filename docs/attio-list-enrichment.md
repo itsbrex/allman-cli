@@ -131,3 +131,39 @@ The review offers 30/90/180/365-day change windows, relative to the saved list s
 Classification compares the latest and previous dated roles using exact company IDs. A different title at the same employer indicates an internal role change; it does not prove promotion. Missing IDs, ambiguous dates, and concurrent roles remain explicit. Employer moves are inferences from saved history, not independently verified departures.
 
 Each person's detail drawer constructs a linked career summary directly from saved current roles, transition evidence, and education. No model call or summary export is needed. The drawer retains full readable work/education timelines and highlights the latest recorded role start.
+
+## Filtered Sales Navigator search URLs and diagnostics
+
+`enrich-list prepare` also accepts `/sales/search/people` URLs whose `query` (or
+legacy `searchQuery`) explicitly includes exactly one `LEAD_LIST` with one
+`INCLUDED` list ID, plus `sessionId`. Copy the full URL from Sales Navigator,
+quote it once in the shell, and do not add Markdown brackets or backslash-escape
+characters inside single quotes. A `savedSearchId` or `recentSearchId` alone
+cannot identify list membership and is rejected.
+
+The adapter preserves the entire query, including region, title and other
+filters; it does not replace the search with the full underlying list. Saved
+snapshots retain that canonical search URL so run-time membership checks use the
+same filters. Multiple/excluded lists, malformed filters, missing sessions,
+partial pages and results above 2,500 are rejected. A new session URL may be
+needed when the provider expires the original search session.
+
+Parsing follows the local Cleanlist.ai implementation in
+`src/background/linkedin.ts` (`checkUrl` / `buildLeadSearchUrlFromQuery`):
+one URL decode, preserve nested escaped labels, and pass the original query to
+`salesApiLeadSearch`. Nested recent-search IDs are not list IDs. This is an
+internal provider endpoint; fixture coverage does not guarantee its live shape.
+
+For request visibility, run `allman-jp logs --follow --source http` in another
+terminal. `--debug --raw --json` on preparation also prints endpoint/status to
+stderr and persists successful and failed response payloads privately. No auth
+headers are archived. A 429 now reports the failing endpoint and the provider's
+usable Retry-After, or explicitly says reset time is unknown. Retry-After is a
+minimum delay, not proof that restrictions will clear; there is no automatic
+retry or invented 60-second cooldown.
+
+Four successful `salesApiPeopleSearch` pages followed by a `salesApiProfiles` 429
+means list retrieval succeeded and stored-connection ID mapping was throttled.
+Previously saved positive mappings remain reusable. Preparation still rereads
+list membership on a later attempt; raw capture is evidence, not automatic replay
+of a potentially stale list. Stop on the provider error and do not run a retry loop.

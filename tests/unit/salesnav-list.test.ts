@@ -149,3 +149,76 @@ it("matches exact account identities, includes leads without employers, excludes
   ]);
   expect(snapshot.people[0]!.sourceUrl).toContain("/sales/lead/");
 });
+
+const query =
+  "(recentSearchParam:(id:999),filters:List((type:LEAD_LIST,values:List((id:7508689992186191872,text:Clients%20%2B%20Former,selectionType:INCLUDED))),(type:REGION,values:List((id:102,selectionType:INCLUDED)))))";
+const searchUrl = (q = query, key = "query") => {
+  const result = new URL("https://www.linkedin.com/sales/search/people");
+  result.searchParams.set(key, q);
+  result.searchParams.set("sessionId", "session+token==");
+  return result.href;
+};
+it("preserves every search filter and nested escaping without mistaking recent-search ID for list ID", () => {
+  for (const key of ["query", "searchQuery"]) {
+    const parsed = parseSalesnavListUrl(searchUrl(query, key));
+    expect(parsed.id).toBe("7508689992186191872");
+    expect(parsed.query).toBe(query);
+    expect(parsed.sessionId).toBe("session+token==");
+    expect(parseSalesnavListUrl(parsed.url)).toEqual(parsed);
+  }
+});
+it("rejects ambiguous, excluded, missing and malformed lead-list filters", () => {
+  for (const input of [
+    searchUrl(query.replace("LEAD_LIST", "SAVED_SEARCH")),
+    searchUrl(query.replace("selectionType:INCLUDED", "selectionType:EXCLUDED")),
+    searchUrl(query.replace("text:Clients", "id:42,text:Clients")),
+    searchUrl(query.replace("type:REGION", "type:LEAD_LIST")),
+    searchUrl(query.replace("%20", "%xx")),
+    searchUrl(query + "&start=25"),
+    searchUrl(query.slice(0, -1)),
+    searchUrl() + "&query=duplicate",
+    searchUrl().replace(/&sessionId=.*/, ""),
+    "https://www.linkedin.com/sales/search/people?savedSearchId=123",
+    searchUrl().replace("www.linkedin.com", "evil.test"),
+  ])
+    expect(() => parseSalesnavListUrl(input)).toThrow();
+});
+it("reads filtered search pages, preserves filters, and validates the saved snapshot", async () => {
+  const { validateTargetSnapshot } = await import("../../src/attio/lists.js");
+  const first = page(0, 26),
+    last = page(25, 26);
+  const request = vi
+    .fn()
+    .mockResolvedValueOnce(first)
+    .mockResolvedValueOnce({
+      data: { paging: last.paging, "*elements": last.elements.map((row) => row.entityUrn) },
+      included: last.elements,
+    });
+  const list = await readSalesnavList(client(request), searchUrl(), async () => {});
+  expect(list.leads).toHaveLength(26);
+  const requested = request.mock.calls[0]?.[0].url;
+  expect(requested).toContain("/salesApiLeadSearch?");
+  expect(requested).toContain(`query=${query}&start=0`);
+  expect(requested).toContain("sessionId:session%2Btoken%3D%3D");
+  const snapshot = salesnavSnapshot(list, rows(26), "jp", new Map());
+  expect(() => validateTargetSnapshot(snapshot)).not.toThrow();
+  expect(snapshot.source?.url).toBe(parseSalesnavListUrl(searchUrl()).url);
+  snapshot.list.id = "42";
+  expect(() => validateTargetSnapshot(snapshot)).toThrow();
+});
+it("refuses incomplete or over-cap filtered results and stops immediately on 429", async () => {
+  for (const fixture of [
+    { paging: { start: 0, total: 2501 }, elements: [] },
+    { paging: { start: 0, total: 1 }, "*elements": ["missing"], included: [] },
+    { paging: { start: 25, total: 1 }, elements: page(0, 1).elements },
+  ]) {
+    await expect(
+      readSalesnavList(client(vi.fn().mockResolvedValue(fixture)), searchUrl(), async () => {})
+    ).rejects.toThrow();
+  }
+  const request = vi.fn().mockRejectedValue(new Error("HTTP 429"));
+  await expect(readSalesnavList(client(request), searchUrl(), async () => {})).rejects.toThrow(
+    "HTTP 429"
+  );
+  expect(request).toHaveBeenCalledTimes(1);
+});

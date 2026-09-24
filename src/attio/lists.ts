@@ -2,6 +2,7 @@ import { readFile } from "node:fs/promises";
 import { join } from "node:path";
 import { allmanConfigRoot } from "../store/config.js";
 import { readJson } from "../store/private-workspace.js";
+import { parseSalesnavListUrl } from "./salesnav-url.js";
 
 export interface TargetCompany {
   webUrl?: string;
@@ -177,15 +178,20 @@ export function validateTargetSnapshot(value: unknown): asserts value is TargetS
   const s = value as TargetSnapshot;
   const stringsOnly = (v: unknown): v is string[] =>
     Array.isArray(v) && v.every((x) => typeof x === "string");
+  const validSource = () => {
+    try {
+      if (!s.source || s.source.kind !== "salesnav" || !s.source.account) return false;
+      const parsed = parseSalesnavListUrl(s.source.url);
+      return parsed.id === s.list?.id && parsed.url === s.source.url;
+    } catch {
+      return false;
+    }
+  };
   if (
     !s ||
     s.version !== 1 ||
     s.complete !== true ||
-    (s.source !== undefined &&
-      (s.source.kind !== "salesnav" ||
-        !s.source.account ||
-        s.source.url !== `https://www.linkedin.com/sales/lists/people/${s.list?.id}` ||
-        !/^\d+$/.test(s.list?.id))) ||
+    (s.source !== undefined && !validSource()) ||
     !s.list?.id ||
     !s.list.name ||
     !Number.isFinite(Date.parse(s.observedAt)) ||

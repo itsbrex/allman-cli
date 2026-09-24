@@ -269,3 +269,37 @@ additional browser connection is needed. Pause view freezes display only.
 An unavailable observer prints a warning and leaves CLI processing unchanged.
 Unreadable data or oversized journals are disclosed as incomplete coverage. A
 stopped worker is shown as interrupted; a missing heartbeat leaves status uncertain.
+
+## Unified local logs
+
+```sh
+allman logs --follow
+allman-brian logs --follow
+allman-jp logs --follow --source http
+allman-jp --json logs --paths
+allman-jp --json logs --follow --source http
+```
+
+`allman` selects `ALLMAN_PROFILE`, then the configured default profile, then the
+unscoped default workspace. Account launchers select their own profile. Reading
+logs does not require an active browser or change the active LinkedIn account.
+Sources are `all`, `http`, `browser`, `launcher`, and `viewer`. Viewer logs include
+the shared macOS LaunchAgent's configured stdout/stderr paths. `--paths` lists
+candidate paths; browser and viewer files may not exist yet.
+
+Every CLI request through `LinkedInApiClient` now appends metadata to
+`<profile config>/logs/http-YYYY-MM-DD.jsonl` (UTC day, mode 0600): time, PID,
+method, endpoint without query values, status or network failure, elapsed time,
+usable Retry-After, and the raw archive path when capture succeeded. HTTP logs
+exclude headers and response bodies. Existing browser logs are displayed as-is;
+they are not a substitute for CLI HTTP logs because CLI requests use Axios outside
+the browser. Browser MCP discovery 404/406 responses do not establish a LinkedIn
+rate limit; inspect the CLI HTTP status and endpoint.
+
+`--lines N` defaults to the final 100 lines per file, bounded to its last 64 KiB.
+Follow mode watches file creation, append, truncation and replacement; Ctrl-C
+stops it. JSON mode emits one object per line, containing profile, source, path
+and the original log line. Files are retained until explicitly removed; this
+command does not delete historical logs. Raw data remains in the separate private
+relationship archive; use `--raw` or `ALLMAN_RAW=1` on the provider command to
+retain response payloads, including HTTP failures. Streams are not archived.

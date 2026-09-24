@@ -193,6 +193,7 @@ export function usesLinkedIn(
   return ![
     "activity",
     "statusline",
+    "logs",
     "exports",
     "session",
     "logout",

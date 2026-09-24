@@ -1,3 +1,7 @@
+import { parseSalesnavListUrl } from "./salesnav-url.js";
+
+export { parseSalesnavListUrl } from "./salesnav-url.js";
+
 import type { LinkedInApiClient } from "../linkedin/api/client.js";
 import type { StoredConnection } from "../store/connections-store.js";
 import type { TargetCompany, TargetSnapshot } from "./lists.js";
@@ -25,27 +29,6 @@ export interface IdentityCache {
   mappings: Record<string, string>;
 }
 
-/** Keep 64-bit list IDs as strings. Never send arbitrary pasted URLs to the client. */
-export function parseSalesnavListUrl(value: string) {
-  let url: URL;
-  try {
-    url = new URL(value);
-  } catch {
-    throw new Error("Paste a Sales Navigator lead list URL");
-  }
-  const id = /^\/sales\/lists\/people\/(\d{1,30})\/?$/.exec(url.pathname)?.[1];
-  if (
-    url.protocol !== "https:" ||
-    url.hostname !== "www.linkedin.com" ||
-    url.port ||
-    url.username ||
-    url.password ||
-    !id
-  )
-    throw new Error("Expected https://www.linkedin.com/sales/lists/people/<list-id>");
-  return { id, url: `https://www.linkedin.com/sales/lists/people/${id}` };
-}
-
 /** Complete read-only snapshot. Changing totals, duplicate pages and malformed rows fail closed. */
 export async function readSalesnavList(
   client: Client,
@@ -53,6 +36,7 @@ export async function readSalesnavList(
   pace: () => Promise<void>
 ): Promise<LeadList> {
   const list = parseSalesnavListUrl(input);
+  const filtered = list.query !== undefined;
   const leads: LeadList["leads"] = [];
   const seen = new Set<string>();
   let total: number | undefined,
@@ -66,48 +50,45 @@ export async function readSalesnavList(
     )
       .replaceAll("(", "%28")
       .replaceAll(")", "%29");
-    const raw = await client.request<{
-      elements?: Array<{
-        entityUrn?: string;
-        objectUrn?: string;
-        fullName?: string;
-        firstName?: string;
-        lastName?: string;
-        currentPositions?: Array<{ companyUrn?: string; companyName?: string }>;
-      }>;
-      paging?: { start?: number; total?: number };
-      metadata?: {
-        pivot?: Record<string, { name?: string; totalCount?: number; lastUpdatedAt?: unknown }>;
-      };
-    }>({
+    const raw = await client.request<
+      SalesnavPage & { data?: SalesnavPage; included?: NonNullable<SalesnavPage["elements"]> }
+    >({
       method: "GET",
-      url: `${base}/salesApiPeopleSearch?q=peopleSearchQuery&query=${query}&start=${start}&count=25&decoration=${decoration}`,
+      url: filtered
+        ? `${base}/salesApiLeadSearch?q=searchQuery&query=${list.query}&start=${start}&count=25&trackingParam=(sessionId:${encodeURIComponent(list.sessionId ?? "")})&decorationId=com.linkedin.sales.deco.desktop.searchv2.LeadSearchResult-14`
+        : `${base}/salesApiPeopleSearch?q=peopleSearchQuery&query=${query}&start=${start}&count=25&decoration=${decoration}`,
       headers: { accept: "application/json" },
     });
-    const pivot = raw.metadata?.pivot?.["com.linkedin.sales.search.ListPivotResponse"];
-    const count = raw.paging?.total;
+    const data = raw.data ?? raw;
+    const references = data["*elements"];
+    const byUrn = new Map((raw.included ?? []).map((row) => [row.entityUrn, row]));
+    const elements = data.elements ?? references?.map((urn) => byUrn.get(urn));
+    const pivot = data.metadata?.pivot?.["com.linkedin.sales.search.ListPivotResponse"];
+    const count = data.paging?.total;
+    const pageName = filtered ? `Sales Navigator list ${list.id} · filtered search` : pivot?.name;
     if (
-      !Array.isArray(raw.elements) ||
+      !Array.isArray(elements) ||
       typeof count !== "number" ||
       !Number.isSafeInteger(count) ||
       count < 0 ||
-      count > 100000 ||
-      raw.paging?.start !== start ||
-      typeof pivot?.name !== "string" ||
-      !pivot.name ||
-      pivot.totalCount !== count ||
+      count > (filtered ? 2500 : 100000) ||
+      data.paging?.start !== start ||
+      typeof pageName !== "string" ||
+      !pageName ||
+      (!filtered && pivot?.totalCount !== count) ||
       (total !== undefined &&
-        (total !== count || name !== pivot.name || revision !== pivot.lastUpdatedAt))
+        (total !== count || name !== pageName || (!filtered && revision !== pivot?.lastUpdatedAt)))
     )
       throw new Error(
         "Sales Navigator list changed or returned incomplete metadata; prepare again"
       );
     total = count;
-    name = pivot.name;
-    revision = pivot.lastUpdatedAt;
-    if (raw.elements.length !== Math.min(25, total - start))
+    name = pageName;
+    revision = pivot?.lastUpdatedAt;
+    if (elements.length !== Math.min(25, total - start))
       throw new Error("Incomplete Sales Navigator list page; no shortlist saved");
-    for (const row of raw.elements) {
+    for (const row of elements) {
+      if (!row) throw new Error("Missing decorated Sales Navigator lead identity");
       const id = /^urn:li:fs_salesProfile:\((ACw[\w-]+),/.exec(row.entityUrn ?? "")?.[1];
       if (!id || !salesId.test(id) || seen.has(id))
         throw new Error("Invalid or duplicate Sales Navigator lead identity");
@@ -229,5 +210,22 @@ export function salesnavSnapshot(
         ...new Set([...(bySales.get(lead.id) ?? []), ...(byMember.get(lead.memberId) ?? [])]),
       ].map((id) => `urn:li:fsd_profile:${id}`),
     })),
+  };
+}
+
+interface SalesnavPage {
+  "*elements"?: string[];
+
+  elements?: Array<{
+    entityUrn?: string;
+    objectUrn?: string;
+    fullName?: string;
+    firstName?: string;
+    lastName?: string;
+    currentPositions?: Array<{ companyUrn?: string; companyName?: string }>;
+  }>;
+  paging?: { start?: number; total?: number };
+  metadata?: {
+    pivot?: Record<string, { name?: string; totalCount?: number; lastUpdatedAt?: unknown }>;
   };
 }
