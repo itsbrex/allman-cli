@@ -33,6 +33,7 @@ export interface EnrichmentPlan {
   account: string;
   accountName: string;
   snapshot: TargetSnapshot;
+  salesnavImport?: import("./salesnav-list.js").LeadList;
   matches: TargetMatch[];
   targets: EnrichmentTarget[];
 }

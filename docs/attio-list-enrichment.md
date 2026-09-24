@@ -120,9 +120,39 @@ In the TUI's `:enrich-list` picker, paste the URL and press Enter. **R** starts 
 
 Preparation reads every list page, validates total/offset/revision and rejects duplicates or partial responses. This adapter uses the same internal read endpoint observed in Sales Navigator's current web client; provider changes may require an adapter update. Authentication, rate-limit and shape errors stop the command. It never changes lead-list membership.
 
-Sales Navigator uses different profile IDs from ordinary LinkedIn. The first preparation resolves the account's stored connection IDs in batches of 100 using the lightweight ID endpoint, then caches positive mappings privately. This is not deep enrichment of the account. Later lists reuse those mappings. Unresolved IDs are retried on a later preparation; names never substitute for exact identities. Leads without a company still qualify when their identity matches a stored connection. Identity collisions and people absent from the local connection store remain excluded.
+Sales Navigator uses different profile IDs from ordinary LinkedIn. Preparation now
+saves every imported member to private `import.json` and `import.csv` **before**
+reading identity caches. JSON retains each returned row and its profile context.
+It matches existing account-scoped mappings and numeric member IDs locally; it
+never maps the account's entire connection store. All members remain visible in
+the saved plan even if they cannot yet be matched. `identitiesDeferred` reports
+unresolved members separately from selected stored connections.
 
-A pending run rechecks live lead-list membership inside its single authenticated session before fetching any deep profiles. New list members cannot expand the sealed queue. Deep-saved batches skip without opening a browser. Sales Navigator source links appear beside ordinary LinkedIn links. `--refresh-links` applies only to Attio; prepare again to refresh a Sales Navigator list snapshot.
+Only `enrich-list run` resolves remaining missing identities. It validates current
+membership, refreshes opaque profile context for sealed members, then requests
+individual `salesApiProfiles` records for those members only. Exact returned
+Sales Navigator IDs must match; flagship URLs are matched against this account's
+stored connections. Names never substitute for identities. Non-connections and
+identity conflicts stay excluded from deep enrichment.
+
+Each successful resolution is saved immediately to run-scoped `identities.json`;
+review/status and subsequent runs reuse it locally. Exact positive stored-connection matches also update the account identity cache for reuse across lists. A 429 or malformed response
+stops the run without losing the import or earlier resolutions. Resolution and
+deep enrichment share one guarded browser session. Each live identity lookup
+consumes a local enrichment quota slot, in addition to any later deep profile
+fetch. `--limit` bounds deep profiles, not identity lookup requests.
+
+To reuse a saved import without requesting list pages again:
+
+```sh
+allman-jp --json enrich-list prepare 'ORIGINAL_LIST_OR_SEARCH_URL' --import /absolute/path/to/import.json
+```
+
+The import must belong to the same account, store and canonical source URL.
+This deliberately uses the saved membership snapshot; `run` still rechecks live
+membership. Imports retained after a cache error can be recovered the same way.
+
+A pending run rechecks live lead-list membership inside its single authenticated session before fetching any deep profiles. New list members cannot expand the sealed queue. Fully resolved, deep-saved batches skip without opening a browser. Sales Navigator source links appear beside ordinary LinkedIn links. `--refresh-links` applies only to Attio; prepare again to refresh a Sales Navigator list snapshot.
 
 ## Career review
 
@@ -164,6 +194,4 @@ retry or invented 60-second cooldown.
 
 Four successful `salesApiPeopleSearch` pages followed by a `salesApiProfiles` 429
 means list retrieval succeeded and stored-connection ID mapping was throttled.
-Previously saved positive mappings remain reusable. Preparation still rereads
-list membership on a later attempt; raw capture is evidence, not automatic replay
-of a potentially stale list. Stop on the provider error and do not run a retry loop.
+That older preparation path has been removed. Positive mappings remain reusable; new preparation saves the import and matches locally. Fresh preparation still rereads list membership; explicit `--import` enables offline reuse. Stop on the provider error and do not run a retry loop.

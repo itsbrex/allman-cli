@@ -164,3 +164,27 @@ it("validates list membership inside the shared session before quota or profile 
   expect(f.request).not.toHaveBeenCalled();
   expect(mocks.release).toHaveBeenCalledTimes(1);
 });
+
+it("resolves an initially unmatched import inside the same guarded session before enrichment", async () => {
+  const f = fixture();
+  const originalTargets = f.plan.targets.map((t) => ({ ...t, personIds: [t.flagshipId] }));
+  f.plan.snapshot = { people: [{ id: "one" }, { id: "two" }] } as EnrichmentPlan["snapshot"];
+  f.plan.targets = [];
+  const resolve = vi.fn(async () => ({ ...f.plan, targets: originalTargets }));
+  const state = await executeTargetPlan(f.plan, f.store, {}, async () => {}, vi.fn(), resolve);
+  expect(state).toMatchObject({ enriched: 2, total: 2, sessionLoads: 1, browserPreflights: 1 });
+  expect(resolve).toHaveBeenCalledTimes(1);
+  expect(mocks.session).toHaveBeenCalledTimes(1);
+});
+it("cannot expand sealed import membership during deferred resolution", async () => {
+  const f = fixture();
+  f.plan.snapshot = { people: [{ id: "one" }] } as EnrichmentPlan["snapshot"];
+  const resolve = async () => ({
+    ...f.plan,
+    targets: f.plan.targets.map((t) => ({ ...t, personIds: ["outside"] })),
+  });
+  await expect(
+    executeTargetPlan(f.plan, f.store, {}, async () => {}, vi.fn(), resolve)
+  ).rejects.toThrow("expanded");
+  expect(mocks.enrich).not.toHaveBeenCalled();
+});

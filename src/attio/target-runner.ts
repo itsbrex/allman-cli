@@ -67,7 +67,12 @@ export async function executeTargetPlan(
     limit?: number;
   },
   save: (state: TargetRunState) => Promise<void>,
-  validateMembership?: (client: LinkedInApiClient) => Promise<void>
+  validateMembership?: (client: LinkedInApiClient) => Promise<void>,
+  resolveTargets?: (
+    client: LinkedInApiClient,
+    quota: AccountQuota,
+    stopped: () => boolean
+  ) => Promise<EnrichmentPlan>
 ) {
   const cstore = store.connectionsFor(plan.account),
     pstore = store.peopleFor(plan.account);
@@ -102,7 +107,7 @@ export async function executeTargetPlan(
     state.updatedAt = new Date().toISOString();
     await save(state);
   };
-  if (!pending) {
+  if (!pending && !resolveTargets) {
     state.status = "complete";
     state.skipped = plan.targets.length;
     await persist();
@@ -143,6 +148,28 @@ export async function executeTargetPlan(
       await store.accounts.readConfig(plan.account),
       hasSalesNavSeat(session.accountRecord.cookieJar)
     );
+    if (resolveTargets) {
+      const resolved = await resolveTargets(session.apiClient, quota, () => interrupted);
+      const importedIds = new Set(plan.snapshot.people.map((person) => person.id));
+      if (
+        resolved.account !== plan.account ||
+        resolved.store !== plan.store ||
+        resolved.id !== plan.id ||
+        resolved.targets.some(
+          (target) =>
+            !target.personIds.length || target.personIds.some((id) => !importedIds.has(id))
+        )
+      )
+        throw new Error("Identity resolution expanded the imported scope");
+      plan = resolved;
+      allowed.clear();
+      for (const target of plan.targets) allowed.add(target.flagshipId);
+      pending = 0;
+      for (const target of plan.targets)
+        if (!adequateDeep(await member(target.flagshipId))) pending++;
+      state.total = plan.targets.length;
+      await persist();
+    }
     let current = "",
       requests = 0,
       requestError: unknown;

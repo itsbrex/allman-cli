@@ -20,6 +20,8 @@ export interface LeadList {
     name: string;
     memberId: string;
     companies: TargetCompany[];
+    profileTuple?: string;
+    raw?: unknown;
   }>;
 }
 export interface IdentityCache {
@@ -110,6 +112,8 @@ export async function readSalesnavList(
         name: row.fullName || [row.firstName, row.lastName].filter(Boolean).join(" ") || id,
         memberId: /^urn:li:member:(\d+)$/.exec(row.objectUrn ?? "")?.[1] ?? "",
         companies: [...companies.values()],
+        profileTuple: row.entityUrn?.slice("urn:li:fs_salesProfile:".length),
+        raw: row,
       });
     }
     if (leads.length === total)

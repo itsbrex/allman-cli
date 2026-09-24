@@ -868,7 +868,7 @@ program
 program
   .command("enrich-list <action> [target]")
   .description(
-    "Account-scoped lists: prepare <Attio-list-id|SalesNav-lead-list-URL> | lists | run | review | status | history | auth"
+    "Account-scoped lists: prepare <Attio-list-id|SalesNav-list-or-search-URL> | lists | run | review | status | history | auth"
   )
   .option("--html", "write a private, offline HTML review (review only)")
   .option(
@@ -876,6 +876,10 @@ program
     "refresh official Attio entity links using read-only queries (review only)"
   )
   .option("--snapshot <path>", "prepare from a complete private list snapshot")
+  .option(
+    "--import <path>",
+    "prepare from a saved Sales Navigator import without provider requests"
+  )
   .option("--codex-config <path>", "reference the existing attio-code-mode credential (auth only)")
   .option("--limit <n>", "maximum new deep profiles in this run", positiveInteger)
   .action(async (action, target, opts, cmd) =>

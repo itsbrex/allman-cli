@@ -10,8 +10,13 @@ import {
   validateTargetSnapshot,
 } from "../attio/lists.js";
 import {
+  cachedSalesnavPlan,
+  resolveSalesnavMembers,
+  type SalesnavResolutions,
+} from "../attio/salesnav-import.js";
+import {
   type IdentityCache,
-  mapStoredSalesnavIds,
+  type LeadList,
   parseSalesnavListUrl,
   readSalesnavList,
   salesnavSnapshot,
@@ -38,6 +43,7 @@ import {
   workspaceRoot,
   writePrivate,
 } from "../store/private-workspace.js";
+import { csvLines } from "../utils/csv.js";
 import { printData } from "../utils/output.js";
 import { DEFAULT_PAGE_DELAY, randomPageSleep } from "../utils/random-delay.js";
 
@@ -46,6 +52,7 @@ export interface EnrichListOptions {
   store?: string;
   json?: boolean;
   snapshot?: string;
+  import?: string;
   codexConfig?: string;
   limit?: number;
   html?: boolean;
@@ -120,6 +127,7 @@ export async function enrichListCommand(
     });
     const runs = [];
     for (const dir of dirs.filter((d) => d.isDirectory())) {
+      if (!(await readJson(join(root, dir.name, "plan.json"), null))) continue;
       const plan = await readTargetPlan(root, dir.name, account, store.root);
       runs.push({
         id: plan.id,
@@ -136,9 +144,24 @@ export async function enrichListCommand(
   if (action === "prepare") {
     const salesList = target.startsWith("http") ? parseSalesnavListUrl(target) : null;
     const rows = await storedConnections(store, account);
+    const id = `${new Date().toISOString().replace(/[:.]/g, "-")}-${randomUUID().slice(0, 8)}`;
+    let imported: LeadList | undefined;
     let snapshot: unknown;
+    if (options.import && (!salesList || options.snapshot))
+      throw new Error("Use --import with a Sales Navigator URL and without --snapshot");
     if (options.snapshot) snapshot = JSON.parse(await readFile(options.snapshot, "utf8"));
-    else if (salesList) {
+    else if (salesList && options.import) {
+      const saved = JSON.parse(await readFile(options.import, "utf8"));
+      if (
+        saved.version !== 1 ||
+        saved.account !== account ||
+        saved.store !== store.root ||
+        saved.list?.url !== salesList.url ||
+        saved.list?.id !== salesList.id
+      )
+        throw new Error("Import belongs to a different source, account or store");
+      imported = saved.list;
+    } else if (salesList) {
       const opts = { ...options, store: store.root, account };
       await assertActiveProfile(opts);
       const command = new Command("connections");
@@ -148,35 +171,50 @@ export async function enrichListCommand(
         const session = await loadSession(store, account);
         if (session.profileId !== account) throw new Error("Authenticated account mismatch");
         const pace = () => randomPageSleep(DEFAULT_PAGE_DELAY);
-        const list = await readSalesnavList(session.apiClient, salesList.url, pace);
-        const cachePath = join(root, "salesnav-identities.json");
-        const cache = await readJson<IdentityCache>(cachePath, {
-          version: 1,
-          account,
-          mappings: {},
-        });
-        const mapping = list.leads.length
-          ? await mapStoredSalesnavIds(
-              session.apiClient,
-              rows,
-              account,
-              cache,
-              (value) => writePrivate(cachePath, value),
-              pace
-            )
-          : new Map<string, string>();
-        snapshot = salesnavSnapshot(list, rows, account, mapping);
+        imported = await readSalesnavList(session.apiClient, salesList.url, pace);
       } finally {
         release?.();
       }
     } else snapshot = await new AttioListSource(await attioToken()).snapshot(target);
+    if (imported) {
+      snapshot = salesnavSnapshot(imported, [], account, new Map());
+      validateTargetSnapshot(snapshot);
+      if (imported.id !== salesList?.id || imported.url !== salesList.url)
+        throw new Error("Import source mismatch");
+      // Persist the full import before opening any identity cache or attempting matching.
+      await writePrivate(join(root, id, "import.json"), {
+        version: 1,
+        account,
+        store: store.root,
+        list: imported,
+      });
+      const safe = (s: string) => (/^[\s]*[=+@-]/.test(s) ? `'${s}` : s);
+      await writeFile(
+        join(root, id, "import.csv"),
+        csvLines([
+          ["account", "observedAt", "salesnavId", "name", "memberId", "companies", "salesnavUrl"],
+          ...imported.leads.map((lead) => [
+            account,
+            imported?.observedAt ?? "",
+            lead.id,
+            safe(lead.name),
+            lead.memberId,
+            safe(lead.companies.map((c) => c.name).join(" | ")),
+            `https://www.linkedin.com/sales/lead/${lead.id}`,
+          ]),
+        ]),
+        { mode: 0o600 }
+      );
+      process.stderr.write(
+        `Imported ${imported.leads.length} Sales Navigator members; saved ${join(root, id, "import.json")}. Matching local identities only.\n`
+      );
+    }
     validateTargetSnapshot(snapshot);
     if (snapshot.list.id !== (salesList?.id ?? target))
       throw new Error("Snapshot list ID mismatch");
     if (snapshot.source && snapshot.source.account !== account)
       throw new Error("Snapshot account mismatch");
-    const id = `${new Date().toISOString().replace(/[:.]/g, "-")}-${randomUUID().slice(0, 8)}`;
-    const plan: EnrichmentPlan = {
+    let plan: EnrichmentPlan = {
       version: 1,
       id,
       preparedAt: new Date().toISOString(),
@@ -184,8 +222,10 @@ export async function enrichListCommand(
       account,
       accountName: (await store.accounts.readAuth(account))?.name ?? account,
       snapshot,
+      ...(imported ? { salesnavImport: imported } : {}),
       ...matchTargets(snapshot, rows),
     };
+    plan = await localSalesnavPlan(plan, rows, root);
     await writePrivate(join(root, id, "plan.json"), { plan, hash: planHash(plan) });
     const report = reviewTargets(plan, rows);
     await writePrivate(join(root, id, "review.json"), report);
@@ -197,10 +237,22 @@ export async function enrichListCommand(
       ...report.summary,
       pending: report.summary.selected - report.summary.saved,
       reportPath: join(root, id, "review.json"),
+      ...(imported
+        ? {
+            imported: imported.leads.length,
+            importPath: join(root, id, "import.json"),
+            csvPath: join(root, id, "import.csv"),
+            identitiesDeferred: report.summary.missingIdentity,
+          }
+        : {}),
     });
     return;
   }
-  const plan = await readTargetPlan(root, target, account, store.root);
+  let plan = await localSalesnavPlan(
+    await readTargetPlan(root, target, account, store.root),
+    await storedConnections(store, account),
+    root
+  );
   const reportPath = join(root, target, "review.json");
   const linksPath = join(root, target, "review-links.json");
   let links = await readJson<TargetSnapshot>(linksPath, plan.snapshot);
@@ -248,6 +300,7 @@ export async function enrichListCommand(
         throw new Error("Attio membership changed; prepare a new shortlist before enrichment");
     }
     const source = plan.snapshot.source;
+    let liveSalesnav: LeadList | undefined;
     try {
       const state = await executeTargetPlan(
         plan,
@@ -259,11 +312,55 @@ export async function enrichListCommand(
               const live = await readSalesnavList(client, source.url, () =>
                 randomPageSleep(DEFAULT_PAGE_DELAY)
               );
+              liveSalesnav = live;
               const ids = new Set(live.leads.map((lead) => lead.id));
-              if (pending.some((t) => !t.personIds.some((id) => ids.has(id))))
+              const unresolved = plan.salesnavImport
+                ? plan.matches
+                    .filter((m) => m.outcome === "missing-identity")
+                    .map((m) => m.personId)
+                : [];
+              if (
+                pending.some((t) => !t.personIds.some((id) => ids.has(id))) ||
+                unresolved.some((id) => !ids.has(id))
+              )
                 throw new Error(
                   "Sales Navigator membership changed; prepare a new shortlist before enrichment"
                 );
+            }
+          : undefined,
+        plan.salesnavImport && plan.matches.some((m) => m.outcome === "missing-identity")
+          ? async (client, quota, stopped) => {
+              const { cache, resolved } = await localSalesnavEvidence(plan, root);
+              // Refresh opaque context only for sealed members, never add new live members.
+              if (plan.salesnavImport && liveSalesnav) {
+                const liveById = new Map(liveSalesnav.leads.map((lead) => [lead.id, lead]));
+                plan = {
+                  ...plan,
+                  salesnavImport: {
+                    ...plan.salesnavImport,
+                    leads: plan.salesnavImport.leads.map((lead) => ({
+                      ...lead,
+                      profileTuple: liveById.get(lead.id)?.profileTuple ?? lead.profileTuple,
+                    })),
+                  },
+                };
+              }
+              plan = await resolveSalesnavMembers(plan, rows, cache, resolved, client, {
+                save: async (value) => {
+                  await writePrivate(join(root, target, "identities.json"), value);
+                  // The guarded LinkedIn session serializes live cache writers.
+                  await writePrivate(join(root, "salesnav-identities.json"), cache);
+                  plan = cachedSalesnavPlan(plan, rows, cache, value);
+                },
+                pace: () => randomPageSleep(DEFAULT_PAGE_DELAY),
+                beforeRequest: async () => {
+                  if (stopped()) throw new Error("Stopped at a safe boundary");
+                  await assertActiveProfile({ ...options, store: store.root, account });
+                  if (!(await quota.tryConsume()))
+                    throw new Error("Account identity lookup quota exhausted; resume later");
+                },
+              });
+              return plan;
             }
           : undefined
       );
@@ -271,8 +368,33 @@ export async function enrichListCommand(
     } finally {
       await writePrivate(
         reportPath,
-        reviewTargets(plan, await storedConnections(store, account), links)
+        reviewTargets(
+          plan,
+          await storedConnections(store, account),
+          plan.salesnavImport ? plan.snapshot : links
+        )
       );
     }
   });
+}
+
+async function localSalesnavEvidence(plan: EnrichmentPlan, root: string) {
+  return {
+    cache: await readJson<IdentityCache>(join(root, "salesnav-identities.json"), {
+      version: 1,
+      account: plan.account,
+      mappings: {},
+    }),
+    resolved: await readJson<SalesnavResolutions>(join(root, plan.id, "identities.json"), {
+      version: 1,
+      account: plan.account,
+      runId: plan.id,
+      identities: {},
+    }),
+  };
+}
+async function localSalesnavPlan(plan: EnrichmentPlan, rows: StoredConnection[], root: string) {
+  if (!plan.salesnavImport) return plan;
+  const { cache, resolved } = await localSalesnavEvidence(plan, root);
+  return cachedSalesnavPlan(plan, rows, cache, resolved);
 }
