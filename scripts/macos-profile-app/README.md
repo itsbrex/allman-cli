@@ -34,6 +34,55 @@ returned browser path with the existing CPU, profile, CDP and extension flags.
 existing JP process. These private host scripts are prerequisites; the installer
 does not overwrite them. The installed host has this wiring configured.
 
+## JP backend storage
+
+The browser profile and backend storage are separate settings. BrowserClaw
+0.0.53 defaults to `~/.browserclaw` even when the browser uses JP's isolated
+`--user-data-dir`. A newer default-Neo backend can migrate that shared database
+beyond the bundled JP backend, preventing JP's API and MCP listeners from starting.
+
+The installed JP adapter now passes:
+
+```text
+--browseros-server-resources-dir=/Users/hack/.config/allman/jp/mcp-resources
+--disable-browseros-server-updater
+```
+
+`mcp-resources/bin/browseros-claw-server` is a copy of `jp-backend.sh` from this
+directory. `mcp-resources/skills` points to the selected private vendor resources.
+The wrapper sets `BROWSERCLAW_DIR` to `~/.config/allman/jp/browserclaw-state` and
+executes the unmodified, signature-verified vendor backend at
+`~/.config/allman/jp/backend-vendor/0.0.58/resources/bin/browseros-claw-server`.
+This resource bundle was copied from the existing official Neo server update.
+The older app-bundled 0.0.53 server also failed cross-call tab ownership checks.
+Backend updates are explicit: verify a vendor resource bundle, retain the old
+bundle and a consistent SQLite backup, then update the wrapper and skill link.
+A separate server updater must not bypass this wrapper. Shared history is
+preserved; JP begins with separate cockpit
+history. Browser cookies, extensions, saved tabs, and the Allman store are unchanged.
+
+Upstream boot reconciliation also tries to adopt existing `browseros-neo` MCP
+entries. The backend-only macOS sandbox allows writes inside JP's backend state
+but denies other writes beneath the user's home. Browser permissions are unchanged.
+`first-run-connect.json` in JP's state has `firstRunConnectDone: true` to skip
+automatic agent linking. Use the dedicated BrowserOS JP plugin to connect; agent
+config writes through JP's cockpit are intentionally blocked.
+
+The wrapper requires the state directory to exist (mode `0700`) and fails closed
+if the backend is unavailable. It never changes `HOME`, modifies the vendor
+binary, or removes migrations from an existing database. Host rollback: restore
+the backed-up `neo-cpu` and restart JP; preserve the private state directory.
+
+Repair verified on 2026-09-23: JP-owned listeners on 9012/9013/9211/9223,
+MCP discovery and tab list, then create/read/close of a temporary tab across
+separate MCP calls. The five previously failing cockpit API routes returned
+HTTP 200. The native MCP page displayed endpoint 9012 without its connection
+error. Its “0 of 7 connected” count describes upstream-managed agent configs;
+the separate BrowserOS JP plugin is not registered through those Connect buttons.
+Telemetry remained opted out after restart. Codex/Claude configs and the original
+Neo skill matched their pre-repair hashes before the deliberate JP plugin update.
+Backups: `~/.config/allman/jp/backups/mcp-repair-20260923-195248`.
+
 ## Saved sessions and account activation
 
 Opening the app starts or reuses JP's saved profile on port 9223, restores saved
