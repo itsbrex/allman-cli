@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "deliver",
+  "type": "architecture",
+  "input": "/Users/hack/github/allman-cli/docs/browser-atlas/specs/opencli.final.json",
+  "output": "/Users/hack/github/allman-cli/docs/browser-atlas/diagrams/opencli.html",
+  "specification": {
+    "sha256": "0e2e5c59ee7f37f3e48b2b6e61f138a717f3c786904602685e54be3144656767",
+    "bytes": 5159
+  },
+  "artifact": {
+    "sha256": "cc40515c76b670a92132d3d6156accd1f37da492e1068dc35765109e9887f0f9",
+    "bytes": 692176
+  },
+  "validation": {
+    "checksPassed": 9,
+    "checkCount": 9,
+    "compositionProfile": "showcase",
+    "compositionStatus": "pass",
+    "errors": 0,
+    "warnings": 0
+  }
+}

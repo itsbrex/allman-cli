@@ -1,0 +1,246 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Donut Browser · new keep candidate",
+    "animation": "trace",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "control",
+        "label": "Control and identity",
+        "focus": [
+          "donut_0",
+          "donut_1",
+          "donut_2",
+          "donut_3"
+        ],
+        "note": "Local REST/MCP → dedicated profile → CDP → allman gate"
+      },
+      {
+        "id": "protection",
+        "label": "Protection boundary",
+        "focus": [
+          "donut_2",
+          "donut_4",
+          "donut_5"
+        ],
+        "note": "Verify Shield unpacked install, persistent extension identity and CDP ownership."
+      },
+      {
+        "id": "work",
+        "label": "Sales workflow",
+        "focus": [
+          "donut_4",
+          "donut_6",
+          "donut_7"
+        ],
+        "note": "Profile, extension and optional sync management in one UI."
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "donut_0",
+      "type": "frontend",
+      "label": "allman · proposed route",
+      "sublabel": "Reuse existing CDP contract",
+      "pos": [
+        60,
+        70
+      ],
+      "size": [
+        220,
+        76
+      ]
+    },
+    {
+      "id": "donut_1",
+      "type": "backend",
+      "label": "Donut manager",
+      "sublabel": "REST / MCP + profile launch",
+      "pos": [
+        370,
+        70
+      ],
+      "size": [
+        240,
+        76
+      ]
+    },
+    {
+      "id": "donut_2",
+      "type": "backend",
+      "label": "Wayfern Chromium",
+      "sublabel": "Engine with CDP endpoint",
+      "pos": [
+        700,
+        70
+      ],
+      "size": [
+        250,
+        76
+      ],
+      "brand": {
+        "url": "https://raw.githubusercontent.com/zhom/donutbrowser/738fb02e0bb0bbc7dd26a8debb0150214c45bae9/src-tauri/icons/128x128.png",
+        "sha256": "cd7151ec30ef15fb4f1c8ca07fe56235dcc3f7dfc4bb60010de4eafe48520a89"
+      }
+    },
+    {
+      "id": "donut_3",
+      "type": "database",
+      "label": "Per-profile storage",
+      "sublabel": "Cookies / extensions / identity",
+      "pos": [
+        370,
+        245
+      ],
+      "size": [
+        240,
+        76
+      ]
+    },
+    {
+      "id": "donut_4",
+      "type": "security",
+      "label": "Installed Shield",
+      "sublabel": "Persist in selected profile",
+      "pos": [
+        700,
+        245
+      ],
+      "size": [
+        250,
+        76
+      ]
+    },
+    {
+      "id": "donut_5",
+      "type": "security",
+      "label": "Live proof missing",
+      "sublabel": "Exact build + DNR + ownership",
+      "pos": [
+        1050,
+        245
+      ],
+      "size": [
+        220,
+        76
+      ]
+    },
+    {
+      "id": "donut_6",
+      "type": "external",
+      "label": "Browser work · future",
+      "sublabel": "Only after successful gate",
+      "pos": [
+        700,
+        420
+      ],
+      "size": [
+        250,
+        76
+      ]
+    },
+    {
+      "id": "donut_7",
+      "type": "security",
+      "label": "DNS tracker filter",
+      "sublabel": "Separate from Shield checks",
+      "pos": [
+        1050,
+        420
+      ],
+      "size": [
+        220,
+        76
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "flow_0",
+      "from": "donut_0",
+      "to": "donut_1",
+      "label": "proposed",
+      "variant": "dashed"
+    },
+    {
+      "id": "flow_1",
+      "from": "donut_1",
+      "to": "donut_2",
+      "label": "launch",
+      "variant": "dashed"
+    },
+    {
+      "id": "flow_2",
+      "from": "donut_1",
+      "to": "donut_3",
+      "label": "persist",
+      "variant": "default",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "flow_3",
+      "from": "donut_2",
+      "to": "donut_4",
+      "label": "install",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "flow_4",
+      "from": "donut_4",
+      "to": "donut_5",
+      "label": "prove",
+      "variant": "security"
+    },
+    {
+      "id": "flow_5",
+      "from": "donut_4",
+      "to": "donut_6",
+      "label": "if pass",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "flow_6",
+      "from": "donut_6",
+      "to": "donut_7",
+      "label": "filter",
+      "variant": "security"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Execution",
+      "items": [
+        "Wayfern Chromium / Tauri manager",
+        "New Keep candidate"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Protection",
+      "items": [
+        "Per-profile DNS blocking; optional E2E sync changes custody.",
+        "Verify Shield unpacked install, persistent extension identity and CDP ownership."
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Evidence",
+      "items": [
+        "Dashed integration links are proposed.",
+        "Detection outcomes are unmeasured."
+      ]
+    }
+  ]
+}

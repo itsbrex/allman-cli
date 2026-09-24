@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "deliver",
+  "type": "architecture",
+  "input": "/Users/hack/github/allman-cli/docs/browser-atlas/specs/playwriter.final.json",
+  "output": "/Users/hack/github/allman-cli/docs/browser-atlas/diagrams/playwriter.html",
+  "specification": {
+    "sha256": "0ef215db9eb4e6eb73dfb51ddcd5f696ebd9cd4ff70d8ab67c2f052df71d2242",
+    "bytes": 5251
+  },
+  "artifact": {
+    "sha256": "08b865d03d66a2b84ee9b782ad2970d9ee692b2cdd9ceff942e221035215a6f9",
+    "bytes": 680845
+  },
+  "validation": {
+    "checksPassed": 9,
+    "checkCount": 9,
+    "compositionProfile": "showcase",
+    "compositionStatus": "pass",
+    "errors": 0,
+    "warnings": 0
+  }
+}

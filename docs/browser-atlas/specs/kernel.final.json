@@ -1,0 +1,242 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Kernel CLI · cloud candidate",
+    "animation": "trace",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "control",
+        "label": "Control and identity",
+        "focus": [
+          "kernel_0",
+          "kernel_1",
+          "kernel_2",
+          "kernel_3"
+        ],
+        "note": "Upload extension + durable profile → cloud browser → authenticated CDP"
+      },
+      {
+        "id": "protection",
+        "label": "Protection boundary",
+        "focus": [
+          "kernel_2",
+          "kernel_4",
+          "kernel_5"
+        ],
+        "note": "Do not upload identities here: first prove extension ID discovery, CDP auth and custody requirements."
+      },
+      {
+        "id": "work",
+        "label": "Sales workflow",
+        "focus": [
+          "kernel_4",
+          "kernel_6",
+          "kernel_7"
+        ],
+        "note": "Shared remote infrastructure and profile/extension APIs."
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "kernel_0",
+      "type": "frontend",
+      "label": "allman · Node adapter",
+      "sublabel": "Authenticated CDP integration",
+      "pos": [
+        60,
+        70
+      ],
+      "size": [
+        220,
+        76
+      ]
+    },
+    {
+      "id": "kernel_1",
+      "type": "backend",
+      "label": "Kernel API / CLI",
+      "sublabel": "Create session + extension ref",
+      "pos": [
+        370,
+        70
+      ],
+      "size": [
+        240,
+        76
+      ]
+    },
+    {
+      "id": "kernel_2",
+      "type": "backend",
+      "label": "Remote Chromium",
+      "sublabel": "Provider-managed process",
+      "pos": [
+        700,
+        70
+      ],
+      "size": [
+        250,
+        76
+      ]
+    },
+    {
+      "id": "kernel_3",
+      "type": "database",
+      "label": "Cloud durable profile",
+      "sublabel": "Cookie and identity storage",
+      "pos": [
+        370,
+        245
+      ],
+      "size": [
+        240,
+        76
+      ]
+    },
+    {
+      "id": "kernel_4",
+      "type": "security",
+      "label": "Uploaded Shield build",
+      "sublabel": "MV3 supported by provider docs",
+      "pos": [
+        700,
+        245
+      ],
+      "size": [
+        250,
+        76
+      ]
+    },
+    {
+      "id": "kernel_5",
+      "type": "security",
+      "label": "Verification gap",
+      "sublabel": "ID discovery + CDP auth proof",
+      "pos": [
+        1050,
+        245
+      ],
+      "size": [
+        220,
+        76
+      ]
+    },
+    {
+      "id": "kernel_6",
+      "type": "external",
+      "label": "Remote browser work",
+      "sublabel": "After exact Shield gate",
+      "pos": [
+        700,
+        420
+      ],
+      "size": [
+        250,
+        76
+      ]
+    },
+    {
+      "id": "kernel_7",
+      "type": "security",
+      "label": "Provider custody",
+      "sublabel": "Pages / cookies / compute",
+      "pos": [
+        1050,
+        420
+      ],
+      "size": [
+        220,
+        76
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "flow_0",
+      "from": "kernel_0",
+      "to": "kernel_1",
+      "label": "proposed",
+      "variant": "dashed"
+    },
+    {
+      "id": "flow_1",
+      "from": "kernel_1",
+      "to": "kernel_2",
+      "label": "create",
+      "variant": "dashed"
+    },
+    {
+      "id": "flow_2",
+      "from": "kernel_1",
+      "to": "kernel_3",
+      "label": "persist",
+      "variant": "default",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "flow_3",
+      "from": "kernel_2",
+      "to": "kernel_4",
+      "label": "verify",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "flow_4",
+      "from": "kernel_4",
+      "to": "kernel_5",
+      "label": "prove",
+      "variant": "security"
+    },
+    {
+      "id": "flow_5",
+      "from": "kernel_4",
+      "to": "kernel_6",
+      "label": "if pass",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "flow_6",
+      "from": "kernel_6",
+      "to": "kernel_7",
+      "label": "cloud",
+      "variant": "security"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Execution",
+      "items": [
+        "Managed remote Chromium",
+        "Cloud candidate"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Protection",
+      "items": [
+        "Cookies, page data and extension run in provider infrastructure.",
+        "Do not upload identities here: first prove extension ID discovery, CDP auth and custody requirements."
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Evidence",
+      "items": [
+        "Dashed integration links are proposed.",
+        "Detection outcomes are unmeasured."
+      ]
+    }
+  ]
+}

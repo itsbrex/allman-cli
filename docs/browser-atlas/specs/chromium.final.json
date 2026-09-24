@@ -1,0 +1,242 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Bundled Chromium · verified local",
+    "animation": "trace",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "control",
+        "label": "Control and identity",
+        "focus": [
+          "chromium_0",
+          "chromium_1",
+          "chromium_2",
+          "chromium_3"
+        ],
+        "note": "Full chromium channel → persistent profile → unpacked Shield"
+      },
+      {
+        "id": "protection",
+        "label": "Protection boundary",
+        "focus": [
+          "chromium_2",
+          "chromium_4",
+          "chromium_5"
+        ],
+        "note": "Local fixture results do not prove real LinkedIn behavior."
+      },
+      {
+        "id": "work",
+        "label": "Sales workflow",
+        "focus": [
+          "chromium_4",
+          "chromium_6",
+          "chromium_7"
+        ],
+        "note": "Portable baseline with supported extension loading and repeatable installs."
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "chromium_0",
+      "type": "frontend",
+      "label": "allman-cli",
+      "sublabel": "Login / query-ID capture",
+      "pos": [
+        60,
+        70
+      ],
+      "size": [
+        220,
+        76
+      ]
+    },
+    {
+      "id": "chromium_1",
+      "type": "backend",
+      "label": "Persistent launcher",
+      "sublabel": "Config → Playwright context",
+      "pos": [
+        370,
+        70
+      ],
+      "size": [
+        240,
+        76
+      ]
+    },
+    {
+      "id": "chromium_2",
+      "type": "backend",
+      "label": "Bundled Chromium",
+      "sublabel": "Playwright full Chromium 147",
+      "pos": [
+        700,
+        70
+      ],
+      "size": [
+        250,
+        76
+      ]
+    },
+    {
+      "id": "chromium_3",
+      "type": "database",
+      "label": "Dedicated profile",
+      "sublabel": "Cookies + local storage",
+      "pos": [
+        370,
+        245
+      ],
+      "size": [
+        240,
+        76
+      ]
+    },
+    {
+      "id": "chromium_4",
+      "type": "security",
+      "label": "Exact Shield gate",
+      "sublabel": "Hashes / worker / rules / access",
+      "pos": [
+        700,
+        245
+      ],
+      "size": [
+        250,
+        76
+      ]
+    },
+    {
+      "id": "chromium_5",
+      "type": "security",
+      "label": "Refuse session",
+      "sublabel": "Protection missing or disabled",
+      "pos": [
+        1050,
+        245
+      ],
+      "size": [
+        220,
+        76
+      ]
+    },
+    {
+      "id": "chromium_6",
+      "type": "external",
+      "label": "LinkedIn page",
+      "sublabel": "Only after verification",
+      "pos": [
+        700,
+        420
+      ],
+      "size": [
+        250,
+        76
+      ]
+    },
+    {
+      "id": "chromium_7",
+      "type": "security",
+      "label": "Tracker blocked",
+      "sublabel": "DNR + document-start scripts",
+      "pos": [
+        1050,
+        420
+      ],
+      "size": [
+        220,
+        76
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "flow_0",
+      "from": "chromium_0",
+      "to": "chromium_1",
+      "label": "request",
+      "variant": "emphasis"
+    },
+    {
+      "id": "flow_1",
+      "from": "chromium_1",
+      "to": "chromium_2",
+      "label": "control",
+      "variant": "emphasis"
+    },
+    {
+      "id": "flow_2",
+      "from": "chromium_1",
+      "to": "chromium_3",
+      "label": "reuse",
+      "variant": "default",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "flow_3",
+      "from": "chromium_2",
+      "to": "chromium_4",
+      "label": "verify",
+      "variant": "security",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "flow_4",
+      "from": "chromium_4",
+      "to": "chromium_5",
+      "label": "fail",
+      "variant": "security"
+    },
+    {
+      "id": "flow_5",
+      "from": "chromium_4",
+      "to": "chromium_6",
+      "label": "pass",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "flow_6",
+      "from": "chromium_6",
+      "to": "chromium_7",
+      "label": "tracker",
+      "variant": "security"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Execution",
+      "items": [
+        "Playwright full Chromium 147",
+        "Verified local"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Protection",
+      "items": [
+        "Local owned profile; exact Shield build verified.",
+        "Local fixture results do not prove real LinkedIn behavior."
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Evidence",
+      "items": [
+        "Trace shows authored architecture, not live traffic.",
+        "Detection outcomes are unmeasured."
+      ]
+    }
+  ]
+}

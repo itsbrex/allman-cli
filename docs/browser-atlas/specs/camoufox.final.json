@@ -1,0 +1,246 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Camoufox · blocked: firefox port",
+    "animation": "trace",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "control",
+        "label": "Control and identity",
+        "focus": [
+          "camoufox_0",
+          "camoufox_1",
+          "camoufox_2",
+          "camoufox_3"
+        ],
+        "note": "Firefox driver or remote Playwright → Camoufox → addon port"
+      },
+      {
+        "id": "protection",
+        "label": "Protection boundary",
+        "focus": [
+          "camoufox_2",
+          "camoufox_4",
+          "camoufox_5"
+        ],
+        "note": "Need Firefox-specific Shield port, persistence tests and allman adapter."
+      },
+      {
+        "id": "work",
+        "label": "Sales workflow",
+        "focus": [
+          "camoufox_4",
+          "camoufox_6",
+          "camoufox_7"
+        ],
+        "note": "Alternative Firefox engine with addon-loading support."
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "camoufox_0",
+      "type": "frontend",
+      "label": "allman · proposed adapter",
+      "sublabel": "Replace Chromium-only seam",
+      "pos": [
+        60,
+        70
+      ],
+      "size": [
+        220,
+        76
+      ]
+    },
+    {
+      "id": "camoufox_1",
+      "type": "backend",
+      "label": "Firefox driver",
+      "sublabel": "Juggler / Playwright protocol",
+      "pos": [
+        370,
+        70
+      ],
+      "size": [
+        240,
+        76
+      ]
+    },
+    {
+      "id": "camoufox_2",
+      "type": "backend",
+      "label": "Camoufox",
+      "sublabel": "Patched Firefox / Juggler",
+      "pos": [
+        700,
+        70
+      ],
+      "size": [
+        250,
+        76
+      ],
+      "brand": {
+        "url": "https://raw.githubusercontent.com/daijro/camoufox/52d6746a4a67830ec8a24e2196822204ba843134/additions/browser/branding/camoufox/Assets.xcassets/AppIcon.appiconset/icon_128x128.png",
+        "sha256": "89a044d9d12d14746ead80f529bb2e4977740454a2bcf17b5eb807ed9b381f4e"
+      }
+    },
+    {
+      "id": "camoufox_3",
+      "type": "database",
+      "label": "Persistent identity",
+      "sublabel": "Prove cookies survive restart",
+      "pos": [
+        370,
+        245
+      ],
+      "size": [
+        240,
+        76
+      ]
+    },
+    {
+      "id": "camoufox_4",
+      "type": "security",
+      "label": "Shield Firefox port",
+      "sublabel": "Manifest / worker / DNR parity",
+      "pos": [
+        700,
+        245
+      ],
+      "size": [
+        250,
+        76
+      ]
+    },
+    {
+      "id": "camoufox_5",
+      "type": "security",
+      "label": "Current build blocked",
+      "sublabel": "Chrome MV3 build unchanged",
+      "pos": [
+        1050,
+        245
+      ],
+      "size": [
+        220,
+        76
+      ]
+    },
+    {
+      "id": "camoufox_6",
+      "type": "external",
+      "label": "Browser work · future",
+      "sublabel": "After port + verification",
+      "pos": [
+        700,
+        420
+      ],
+      "size": [
+        250,
+        76
+      ]
+    },
+    {
+      "id": "camoufox_7",
+      "type": "security",
+      "label": "Engine privacy patches",
+      "sublabel": "Fingerprint claims untested",
+      "pos": [
+        1050,
+        420
+      ],
+      "size": [
+        220,
+        76
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "flow_0",
+      "from": "camoufox_0",
+      "to": "camoufox_1",
+      "label": "proposed",
+      "variant": "dashed"
+    },
+    {
+      "id": "flow_1",
+      "from": "camoufox_1",
+      "to": "camoufox_2",
+      "label": "native",
+      "variant": "dashed"
+    },
+    {
+      "id": "flow_2",
+      "from": "camoufox_1",
+      "to": "camoufox_3",
+      "label": "persist",
+      "variant": "default",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "flow_3",
+      "from": "camoufox_2",
+      "to": "camoufox_4",
+      "label": "port",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "flow_4",
+      "from": "camoufox_4",
+      "to": "camoufox_5",
+      "label": "gap",
+      "variant": "security"
+    },
+    {
+      "id": "flow_5",
+      "from": "camoufox_4",
+      "to": "camoufox_6",
+      "label": "if built",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "flow_6",
+      "from": "camoufox_6",
+      "to": "camoufox_7",
+      "label": "engine",
+      "variant": "security"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Execution",
+      "items": [
+        "Patched Firefox / Juggler",
+        "Blocked: Firefox port"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Protection",
+      "items": [
+        "Local profiles; Firefox addons supported, current Shield port unproven.",
+        "Need Firefox-specific Shield port, persistence tests and allman adapter."
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Evidence",
+      "items": [
+        "Dashed integration links are proposed.",
+        "Detection outcomes are unmeasured."
+      ]
+    }
+  ]
+}

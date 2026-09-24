@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "deliver",
+  "type": "architecture",
+  "input": "/Users/hack/github/allman-cli/docs/browser-atlas/specs/viewforge-chrome.final.json",
+  "output": "/Users/hack/github/allman-cli/docs/browser-atlas/diagrams/viewforge-chrome.html",
+  "specification": {
+    "sha256": "89d7c4cf96d53deea1358fb8ff0e81e3acf903c1801c6626b810bb4792a8239c",
+    "bytes": 5212
+  },
+  "artifact": {
+    "sha256": "5aae1460993251dd8304b3497ffc73cb89f01e6c3bca9c7d4abd6f55ecd89720",
+    "bytes": 670854
+  },
+  "validation": {
+    "checksPassed": 9,
+    "checkCount": 9,
+    "compositionProfile": "showcase",
+    "compositionStatus": "pass",
+    "errors": 0,
+    "warnings": 0
+  }
+}

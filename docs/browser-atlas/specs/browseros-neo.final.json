@@ -1,0 +1,246 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "BrowserOS neo · verified local",
+    "animation": "trace",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "control",
+        "label": "Control and identity",
+        "focus": [
+          "browseros_neo_0",
+          "browseros_neo_1",
+          "browseros_neo_2",
+          "browseros_neo_3"
+        ],
+        "note": "Allman → Playwright pipe → persistent Neo → Shield gate"
+      },
+      {
+        "id": "protection",
+        "label": "Protection boundary",
+        "focus": [
+          "browseros_neo_2",
+          "browseros_neo_4",
+          "browseros_neo_5"
+        ],
+        "note": "Authenticated LinkedIn login/capture still untested."
+      },
+      {
+        "id": "work",
+        "label": "Sales workflow",
+        "focus": [
+          "browseros_neo_4",
+          "browseros_neo_6",
+          "browseros_neo_7"
+        ],
+        "note": "Current configured default; durable login and account-isolated capture."
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "browseros_neo_0",
+      "type": "frontend",
+      "label": "allman-cli",
+      "sublabel": "Login / query-ID capture",
+      "pos": [
+        60,
+        70
+      ],
+      "size": [
+        220,
+        76
+      ]
+    },
+    {
+      "id": "browseros_neo_1",
+      "type": "backend",
+      "label": "Persistent launcher",
+      "sublabel": "Config → Playwright context",
+      "pos": [
+        370,
+        70
+      ],
+      "size": [
+        240,
+        76
+      ]
+    },
+    {
+      "id": "browseros_neo_2",
+      "type": "backend",
+      "label": "BrowserOS neo",
+      "sublabel": "Chromium 151 / Neo 0.50.5",
+      "pos": [
+        700,
+        70
+      ],
+      "size": [
+        250,
+        76
+      ],
+      "brand": {
+        "url": "https://raw.githubusercontent.com/browseros-ai/BrowserOS/b26e9132286a2796623a59c0650369abbeedf3f6/docs/logo/favicon.png",
+        "sha256": "9e4e3ab826060e33e64f9a1e20684e2ce2f4cb213a51785416f7507d1b1227ea"
+      }
+    },
+    {
+      "id": "browseros_neo_3",
+      "type": "database",
+      "label": "Dedicated profile",
+      "sublabel": "Cookies + local storage",
+      "pos": [
+        370,
+        245
+      ],
+      "size": [
+        240,
+        76
+      ]
+    },
+    {
+      "id": "browseros_neo_4",
+      "type": "security",
+      "label": "Exact Shield gate",
+      "sublabel": "Hashes / worker / rules / access",
+      "pos": [
+        700,
+        245
+      ],
+      "size": [
+        250,
+        76
+      ]
+    },
+    {
+      "id": "browseros_neo_5",
+      "type": "security",
+      "label": "Refuse session",
+      "sublabel": "Protection missing or disabled",
+      "pos": [
+        1050,
+        245
+      ],
+      "size": [
+        220,
+        76
+      ]
+    },
+    {
+      "id": "browseros_neo_6",
+      "type": "external",
+      "label": "LinkedIn page",
+      "sublabel": "Only after verification",
+      "pos": [
+        700,
+        420
+      ],
+      "size": [
+        250,
+        76
+      ]
+    },
+    {
+      "id": "browseros_neo_7",
+      "type": "security",
+      "label": "Tracker blocked",
+      "sublabel": "DNR + document-start scripts",
+      "pos": [
+        1050,
+        420
+      ],
+      "size": [
+        220,
+        76
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "flow_0",
+      "from": "browseros_neo_0",
+      "to": "browseros_neo_1",
+      "label": "request",
+      "variant": "emphasis"
+    },
+    {
+      "id": "flow_1",
+      "from": "browseros_neo_1",
+      "to": "browseros_neo_2",
+      "label": "control",
+      "variant": "emphasis"
+    },
+    {
+      "id": "flow_2",
+      "from": "browseros_neo_1",
+      "to": "browseros_neo_3",
+      "label": "reuse",
+      "variant": "default",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "flow_3",
+      "from": "browseros_neo_2",
+      "to": "browseros_neo_4",
+      "label": "verify",
+      "variant": "security",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "flow_4",
+      "from": "browseros_neo_4",
+      "to": "browseros_neo_5",
+      "label": "fail",
+      "variant": "security"
+    },
+    {
+      "id": "flow_5",
+      "from": "browseros_neo_4",
+      "to": "browseros_neo_6",
+      "label": "pass",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "flow_6",
+      "from": "browseros_neo_6",
+      "to": "browseros_neo_7",
+      "label": "tracker",
+      "variant": "security"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Execution",
+      "items": [
+        "Chromium 151 / Neo 0.50.5",
+        "Verified local"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Protection",
+      "items": [
+        "Local profile; Shield verified. Browser AI/provider features are outside this path.",
+        "Authenticated LinkedIn login/capture still untested."
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Evidence",
+      "items": [
+        "Trace shows authored architecture, not live traffic.",
+        "Detection outcomes are unmeasured."
+      ]
+    }
+  ]
+}

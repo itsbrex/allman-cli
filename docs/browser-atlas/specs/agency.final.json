@@ -1,0 +1,242 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Agency · orchestrator; not browser",
+    "animation": "trace",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "control",
+        "label": "Control and identity",
+        "focus": [
+          "agency_0",
+          "agency_1",
+          "agency_2",
+          "agency_3"
+        ],
+        "note": "Agent prepares work → local cards → human decision → chosen tools"
+      },
+      {
+        "id": "protection",
+        "label": "Protection boundary",
+        "focus": [
+          "agency_2",
+          "agency_4",
+          "agency_5"
+        ],
+        "note": "No browser engine or Shield installation of its own; use a verified provider underneath."
+      },
+      {
+        "id": "work",
+        "label": "Sales workflow",
+        "focus": [
+          "agency_4",
+          "agency_6",
+          "agency_7"
+        ],
+        "note": "Sales briefs and reviewable outreach drafts around protected allman."
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "agency_0",
+      "type": "frontend",
+      "label": "Sales brief / goal",
+      "sublabel": "User intent and context",
+      "pos": [
+        60,
+        70
+      ],
+      "size": [
+        220,
+        76
+      ]
+    },
+    {
+      "id": "agency_1",
+      "type": "backend",
+      "label": "Active coding agent",
+      "sublabel": "Coordinates existing tools",
+      "pos": [
+        370,
+        70
+      ],
+      "size": [
+        240,
+        76
+      ]
+    },
+    {
+      "id": "agency_2",
+      "type": "frontend",
+      "label": "Agency card feed",
+      "sublabel": "Prepared work and evidence",
+      "pos": [
+        700,
+        70
+      ],
+      "size": [
+        250,
+        76
+      ]
+    },
+    {
+      "id": "agency_3",
+      "type": "database",
+      "label": "Local SQLite / D1",
+      "sublabel": "Private local job history",
+      "pos": [
+        370,
+        245
+      ],
+      "size": [
+        240,
+        76
+      ]
+    },
+    {
+      "id": "agency_4",
+      "type": "security",
+      "label": "Human review",
+      "sublabel": "Action-specific decision",
+      "pos": [
+        700,
+        245
+      ],
+      "size": [
+        250,
+        76
+      ]
+    },
+    {
+      "id": "agency_5",
+      "type": "security",
+      "label": "Unauthenticated routes",
+      "sublabel": "Keep app on loopback",
+      "pos": [
+        1050,
+        245
+      ],
+      "size": [
+        220,
+        76
+      ]
+    },
+    {
+      "id": "agency_6",
+      "type": "backend",
+      "label": "Approved tool action",
+      "sublabel": "Only authorized execution",
+      "pos": [
+        700,
+        420
+      ],
+      "size": [
+        250,
+        76
+      ]
+    },
+    {
+      "id": "agency_7",
+      "type": "backend",
+      "label": "Protected allman",
+      "sublabel": "Neo / Chromium + Shield",
+      "pos": [
+        1050,
+        420
+      ],
+      "size": [
+        220,
+        76
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "flow_0",
+      "from": "agency_0",
+      "to": "agency_1",
+      "label": "request",
+      "variant": "dashed"
+    },
+    {
+      "id": "flow_1",
+      "from": "agency_1",
+      "to": "agency_2",
+      "label": "prepare",
+      "variant": "dashed"
+    },
+    {
+      "id": "flow_2",
+      "from": "agency_1",
+      "to": "agency_3",
+      "label": "store",
+      "variant": "default",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "flow_3",
+      "from": "agency_2",
+      "to": "agency_4",
+      "label": "review",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "flow_4",
+      "from": "agency_4",
+      "to": "agency_5",
+      "label": "boundary",
+      "variant": "security"
+    },
+    {
+      "id": "flow_5",
+      "from": "agency_4",
+      "to": "agency_6",
+      "label": "approve",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "flow_6",
+      "from": "agency_6",
+      "to": "agency_7",
+      "label": "select",
+      "variant": "security"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Execution",
+      "items": [
+        "Local work-card app + active coding agent",
+        "Orchestrator; not browser"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Protection",
+      "items": [
+        "Loopback-only app; unauthenticated routes; agent policy is not app enforcement.",
+        "No browser engine or Shield installation of its own; use a verified provider underneath."
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Evidence",
+      "items": [
+        "Dashed integration links are proposed.",
+        "Detection outcomes are unmeasured."
+      ]
+    }
+  ]
+}

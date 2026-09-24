@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "deliver",
+  "type": "architecture",
+  "input": "/Users/hack/github/allman-cli/docs/browser-atlas/specs/browseros-neo.final.json",
+  "output": "/Users/hack/github/allman-cli/docs/browser-atlas/diagrams/browseros-neo.html",
+  "specification": {
+    "sha256": "8b98c327a0f7c35273e818ba074bd7da2130f7d4135f41cd2f391dd0863276ee",
+    "bytes": 5237
+  },
+  "artifact": {
+    "sha256": "30b9be980622a30d117ebd99f0566f03b127458e7867ecc8f5d4846f68540466",
+    "bytes": 673974
+  },
+  "validation": {
+    "checksPassed": 9,
+    "checkCount": 9,
+    "compositionProfile": "showcase",
+    "compositionStatus": "pass",
+    "errors": 0,
+    "warnings": 0
+  }
+}

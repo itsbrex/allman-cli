@@ -1,0 +1,242 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "LinkedIn Shield · security mechanics · verified browser guard",
+    "animation": "trace",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "control",
+        "label": "Control and identity",
+        "focus": [
+          "shield_security_0",
+          "shield_security_1",
+          "shield_security_2",
+          "shield_security_3"
+        ],
+        "note": "Package hashes → extension origin → background + DNR + site access"
+      },
+      {
+        "id": "protection",
+        "label": "Protection boundary",
+        "focus": [
+          "shield_security_2",
+          "shield_security_4",
+          "shield_security_5"
+        ],
+        "note": "No coverage for direct allman HTTP API calls; popup AI option may contact selected provider."
+      },
+      {
+        "id": "work",
+        "label": "Sales workflow",
+        "focus": [
+          "shield_security_4",
+          "shield_security_6",
+          "shield_security_7"
+        ],
+        "note": "Mandatory verification before every allman browser session."
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "shield_security_0",
+      "type": "frontend",
+      "label": "Allman browser request",
+      "sublabel": "Shared login / capture gate",
+      "pos": [
+        60,
+        70
+      ],
+      "size": [
+        220,
+        76
+      ]
+    },
+    {
+      "id": "shield_security_1",
+      "type": "backend",
+      "label": "Read runtime package",
+      "sublabel": "Validate MV3 + runtime files",
+      "pos": [
+        370,
+        70
+      ],
+      "size": [
+        240,
+        76
+      ]
+    },
+    {
+      "id": "shield_security_2",
+      "type": "backend",
+      "label": "Extension origin",
+      "sublabel": "Open own popup temporarily",
+      "pos": [
+        700,
+        70
+      ],
+      "size": [
+        250,
+        76
+      ]
+    },
+    {
+      "id": "shield_security_3",
+      "type": "database",
+      "label": "13 asset SHA-256 hashes",
+      "sublabel": "Compare exact installed build",
+      "pos": [
+        370,
+        245
+      ],
+      "size": [
+        240,
+        76
+      ]
+    },
+    {
+      "id": "shield_security_4",
+      "type": "security",
+      "label": "Live capability check",
+      "sublabel": "Worker reply / DNR / site access",
+      "pos": [
+        700,
+        245
+      ],
+      "size": [
+        250,
+        76
+      ]
+    },
+    {
+      "id": "shield_security_5",
+      "type": "security",
+      "label": "Fail closed",
+      "sublabel": "Close or disconnect owned work",
+      "pos": [
+        1050,
+        245
+      ],
+      "size": [
+        220,
+        76
+      ]
+    },
+    {
+      "id": "shield_security_6",
+      "type": "external",
+      "label": "Protected page",
+      "sublabel": "MAIN + isolated bridge at start",
+      "pos": [
+        700,
+        420
+      ],
+      "size": [
+        250,
+        76
+      ]
+    },
+    {
+      "id": "shield_security_7",
+      "type": "security",
+      "label": "Blocked tracker request",
+      "sublabel": "DNR + content interception",
+      "pos": [
+        1050,
+        420
+      ],
+      "size": [
+        220,
+        76
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "flow_0",
+      "from": "shield_security_0",
+      "to": "shield_security_1",
+      "label": "read",
+      "variant": "emphasis"
+    },
+    {
+      "id": "flow_1",
+      "from": "shield_security_1",
+      "to": "shield_security_2",
+      "label": "inspect",
+      "variant": "emphasis"
+    },
+    {
+      "id": "flow_2",
+      "from": "shield_security_1",
+      "to": "shield_security_3",
+      "label": "hash",
+      "variant": "default",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "flow_3",
+      "from": "shield_security_2",
+      "to": "shield_security_4",
+      "label": "query",
+      "variant": "security",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "flow_4",
+      "from": "shield_security_4",
+      "to": "shield_security_5",
+      "label": "fail",
+      "variant": "security"
+    },
+    {
+      "id": "flow_5",
+      "from": "shield_security_4",
+      "to": "shield_security_6",
+      "label": "pass",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "flow_6",
+      "from": "shield_security_6",
+      "to": "shield_security_7",
+      "label": "block",
+      "variant": "security"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Execution",
+      "items": [
+        "Chromium Manifest V3",
+        "Verified browser guard"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Protection",
+      "items": [
+        "Document-start interception and declarative blocking; optional user-triggered AI is separate.",
+        "No coverage for direct allman HTTP API calls; popup AI option may contact selected provider."
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Evidence",
+      "items": [
+        "Trace shows authored architecture, not live traffic.",
+        "Detection outcomes are unmeasured."
+      ]
+    }
+  ]
+}

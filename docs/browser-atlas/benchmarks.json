@@ -1,0 +1,99 @@
+{
+  "date": "2026-09-19T06:26:29.971Z",
+  "runtime": "1.3.14",
+  "platform": "darwin",
+  "arch": "arm64",
+  "method": "Three fresh owned profiles per engine, alternating order. Headless launch through allman, including exact Shield verification; one locally fulfilled page; sum RSS of browser process tree. Shared pages counted separately by ps; not PSS. Same synthetic fixture, no LinkedIn requests. Not a production workload, statistical significance, or detection test.",
+  "samples": [
+    {
+      "channel": "browseros-neo",
+      "round": 1,
+      "bootstrapMs": 1861,
+      "fixtureMs": 129,
+      "rssMiB": 1137,
+      "processCount": 10,
+      "shield": "3.4.0"
+    },
+    {
+      "channel": "chromium",
+      "round": 1,
+      "bootstrapMs": 3634,
+      "fixtureMs": 108,
+      "rssMiB": 1016,
+      "processCount": 8,
+      "shield": "3.4.0"
+    },
+    {
+      "channel": "chromium",
+      "round": 2,
+      "bootstrapMs": 1066,
+      "fixtureMs": 88,
+      "rssMiB": 1011,
+      "processCount": 8,
+      "shield": "3.4.0"
+    },
+    {
+      "channel": "browseros-neo",
+      "round": 2,
+      "bootstrapMs": 1434,
+      "fixtureMs": 131,
+      "rssMiB": 1136,
+      "processCount": 10,
+      "shield": "3.4.0"
+    },
+    {
+      "channel": "browseros-neo",
+      "round": 3,
+      "bootstrapMs": 1291,
+      "fixtureMs": 104,
+      "rssMiB": 1137,
+      "processCount": 10,
+      "shield": "3.4.0"
+    },
+    {
+      "channel": "chromium",
+      "round": 3,
+      "bootstrapMs": 1293,
+      "fixtureMs": 128,
+      "rssMiB": 1009,
+      "processCount": 8,
+      "shield": "3.4.0"
+    }
+  ],
+  "summary": {
+    "browseros-neo": {
+      "bootstrapMs": {
+        "median": 1434,
+        "min": 1291,
+        "max": 1861
+      },
+      "fixtureMs": {
+        "median": 129,
+        "min": 104,
+        "max": 131
+      },
+      "rssMiB": {
+        "median": 1137,
+        "min": 1136,
+        "max": 1137
+      }
+    },
+    "chromium": {
+      "bootstrapMs": {
+        "median": 1293,
+        "min": 1066,
+        "max": 3634
+      },
+      "fixtureMs": {
+        "median": 108,
+        "min": 88,
+        "max": 128
+      },
+      "rssMiB": {
+        "median": 1011,
+        "min": 1009,
+        "max": 1016
+      }
+    }
+  }
+}

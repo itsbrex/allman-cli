@@ -1,0 +1,246 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Obscura · blocked: extension runtime",
+    "animation": "trace",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "control",
+        "label": "Control and identity",
+        "focus": [
+          "obscura_0",
+          "obscura_1",
+          "obscura_2",
+          "obscura_3"
+        ],
+        "note": "Partial CDP server → Rust DOM/network/rendering → V8"
+      },
+      {
+        "id": "protection",
+        "label": "Protection boundary",
+        "focus": [
+          "obscura_2",
+          "obscura_4",
+          "obscura_5"
+        ],
+        "note": "No verified Chrome MV3, extension worker or DNR runtime; persistence semantics also need proof."
+      },
+      {
+        "id": "work",
+        "label": "Sales workflow",
+        "focus": [
+          "obscura_4",
+          "obscura_6",
+          "obscura_7"
+        ],
+        "note": "Interesting lightweight public-page extraction experiment."
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "obscura_0",
+      "type": "frontend",
+      "label": "allman · blocked today",
+      "sublabel": "Current adapter rejects engine",
+      "pos": [
+        60,
+        70
+      ],
+      "size": [
+        220,
+        76
+      ]
+    },
+    {
+      "id": "obscura_1",
+      "type": "backend",
+      "label": "CDP server",
+      "sublabel": "Subset of Chrome protocol",
+      "pos": [
+        370,
+        70
+      ],
+      "size": [
+        240,
+        76
+      ]
+    },
+    {
+      "id": "obscura_2",
+      "type": "backend",
+      "label": "Obscura engine",
+      "sublabel": "Rust DOM + V8 + renderer",
+      "pos": [
+        700,
+        70
+      ],
+      "size": [
+        250,
+        76
+      ],
+      "brand": {
+        "url": "https://raw.githubusercontent.com/h4ckf0r0day/obscura/cf26f454df37b6acf717c4ee27346800ff377bc8/assets/icon.png",
+        "sha256": "2d6646c22668454986891e53a397023bfbf8854c55a74e1539bdf6cd8a2ba7bc"
+      }
+    },
+    {
+      "id": "obscura_3",
+      "type": "database",
+      "label": "Cookie / storage APIs",
+      "sublabel": "Durability needs separate proof",
+      "pos": [
+        370,
+        245
+      ],
+      "size": [
+        240,
+        76
+      ]
+    },
+    {
+      "id": "obscura_4",
+      "type": "security",
+      "label": "MV3 capability gap",
+      "sublabel": "Worker + DNR runtime unproven",
+      "pos": [
+        700,
+        245
+      ],
+      "size": [
+        250,
+        76
+      ]
+    },
+    {
+      "id": "obscura_5",
+      "type": "security",
+      "label": "Refuse Shield policy",
+      "sublabel": "Built-in blocking is insufficient",
+      "pos": [
+        1050,
+        245
+      ],
+      "size": [
+        220,
+        76
+      ]
+    },
+    {
+      "id": "obscura_6",
+      "type": "external",
+      "label": "Extraction · future",
+      "sublabel": "Requires compatibility work",
+      "pos": [
+        700,
+        420
+      ],
+      "size": [
+        250,
+        76
+      ]
+    },
+    {
+      "id": "obscura_7",
+      "type": "security",
+      "label": "Native tracker blocking",
+      "sublabel": "Vendor-provided domain lists",
+      "pos": [
+        1050,
+        420
+      ],
+      "size": [
+        220,
+        76
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "flow_0",
+      "from": "obscura_0",
+      "to": "obscura_1",
+      "label": "proposed",
+      "variant": "dashed"
+    },
+    {
+      "id": "flow_1",
+      "from": "obscura_1",
+      "to": "obscura_2",
+      "label": "dispatch",
+      "variant": "dashed"
+    },
+    {
+      "id": "flow_2",
+      "from": "obscura_1",
+      "to": "obscura_3",
+      "label": "store",
+      "variant": "default",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "flow_3",
+      "from": "obscura_2",
+      "to": "obscura_4",
+      "label": "inspect",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "flow_4",
+      "from": "obscura_4",
+      "to": "obscura_5",
+      "label": "fail",
+      "variant": "security"
+    },
+    {
+      "id": "flow_5",
+      "from": "obscura_4",
+      "to": "obscura_6",
+      "label": "if built",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "flow_6",
+      "from": "obscura_6",
+      "to": "obscura_7",
+      "label": "vendor",
+      "variant": "security"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Execution",
+      "items": [
+        "Independent Rust / V8 engine",
+        "Blocked: extension runtime"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Protection",
+      "items": [
+        "Built-in tracker blocking differs from running Shield itself.",
+        "No verified Chrome MV3, extension worker or DNR runtime; persistence semantics also need proof."
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Evidence",
+      "items": [
+        "Dashed integration links are proposed.",
+        "Detection outcomes are unmeasured."
+      ]
+    }
+  ]
+}

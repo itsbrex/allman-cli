@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "deliver",
+  "type": "architecture",
+  "input": "/Users/hack/github/allman-cli/docs/browser-atlas/specs/edge.final.json",
+  "output": "/Users/hack/github/allman-cli/docs/browser-atlas/diagrams/edge.html",
+  "specification": {
+    "sha256": "78aead1016521535e9aa141975cd29a3e193cba84d519815607af451f3495b8f",
+    "bytes": 4943
+  },
+  "artifact": {
+    "sha256": "9549d44753e81cedba5cafae15ba3ca1974a02925e6c94f6867dcca31dfa34ea",
+    "bytes": 1172408
+  },
+  "validation": {
+    "checksPassed": 9,
+    "checkCount": 9,
+    "compositionProfile": "showcase",
+    "compositionStatus": "pass",
+    "errors": 0,
+    "warnings": 0
+  }
+}

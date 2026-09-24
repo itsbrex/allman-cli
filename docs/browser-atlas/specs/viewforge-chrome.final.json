@@ -1,0 +1,242 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Viewforge · Chrome · proposed adapter",
+    "animation": "trace",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "control",
+        "label": "Control and identity",
+        "focus": [
+          "viewforge_chrome_0",
+          "viewforge_chrome_1",
+          "viewforge_chrome_2",
+          "viewforge_chrome_3"
+        ],
+        "note": "Allman adapter → coordinator → one Bun worker per profile → WebView"
+      },
+      {
+        "id": "protection",
+        "label": "Protection boundary",
+        "focus": [
+          "viewforge_chrome_2",
+          "viewforge_chrome_4",
+          "viewforge_chrome_5"
+        ],
+        "note": "No Playwright context or exposed CDP server; prove extension loading and native API adapter."
+      },
+      {
+        "id": "work",
+        "label": "Sales workflow",
+        "focus": [
+          "viewforge_chrome_4",
+          "viewforge_chrome_6",
+          "viewforge_chrome_7"
+        ],
+        "note": "Durable prospect-research workflows with typed records and resumable checkpoints."
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "viewforge_chrome_0",
+      "type": "frontend",
+      "label": "allman · proposed bridge",
+      "sublabel": "Translate auth and capture API",
+      "pos": [
+        60,
+        70
+      ],
+      "size": [
+        220,
+        76
+      ]
+    },
+    {
+      "id": "viewforge_chrome_1",
+      "type": "backend",
+      "label": "Viewforge coordinator",
+      "sublabel": "CLI / JSONL / bearer HTTP",
+      "pos": [
+        370,
+        70
+      ],
+      "size": [
+        240,
+        76
+      ]
+    },
+    {
+      "id": "viewforge_chrome_2",
+      "type": "backend",
+      "label": "Profile worker",
+      "sublabel": "One Bun process per identity",
+      "pos": [
+        700,
+        70
+      ],
+      "size": [
+        250,
+        76
+      ]
+    },
+    {
+      "id": "viewforge_chrome_3",
+      "type": "database",
+      "label": "SQLite journal",
+      "sublabel": "Intent → result → checkpoint",
+      "pos": [
+        370,
+        245
+      ],
+      "size": [
+        240,
+        76
+      ]
+    },
+    {
+      "id": "viewforge_chrome_4",
+      "type": "backend",
+      "label": "Native browser session",
+      "sublabel": "Bun.WebView · Chrome",
+      "pos": [
+        700,
+        245
+      ],
+      "size": [
+        250,
+        76
+      ]
+    },
+    {
+      "id": "viewforge_chrome_5",
+      "type": "security",
+      "label": "Missing Shield adapter",
+      "sublabel": "Extension lifecycle unverified",
+      "pos": [
+        1050,
+        245
+      ],
+      "size": [
+        220,
+        76
+      ]
+    },
+    {
+      "id": "viewforge_chrome_6",
+      "type": "frontend",
+      "label": "Research workflow",
+      "sublabel": "Typed records; guarded actions",
+      "pos": [
+        700,
+        420
+      ],
+      "size": [
+        250,
+        76
+      ]
+    },
+    {
+      "id": "viewforge_chrome_7",
+      "type": "database",
+      "label": "Persistent dataStore",
+      "sublabel": "Browser state; not DOM heap",
+      "pos": [
+        1050,
+        420
+      ],
+      "size": [
+        220,
+        76
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "flow_0",
+      "from": "viewforge_chrome_0",
+      "to": "viewforge_chrome_1",
+      "label": "proposed",
+      "variant": "dashed"
+    },
+    {
+      "id": "flow_1",
+      "from": "viewforge_chrome_1",
+      "to": "viewforge_chrome_2",
+      "label": "spawn",
+      "variant": "dashed"
+    },
+    {
+      "id": "flow_2",
+      "from": "viewforge_chrome_1",
+      "to": "viewforge_chrome_3",
+      "label": "commit",
+      "variant": "default",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "flow_3",
+      "from": "viewforge_chrome_2",
+      "to": "viewforge_chrome_4",
+      "label": "construct",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "flow_4",
+      "from": "viewforge_chrome_4",
+      "to": "viewforge_chrome_5",
+      "label": "gap",
+      "variant": "security"
+    },
+    {
+      "id": "flow_5",
+      "from": "viewforge_chrome_4",
+      "to": "viewforge_chrome_6",
+      "label": "native",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "flow_6",
+      "from": "viewforge_chrome_6",
+      "to": "viewforge_chrome_7",
+      "label": "persist",
+      "variant": "security"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Execution",
+      "items": [
+        "Bun.WebView / Chrome backend",
+        "Proposed adapter"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Protection",
+      "items": [
+        "Local journal; bearer loopback bridge; cooperative capability policy.",
+        "No Playwright context or exposed CDP server; prove extension loading and native API adapter."
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Evidence",
+      "items": [
+        "Dashed integration links are proposed.",
+        "Detection outcomes are unmeasured."
+      ]
+    }
+  ]
+}

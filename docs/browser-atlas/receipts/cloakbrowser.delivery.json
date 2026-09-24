@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "deliver",
+  "type": "architecture",
+  "input": "/Users/hack/github/allman-cli/docs/browser-atlas/specs/cloakbrowser.final.json",
+  "output": "/Users/hack/github/allman-cli/docs/browser-atlas/diagrams/cloakbrowser.html",
+  "specification": {
+    "sha256": "f6fbb0374d2f0a77cae5f138a444159439a0c57b6252d54b2d5462f7e9d8aedb",
+    "bytes": 5238
+  },
+  "artifact": {
+    "sha256": "4e41ced67f41d6dedc19dd2f189cc7b32ae53de50b91dc4c3bb57ac42aa2b691",
+    "bytes": 1261097
+  },
+  "validation": {
+    "checksPassed": 9,
+    "checkCount": 9,
+    "compositionProfile": "showcase",
+    "compositionStatus": "pass",
+    "errors": 0,
+    "warnings": 0
+  }
+}

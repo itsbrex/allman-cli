@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "deliver",
+  "type": "architecture",
+  "input": "/Users/hack/github/allman-cli/docs/browser-atlas/specs/viewforge-webkit.final.json",
+  "output": "/Users/hack/github/allman-cli/docs/browser-atlas/diagrams/viewforge-webkit.html",
+  "specification": {
+    "sha256": "78a224a1f749eb78e10c4ddc167d3a496330744d8521b8ea448370b10e37451b",
+    "bytes": 5145
+  },
+  "artifact": {
+    "sha256": "af9d5008cc6a5f42c8c39a1bd1f43b337efaf4e6fc5f0addbb19432d4a1671f4",
+    "bytes": 670795
+  },
+  "validation": {
+    "checksPassed": 9,
+    "checkCount": 9,
+    "compositionProfile": "showcase",
+    "compositionStatus": "pass",
+    "errors": 0,
+    "warnings": 0
+  }
+}

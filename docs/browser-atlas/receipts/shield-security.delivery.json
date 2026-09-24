@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "deliver",
+  "type": "architecture",
+  "input": "/Users/hack/github/allman-cli/docs/browser-atlas/specs/shield-security.final.json",
+  "output": "/Users/hack/github/allman-cli/docs/browser-atlas/diagrams/shield-security.html",
+  "specification": {
+    "sha256": "c3d2f92761549516840360087504689b1521d5b1c82e751e578d67fe32189ab6",
+    "bytes": 5214
+  },
+  "artifact": {
+    "sha256": "6459dee9616018d062b9312ea93f6ec7cbc8bf9649121892442e8abd7534b4b5",
+    "bytes": 671185
+  },
+  "validation": {
+    "checksPassed": 9,
+    "checkCount": 9,
+    "compositionProfile": "showcase",
+    "compositionStatus": "pass",
+    "errors": 0,
+    "warnings": 0
+  }
+}

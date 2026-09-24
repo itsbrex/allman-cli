@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "deliver",
+  "type": "architecture",
+  "input": "/Users/hack/github/allman-cli/docs/browser-atlas/specs/camoufox.final.json",
+  "output": "/Users/hack/github/allman-cli/docs/browser-atlas/diagrams/camoufox.html",
+  "specification": {
+    "sha256": "49279cca1d52f47c0f21641d6111beb64b428fa5b2747d171a0cc36c8ad80c83",
+    "bytes": 5174
+  },
+  "artifact": {
+    "sha256": "9e6c5a42ebdde3e4bccfdd21ceecc1382d81a2c98b4fcc1646234ce4bc83dceb",
+    "bytes": 684815
+  },
+  "validation": {
+    "checksPassed": 9,
+    "checkCount": 9,
+    "compositionProfile": "showcase",
+    "compositionStatus": "pass",
+    "errors": 0,
+    "warnings": 0
+  }
+}

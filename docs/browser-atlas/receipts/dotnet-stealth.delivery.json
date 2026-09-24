@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "deliver",
+  "type": "architecture",
+  "input": "/Users/hack/github/allman-cli/docs/browser-atlas/specs/dotnet-stealth.final.json",
+  "output": "/Users/hack/github/allman-cli/docs/browser-atlas/diagrams/dotnet-stealth.html",
+  "specification": {
+    "sha256": "7c0bf45f5cee2afb2d53d0f4a4fd50bf0558dd453b969dd04f1f67e0e764c1d9",
+    "bytes": 5409
+  },
+  "artifact": {
+    "sha256": "7bd09478f35f4db5f0a461aeb5c9450a25bd100e7bd06b66fee6c10c5864037c",
+    "bytes": 686624
+  },
+  "validation": {
+    "checksPassed": 9,
+    "checkCount": 9,
+    "compositionProfile": "showcase",
+    "compositionStatus": "pass",
+    "errors": 0,
+    "warnings": 0
+  }
+}

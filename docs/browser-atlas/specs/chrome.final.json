@@ -1,0 +1,242 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Google Chrome · conditional cdp",
+    "animation": "trace",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "control",
+        "label": "Control and identity",
+        "focus": [
+          "chrome_0",
+          "chrome_1",
+          "chrome_2",
+          "chrome_3"
+        ],
+        "note": "Dedicated running profile + installed Shield → CDP → allman"
+      },
+      {
+        "id": "protection",
+        "label": "Protection boundary",
+        "focus": [
+          "chrome_2",
+          "chrome_4",
+          "chrome_5"
+        ],
+        "note": "Command-line sideloading is insufficient; install Shield in exact profile."
+      },
+      {
+        "id": "work",
+        "label": "Sales workflow",
+        "focus": [
+          "chrome_4",
+          "chrome_6",
+          "chrome_7"
+        ],
+        "note": "Familiar interactive login and mature extension management."
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "chrome_0",
+      "type": "frontend",
+      "label": "allman-cli",
+      "sublabel": "Login / query-ID capture",
+      "pos": [
+        60,
+        70
+      ],
+      "size": [
+        220,
+        76
+      ]
+    },
+    {
+      "id": "chrome_1",
+      "type": "backend",
+      "label": "Allman Node entry",
+      "sublabel": "Playwright connectOverCDP",
+      "pos": [
+        370,
+        70
+      ],
+      "size": [
+        240,
+        76
+      ]
+    },
+    {
+      "id": "chrome_2",
+      "type": "backend",
+      "label": "Google Chrome",
+      "sublabel": "Shield installed in exact profile",
+      "pos": [
+        700,
+        70
+      ],
+      "size": [
+        250,
+        76
+      ]
+    },
+    {
+      "id": "chrome_3",
+      "type": "database",
+      "label": "Existing default context",
+      "sublabel": "Borrow; do not clear cookies",
+      "pos": [
+        370,
+        245
+      ],
+      "size": [
+        240,
+        76
+      ]
+    },
+    {
+      "id": "chrome_4",
+      "type": "security",
+      "label": "Exact Shield gate",
+      "sublabel": "Hashes / worker / rules / access",
+      "pos": [
+        700,
+        245
+      ],
+      "size": [
+        250,
+        76
+      ]
+    },
+    {
+      "id": "chrome_5",
+      "type": "security",
+      "label": "Refuse session",
+      "sublabel": "Protection missing or disabled",
+      "pos": [
+        1050,
+        245
+      ],
+      "size": [
+        220,
+        76
+      ]
+    },
+    {
+      "id": "chrome_6",
+      "type": "external",
+      "label": "LinkedIn page",
+      "sublabel": "Only after verification",
+      "pos": [
+        700,
+        420
+      ],
+      "size": [
+        250,
+        76
+      ]
+    },
+    {
+      "id": "chrome_7",
+      "type": "security",
+      "label": "Tracker blocked",
+      "sublabel": "DNR + document-start scripts",
+      "pos": [
+        1050,
+        420
+      ],
+      "size": [
+        220,
+        76
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "flow_0",
+      "from": "chrome_0",
+      "to": "chrome_1",
+      "label": "resolve",
+      "variant": "emphasis"
+    },
+    {
+      "id": "flow_1",
+      "from": "chrome_1",
+      "to": "chrome_2",
+      "label": "attach",
+      "variant": "emphasis"
+    },
+    {
+      "id": "flow_2",
+      "from": "chrome_1",
+      "to": "chrome_3",
+      "label": "borrow",
+      "variant": "default",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "flow_3",
+      "from": "chrome_2",
+      "to": "chrome_4",
+      "label": "verify",
+      "variant": "security",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "flow_4",
+      "from": "chrome_4",
+      "to": "chrome_5",
+      "label": "fail",
+      "variant": "security"
+    },
+    {
+      "id": "flow_5",
+      "from": "chrome_4",
+      "to": "chrome_6",
+      "label": "pass",
+      "variant": "emphasis",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "flow_6",
+      "from": "chrome_6",
+      "to": "chrome_7",
+      "label": "tracker",
+      "variant": "security"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Execution",
+      "items": [
+        "Branded Chromium",
+        "Conditional CDP"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Protection",
+      "items": [
+        "Local cookies; borrowed profile is never cleared or replaced.",
+        "Command-line sideloading is insufficient; install Shield in exact profile."
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Evidence",
+      "items": [
+        "Trace shows authored architecture, not live traffic.",
+        "Detection outcomes are unmeasured."
+      ]
+    }
+  ]
+}

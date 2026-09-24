@@ -1,0 +1,246 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Playwriter · companion; no adapter",
+    "animation": "trace",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "control",
+        "label": "Control and identity",
+        "focus": [
+          "playwriter_0",
+          "playwriter_1",
+          "playwriter_2",
+          "playwriter_3"
+        ],
+        "note": "Stateful sandbox → relay → debugger extension → selected Chrome tabs"
+      },
+      {
+        "id": "protection",
+        "label": "Protection boundary",
+        "focus": [
+          "playwriter_2",
+          "playwriter_4",
+          "playwriter_5"
+        ],
+        "note": "Adapt connection lifecycle and prove Shield verification through extension relay."
+      },
+      {
+        "id": "work",
+        "label": "Sales workflow",
+        "focus": [
+          "playwriter_4",
+          "playwriter_6",
+          "playwriter_7"
+        ],
+        "note": "Full Playwright-style operations on an already logged-in browser."
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "playwriter_0",
+      "type": "frontend",
+      "label": "Allman · companion path",
+      "sublabel": "No allman integration today",
+      "pos": [
+        60,
+        70
+      ],
+      "size": [
+        220,
+        76
+      ]
+    },
+    {
+      "id": "playwriter_1",
+      "type": "backend",
+      "label": "Local daemon / relay",
+      "sublabel": "CLI / MCP control surface",
+      "pos": [
+        370,
+        70
+      ],
+      "size": [
+        240,
+        76
+      ]
+    },
+    {
+      "id": "playwriter_2",
+      "type": "backend",
+      "label": "Playwriter extension",
+      "sublabel": "Controls Chromium tabs",
+      "pos": [
+        700,
+        70
+      ],
+      "size": [
+        250,
+        76
+      ],
+      "brand": {
+        "url": "https://raw.githubusercontent.com/remorses/playwriter/bfca64f8ecf33b7fd1380c24975877ee97408084/extension/icons/icon-green-128.png",
+        "sha256": "d84379ed6909ba2132f4f48cad36720cd2390cb36cfacbb45cd85a40dd3d8fc9"
+      }
+    },
+    {
+      "id": "playwriter_3",
+      "type": "database",
+      "label": "Existing Chrome profile",
+      "sublabel": "Shared login and cookies",
+      "pos": [
+        370,
+        245
+      ],
+      "size": [
+        240,
+        76
+      ]
+    },
+    {
+      "id": "playwriter_4",
+      "type": "security",
+      "label": "Shield verification seam",
+      "sublabel": "Port gate to returned context",
+      "pos": [
+        700,
+        245
+      ],
+      "size": [
+        250,
+        76
+      ]
+    },
+    {
+      "id": "playwriter_5",
+      "type": "security",
+      "label": "Adapter still missing",
+      "sublabel": "Prove extension-origin access",
+      "pos": [
+        1050,
+        245
+      ],
+      "size": [
+        220,
+        76
+      ]
+    },
+    {
+      "id": "playwriter_6",
+      "type": "external",
+      "label": "Selected browser tabs",
+      "sublabel": "Respect borrowed ownership",
+      "pos": [
+        700,
+        420
+      ],
+      "size": [
+        250,
+        76
+      ]
+    },
+    {
+      "id": "playwriter_7",
+      "type": "security",
+      "label": "Separate Shield layer",
+      "sublabel": "Bridge is not tracker blocking",
+      "pos": [
+        1050,
+        420
+      ],
+      "size": [
+        220,
+        76
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "flow_0",
+      "from": "playwriter_0",
+      "to": "playwriter_1",
+      "label": "proposed",
+      "variant": "dashed"
+    },
+    {
+      "id": "flow_1",
+      "from": "playwriter_1",
+      "to": "playwriter_2",
+      "label": "relay",
+      "variant": "dashed"
+    },
+    {
+      "id": "flow_2",
+      "from": "playwriter_1",
+      "to": "playwriter_3",
+      "label": "reuse",
+      "variant": "default",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "flow_3",
+      "from": "playwriter_2",
+      "to": "playwriter_4",
+      "label": "proposed",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "flow_4",
+      "from": "playwriter_4",
+      "to": "playwriter_5",
+      "label": "gap",
+      "variant": "security"
+    },
+    {
+      "id": "flow_5",
+      "from": "playwriter_4",
+      "to": "playwriter_6",
+      "label": "if built",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "flow_6",
+      "from": "playwriter_6",
+      "to": "playwriter_7",
+      "label": "protect",
+      "variant": "security"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Execution",
+      "items": [
+        "CLI/MCP + extension + CDP relay",
+        "Companion; no adapter"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Protection",
+      "items": [
+        "Keeps existing profile; shared tabs require ownership discipline.",
+        "Adapt connection lifecycle and prove Shield verification through extension relay."
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Evidence",
+      "items": [
+        "Dashed integration links are proposed.",
+        "Detection outcomes are unmeasured."
+      ]
+    }
+  ]
+}

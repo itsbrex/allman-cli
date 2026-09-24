@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "deliver",
+  "type": "architecture",
+  "input": "/Users/hack/github/allman-cli/docs/browser-atlas/specs/donut.final.json",
+  "output": "/Users/hack/github/allman-cli/docs/browser-atlas/diagrams/donut.html",
+  "specification": {
+    "sha256": "6a8f65f70d1c6118a7ee30bb575d74b4d21b3086db3f11e41f319219ec3aa8e5",
+    "bytes": 5032
+  },
+  "artifact": {
+    "sha256": "885dd72f3de13f847fddd5744ce75686f5327217cd02b4d6bd1aa5c3a42e9403",
+    "bytes": 684669
+  },
+  "validation": {
+    "checksPassed": 9,
+    "checkCount": 9,
+    "compositionProfile": "showcase",
+    "compositionStatus": "pass",
+    "errors": 0,
+    "warnings": 0
+  }
+}

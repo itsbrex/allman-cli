@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "deliver",
+  "type": "architecture",
+  "input": "/Users/hack/github/allman-cli/docs/browser-atlas/specs/invisible-playwright.final.json",
+  "output": "/Users/hack/github/allman-cli/docs/browser-atlas/diagrams/invisible-playwright.html",
+  "specification": {
+    "sha256": "a845752c74f79da3fd53d8ae0909b1944de4184a3769d74b20b66f16e0f45245",
+    "bytes": 5616
+  },
+  "artifact": {
+    "sha256": "e2a273c7252d8e8425e15b51b42e14b16b0e77646ab730b78731b36e928c46e2",
+    "bytes": 812345
+  },
+  "validation": {
+    "checksPassed": 9,
+    "checkCount": 9,
+    "compositionProfile": "showcase",
+    "compositionStatus": "pass",
+    "errors": 0,
+    "warnings": 0
+  }
+}

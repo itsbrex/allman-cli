@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "deliver",
+  "type": "architecture",
+  "input": "/Users/hack/github/allman-cli/docs/browser-atlas/specs/chrome.final.json",
+  "output": "/Users/hack/github/allman-cli/docs/browser-atlas/diagrams/chrome.html",
+  "specification": {
+    "sha256": "85258ee920526fc889c7463530d5e33ec4627d81228106337ce7fa800f06c49a",
+    "bytes": 4783
+  },
+  "artifact": {
+    "sha256": "c37ea3fa2e9c6aaa64751407d0b8ba32224cb2354185d147a1380ebe0ec9a8cf",
+    "bytes": 670425
+  },
+  "validation": {
+    "checksPassed": 9,
+    "checkCount": 9,
+    "compositionProfile": "showcase",
+    "compositionStatus": "pass",
+    "errors": 0,
+    "warnings": 0
+  }
+}

@@ -1,0 +1,246 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "OpenCLI · companion; no adapter",
+    "animation": "trace",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "control",
+        "label": "Control and identity",
+        "focus": [
+          "opencli_0",
+          "opencli_1",
+          "opencli_2",
+          "opencli_3"
+        ],
+        "note": "OpenCLI command → local daemon → browser extension → existing Chromium"
+      },
+      {
+        "id": "protection",
+        "label": "Protection boundary",
+        "focus": [
+          "opencli_2",
+          "opencli_4",
+          "opencli_5"
+        ],
+        "note": "No allman context/Shield gate adapter yet; isolated app state is not isolated cookies."
+      },
+      {
+        "id": "work",
+        "label": "Sales workflow",
+        "focus": [
+          "opencli_4",
+          "opencli_6",
+          "opencli_7"
+        ],
+        "note": "Broad website command adapters; possible companion to allman."
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "opencli_0",
+      "type": "frontend",
+      "label": "Allman · companion path",
+      "sublabel": "No allman integration today",
+      "pos": [
+        60,
+        70
+      ],
+      "size": [
+        220,
+        76
+      ]
+    },
+    {
+      "id": "opencli_1",
+      "type": "backend",
+      "label": "Local daemon / relay",
+      "sublabel": "CLI / MCP control surface",
+      "pos": [
+        370,
+        70
+      ],
+      "size": [
+        240,
+        76
+      ]
+    },
+    {
+      "id": "opencli_2",
+      "type": "backend",
+      "label": "OpenCLI extension",
+      "sublabel": "Controls Chromium tabs",
+      "pos": [
+        700,
+        70
+      ],
+      "size": [
+        250,
+        76
+      ],
+      "brand": {
+        "url": "https://raw.githubusercontent.com/jackwener/OpenCLI/8271afc67e8504bda94c147f446ee29775d08274/extension/icons/icon-128.png",
+        "sha256": "4b146c873a1f6e21f129e9d9ad7a6e56d48f64f536ef160468e967f265c424a4"
+      }
+    },
+    {
+      "id": "opencli_3",
+      "type": "database",
+      "label": "Existing Chrome profile",
+      "sublabel": "Shared login and cookies",
+      "pos": [
+        370,
+        245
+      ],
+      "size": [
+        240,
+        76
+      ]
+    },
+    {
+      "id": "opencli_4",
+      "type": "security",
+      "label": "Shield verification seam",
+      "sublabel": "Port gate to returned context",
+      "pos": [
+        700,
+        245
+      ],
+      "size": [
+        250,
+        76
+      ]
+    },
+    {
+      "id": "opencli_5",
+      "type": "security",
+      "label": "Adapter still missing",
+      "sublabel": "Prove extension-origin access",
+      "pos": [
+        1050,
+        245
+      ],
+      "size": [
+        220,
+        76
+      ]
+    },
+    {
+      "id": "opencli_6",
+      "type": "external",
+      "label": "Selected browser tabs",
+      "sublabel": "Respect borrowed ownership",
+      "pos": [
+        700,
+        420
+      ],
+      "size": [
+        250,
+        76
+      ]
+    },
+    {
+      "id": "opencli_7",
+      "type": "security",
+      "label": "Separate Shield layer",
+      "sublabel": "Bridge is not tracker blocking",
+      "pos": [
+        1050,
+        420
+      ],
+      "size": [
+        220,
+        76
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "flow_0",
+      "from": "opencli_0",
+      "to": "opencli_1",
+      "label": "proposed",
+      "variant": "dashed"
+    },
+    {
+      "id": "flow_1",
+      "from": "opencli_1",
+      "to": "opencli_2",
+      "label": "relay",
+      "variant": "dashed"
+    },
+    {
+      "id": "flow_2",
+      "from": "opencli_1",
+      "to": "opencli_3",
+      "label": "reuse",
+      "variant": "default",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "flow_3",
+      "from": "opencli_2",
+      "to": "opencli_4",
+      "label": "proposed",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "flow_4",
+      "from": "opencli_4",
+      "to": "opencli_5",
+      "label": "gap",
+      "variant": "security"
+    },
+    {
+      "id": "flow_5",
+      "from": "opencli_4",
+      "to": "opencli_6",
+      "label": "if built",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "flow_6",
+      "from": "opencli_6",
+      "to": "opencli_7",
+      "label": "protect",
+      "variant": "security"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Execution",
+      "items": [
+        "CLI + daemon + Chrome bridge extension",
+        "Companion; no adapter"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Protection",
+      "items": [
+        "Reuses logged-in profile; bridge and Shield are separate extensions.",
+        "No allman context/Shield gate adapter yet; isolated app state is not isolated cookies."
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Evidence",
+      "items": [
+        "Dashed integration links are proposed.",
+        "Detection outcomes are unmeasured."
+      ]
+    }
+  ]
+}

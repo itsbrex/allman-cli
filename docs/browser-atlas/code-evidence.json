@@ -1,0 +1,65 @@
+{
+  "navigation": "CodeDB MCP used first for allman, Viewforge and Shield. Allman MCP returned stale pre-change launcher despite CLI reindex; current CLI CodeDB explain and direct reads establish current behavior.",
+  "files": [
+    {
+      "path": "docs/browser-support.md",
+      "sha256": "545b7ea510d4b98fcabdd2965aaa674087b8fa32dde064e4d8468e835d3721ac",
+      "state": "uncommitted working tree; do not use baseline commit for line links"
+    },
+    {
+      "path": "src/linkedin/auth/browser.ts",
+      "sha256": "e790f4a4282df0efd750c0982df902504f6e47c2438eb1f43220154dc7ab419c",
+      "state": "uncommitted working tree; do not use baseline commit for line links"
+    },
+    {
+      "path": "src/linkedin/auth/browser-config.ts",
+      "sha256": "ccd276213eb5d629ef9d26c8aff537d32fdf6903e2f6573219273d6b2eafa1ef",
+      "state": "uncommitted working tree; do not use baseline commit for line links"
+    },
+    {
+      "path": "src/linkedin/auth/shield.ts",
+      "sha256": "ff078b46818c543af9976a4e625f1800523551c832f81bb5e452044b07963757",
+      "state": "uncommitted working tree; do not use baseline commit for line links"
+    },
+    {
+      "path": "src/linkedin/auth/queryid-capture.ts",
+      "sha256": "4aaff35c480a21aa0e81a14213748c415d62ba9b1d5fd8e83fcc5f95b039c9a4",
+      "state": "uncommitted working tree; do not use baseline commit for line links"
+    },
+    {
+      "path": "src/linkedin/auth/playwright-auth.ts",
+      "sha256": "fcbcbef9fcd382c997acf67e9708bcca97835dd4fed2fb8c42bb83352d39f455",
+      "state": "uncommitted working tree; do not use baseline commit for line links"
+    },
+    {
+      "path": "src/commands/browser.ts",
+      "sha256": "7289ec6d2b2dd16b0d4135956d88996e729f137ace0143f63513dfdaf2099d4d",
+      "state": "uncommitted working tree; do not use baseline commit for line links"
+    },
+    {
+      "path": "scripts/browser-smoke.ts",
+      "sha256": "8e3a07da85ad4e288d33bdd395a1e8ddf0ae5145289553dd3e762724ecb31267",
+      "state": "uncommitted working tree; do not use baseline commit for line links"
+    },
+    {
+      "path": "/Users/hack/github/viewforge/runtime/src/browser.ts",
+      "sha256": "2dc3d116767d27cdaef451e18d875f987b71445bb74e7f618cc28cfc7b86fdc3",
+      "revision": "3fefe0fee5955478b62994770fe1627736bbda04"
+    },
+    {
+      "path": "/Users/hack/github/viewforge/docs/architecture.md",
+      "sha256": "3f8620c6bfc6918a18f84f4c8a3737ed0cac5b155bd09e9773ea991bff986980",
+      "revision": "3fefe0fee5955478b62994770fe1627736bbda04"
+    },
+    {
+      "path": "/Users/hack/github/viewforge/runtime/src/coordinator.ts",
+      "sha256": "b8cde6d9149363a76574487c5fd9280086fc03b50f33150a15a1ffdfd686e4f7",
+      "revision": "3fefe0fee5955478b62994770fe1627736bbda04"
+    },
+    {
+      "path": "/Users/hack/github/viewforge/runtime/src/store.ts",
+      "sha256": "65a00c788919f615268b0198ca32abb84d6331c87aba4b3b293b8a24e7756f87",
+      "revision": "3fefe0fee5955478b62994770fe1627736bbda04"
+    }
+  ]
+}

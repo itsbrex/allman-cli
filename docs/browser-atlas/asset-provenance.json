@@ -1,0 +1,205 @@
+[
+  {
+    "id": "neo",
+    "file": "assets/neo.svg",
+    "source": "https://raw.githubusercontent.com/browseros-ai/BrowserOS/b26e9132286a2796623a59c0650369abbeedf3f6/docs/logo/neo-wordmark.svg",
+    "repository": "https://github.com/browseros-ai/BrowserOS",
+    "revision": "b26e9132286a2796623a59c0650369abbeedf3f6",
+    "path": "docs/logo/neo-wordmark.svg",
+    "sha256": "08f9ca493527a4970a7f3e887c718206d2212e66716cc8d673c081575e06447a",
+    "bytes": 13174,
+    "license": "AGPL-3.0"
+  },
+  {
+    "id": "browseros",
+    "file": "assets/browseros.png",
+    "source": "https://raw.githubusercontent.com/browseros-ai/BrowserOS/b26e9132286a2796623a59c0650369abbeedf3f6/docs/logo/favicon.png",
+    "repository": "https://github.com/browseros-ai/BrowserOS",
+    "revision": "b26e9132286a2796623a59c0650369abbeedf3f6",
+    "path": "docs/logo/favicon.png",
+    "sha256": "9e4e3ab826060e33e64f9a1e20684e2ce2f4cb213a51785416f7507d1b1227ea",
+    "bytes": 1649,
+    "license": "AGPL-3.0"
+  },
+  {
+    "id": "playwright",
+    "file": "assets/playwright.svg",
+    "source": "https://raw.githubusercontent.com/microsoft/playwright/07f1a6154795f055f341b8972086533e8e48b36f/packages/web/src/assets/playwright-logo.svg",
+    "repository": "https://github.com/microsoft/playwright",
+    "revision": "07f1a6154795f055f341b8972086533e8e48b36f",
+    "path": "packages/web/src/assets/playwright-logo.svg",
+    "sha256": "6b0a4367bdeab10995bc239278f04c68c10e48adbec15e799e01909a0d66dcb9",
+    "bytes": 5033,
+    "license": "Apache-2.0"
+  },
+  {
+    "id": "chromium",
+    "file": "assets/chromium.png",
+    "source": "https://raw.githubusercontent.com/chromium/chromium/97258ef1573fa2e6963e443a6d57979f8f947ecb/chrome/android/java/res_chromium_base/mipmap-xxxhdpi/app_icon.png",
+    "repository": "https://github.com/chromium/chromium",
+    "revision": "97258ef1573fa2e6963e443a6d57979f8f947ecb",
+    "path": "chrome/android/java/res_chromium_base/mipmap-xxxhdpi/app_icon.png",
+    "sha256": "dffc9b779d5e9a8a5a157cf7924f3ecb244120b57b4680755a4bb935f9fcef27",
+    "bytes": 9667,
+    "license": "BSD-3-Clause"
+  },
+  {
+    "id": "chrome",
+    "file": "assets/chrome.svg",
+    "source": "https://raw.githubusercontent.com/browseros-ai/BrowserOS/b26e9132286a2796623a59c0650369abbeedf3f6/packages/browseros-agent/apps/app/assets/google_chrome_logo.svg",
+    "repository": "https://github.com/browseros-ai/BrowserOS",
+    "revision": "b26e9132286a2796623a59c0650369abbeedf3f6",
+    "path": "packages/browseros-agent/apps/app/assets/google_chrome_logo.svg",
+    "sha256": "3a38cae2acf6983d0f77572feb27532c87284231c8e0cae22e412c796542507f",
+    "bytes": 1027,
+    "license": "AGPL-3.0"
+  },
+  {
+    "id": "edge",
+    "file": "assets/edge.png",
+    "source": "https://raw.githubusercontent.com/MicrosoftEdge/DevTools/afb526dfb3cb9a1c0bc53c9fbba036b16cf0102d/screenshot.png",
+    "repository": "https://github.com/MicrosoftEdge/DevTools",
+    "revision": "afb526dfb3cb9a1c0bc53c9fbba036b16cf0102d",
+    "path": "screenshot.png",
+    "sha256": "624b162cde9fdc97c22001987476c89507bc97fc202b7dff9d591aa5e38411c6",
+    "bytes": 375808,
+    "license": "MIT"
+  },
+  {
+    "id": "cloak",
+    "file": "assets/cloak.png",
+    "source": "https://raw.githubusercontent.com/CloakHQ/CloakBrowser-Manager/c393d88c66fe2790ed8ea753c095ad48b9498486/assets/manager-macos.png",
+    "repository": "https://github.com/CloakHQ/CloakBrowser-Manager",
+    "revision": "c393d88c66fe2790ed8ea753c095ad48b9498486",
+    "path": "assets/manager-macos.png",
+    "sha256": "31cd1e64184bc4fd53b92e18c4023307ab0ce8dcae40db28c406e286568f54c8",
+    "bytes": 441938,
+    "license": "NOASSERTION"
+  },
+  {
+    "id": "obscura",
+    "file": "assets/obscura.png",
+    "source": "https://raw.githubusercontent.com/h4ckf0r0day/obscura/cf26f454df37b6acf717c4ee27346800ff377bc8/assets/icon.png",
+    "repository": "https://github.com/h4ckf0r0day/obscura",
+    "revision": "cf26f454df37b6acf717c4ee27346800ff377bc8",
+    "path": "assets/icon.png",
+    "sha256": "2d6646c22668454986891e53a397023bfbf8854c55a74e1539bdf6cd8a2ba7bc",
+    "bytes": 13992,
+    "license": "Apache-2.0"
+  },
+  {
+    "id": "invisible",
+    "file": "assets/invisible.png",
+    "source": "https://raw.githubusercontent.com/feder-cr/invisible_playwright/93d243c8e9bcc657c4c92ee08e1fdcdf7d7ca901/docs/banner-dark.png",
+    "repository": "https://github.com/feder-cr/invisible_playwright",
+    "revision": "93d243c8e9bcc657c4c92ee08e1fdcdf7d7ca901",
+    "path": "docs/banner-dark.png",
+    "sha256": "0f2b83acb82a8a0b860d5b184e97b0fdf79b0d02b291d884538ef097e02b7bf8",
+    "bytes": 104870,
+    "license": "MIT"
+  },
+  {
+    "id": "camoufox",
+    "file": "assets/camoufox.png",
+    "source": "https://raw.githubusercontent.com/daijro/camoufox/52d6746a4a67830ec8a24e2196822204ba843134/additions/browser/branding/camoufox/Assets.xcassets/AppIcon.appiconset/icon_128x128.png",
+    "repository": "https://github.com/daijro/camoufox",
+    "revision": "52d6746a4a67830ec8a24e2196822204ba843134",
+    "path": "additions/browser/branding/camoufox/Assets.xcassets/AppIcon.appiconset/icon_128x128.png",
+    "sha256": "89a044d9d12d14746ead80f529bb2e4977740454a2bcf17b5eb807ed9b381f4e",
+    "bytes": 9774,
+    "license": "MPL-2.0"
+  },
+  {
+    "id": "dotnet",
+    "file": "assets/dotnet.png",
+    "source": "https://raw.githubusercontent.com/managedcode/playwright_stealth/22e7e03aa38db03b4b610c804f856a55aa656033/logo.png",
+    "repository": "https://github.com/managedcode/playwright_stealth",
+    "revision": "22e7e03aa38db03b4b610c804f856a55aa656033",
+    "path": "logo.png",
+    "sha256": "dd190494f5e4c8d5e68f2590c162f615faac16cf27f53fb3ff81a0e499ecbd3b",
+    "bytes": 10830,
+    "license": "MIT"
+  },
+  {
+    "id": "kernel",
+    "file": "assets/kernel.svg",
+    "source": "https://raw.githubusercontent.com/kernel/cli/41138f86309972f5ba426024e12f9dce6c38208f/pkg/auth/favicon.svg",
+    "repository": "https://github.com/kernel/cli",
+    "revision": "41138f86309972f5ba426024e12f9dce6c38208f",
+    "path": "pkg/auth/favicon.svg",
+    "sha256": "806f5783a43c945f7696a5c62d9174f54864c00a90ab47684b59818e44e29d13",
+    "bytes": 3914,
+    "license": "Apache-2.0"
+  },
+  {
+    "id": "opencli",
+    "file": "assets/opencli.png",
+    "source": "https://raw.githubusercontent.com/jackwener/OpenCLI/8271afc67e8504bda94c147f446ee29775d08274/extension/icons/icon-128.png",
+    "repository": "https://github.com/jackwener/OpenCLI",
+    "revision": "8271afc67e8504bda94c147f446ee29775d08274",
+    "path": "extension/icons/icon-128.png",
+    "sha256": "4b146c873a1f6e21f129e9d9ad7a6e56d48f64f536ef160468e967f265c424a4",
+    "bytes": 15333,
+    "license": "Apache-2.0"
+  },
+  {
+    "id": "donut",
+    "file": "assets/donut.png",
+    "source": "https://raw.githubusercontent.com/zhom/donutbrowser/738fb02e0bb0bbc7dd26a8debb0150214c45bae9/src-tauri/icons/128x128.png",
+    "repository": "https://github.com/zhom/donutbrowser",
+    "revision": "738fb02e0bb0bbc7dd26a8debb0150214c45bae9",
+    "path": "src-tauri/icons/128x128.png",
+    "sha256": "cd7151ec30ef15fb4f1c8ca07fe56235dcc3f7dfc4bb60010de4eafe48520a89",
+    "bytes": 9861,
+    "license": "AGPL-3.0"
+  },
+  {
+    "id": "agency",
+    "file": "assets/agency.svg",
+    "source": "https://raw.githubusercontent.com/browser-use/agency/53651cecb61d5b71b208504c7790c1e0e94bb3ad/docs/readme/agency-header.svg",
+    "repository": "https://github.com/browser-use/agency",
+    "revision": "53651cecb61d5b71b208504c7790c1e0e94bb3ad",
+    "path": "docs/readme/agency-header.svg",
+    "sha256": "c4e13058f5baf45e70ba4a83b5d361884f38496031f13c8bc25013956430b53e",
+    "bytes": 267295,
+    "license": "not identified"
+  },
+  {
+    "id": "viewforge",
+    "file": "assets/viewforge.png",
+    "source": "/Users/hack/github/viewforge/public/demo-catalog.png",
+    "sha256": "414f5b1b722c146dac01fe5169f9670ae8ce840e418af7eebde84fef45140797",
+    "bytes": 138603,
+    "license": "See source repository license",
+    "note": "Copied without modification from user-referenced local repository"
+  },
+  {
+    "id": "viewforge-mark",
+    "file": "assets/viewforge-mark.svg",
+    "source": "/Users/hack/github/viewforge/public/favicon.svg",
+    "sha256": "e0dea71d13c05b261b0abe1555d119f87c0ed80696e0a5908f91e225048ae2a4",
+    "bytes": 255,
+    "license": "See source repository license",
+    "note": "Copied without modification from user-referenced local repository"
+  },
+  {
+    "id": "shield",
+    "file": "assets/shield.png",
+    "source": "/Users/hack/github/linkedin-shield/dist/icons/shield-128.png",
+    "sha256": "b28b4aedf5b567075555ef76da266a5a4fca2377ae21c8220f1edaa7c42e37fc",
+    "bytes": 725,
+    "license": "See source repository license",
+    "note": "Copied without modification from user-referenced local repository"
+  },
+  {
+    "id": "playwriter",
+    "file": "assets/playwriter.png",
+    "source": "https://raw.githubusercontent.com/remorses/playwriter/bfca64f8ecf33b7fd1380c24975877ee97408084/extension/icons/icon-green-128.png",
+    "repository": "https://github.com/remorses/playwriter",
+    "revision": "bfca64f8ecf33b7fd1380c24975877ee97408084",
+    "path": "extension/icons/icon-green-128.png",
+    "sha256": "d84379ed6909ba2132f4f48cad36720cd2390cb36cfacbb45cd85a40dd3d8fc9",
+    "bytes": 6699,
+    "license": "MIT"
+  }
+]

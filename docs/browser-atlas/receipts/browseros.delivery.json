@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "deliver",
+  "type": "architecture",
+  "input": "/Users/hack/github/allman-cli/docs/browser-atlas/specs/browseros.final.json",
+  "output": "/Users/hack/github/allman-cli/docs/browser-atlas/diagrams/browseros.html",
+  "specification": {
+    "sha256": "8927fcf9bbfb7e750597b338fdb3d5a5563d56143a3c395155e1a6e7ebe2ba9a",
+    "bytes": 5117
+  },
+  "artifact": {
+    "sha256": "603a1ca91d95241fc9e926d622e7fe6bb758ce1671a7b499e5b821e1f76d6352",
+    "bytes": 673776
+  },
+  "validation": {
+    "checksPassed": 9,
+    "checkCount": 9,
+    "compositionProfile": "showcase",
+    "compositionStatus": "pass",
+    "errors": 0,
+    "warnings": 0
+  }
+}

@@ -1,0 +1,246 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "ManagedCode Playwright.Stealth · wrapper; adapter required",
+    "animation": "trace",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "control",
+        "label": "Control and identity",
+        "focus": [
+          "dotnet_stealth_0",
+          "dotnet_stealth_1",
+          "dotnet_stealth_2",
+          "dotnet_stealth_3"
+        ],
+        "note": "Proposed .NET bridge → persistent Chromium → Shield + init scripts"
+      },
+      {
+        "id": "protection",
+        "label": "Protection boundary",
+        "focus": [
+          "dotnet_stealth_2",
+          "dotnet_stealth_4",
+          "dotnet_stealth_5"
+        ],
+        "note": "Default one-call context pattern does not establish persistent Shield; not a browser engine."
+      },
+      {
+        "id": "work",
+        "label": "Sales workflow",
+        "focus": [
+          "dotnet_stealth_4",
+          "dotnet_stealth_6",
+          "dotnet_stealth_7"
+        ],
+        "note": "Useful only if a .NET workflow already needs this library."
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "dotnet_stealth_0",
+      "type": "frontend",
+      "label": "allman · proposed bridge",
+      "sublabel": "Cross-runtime integration",
+      "pos": [
+        60,
+        70
+      ],
+      "size": [
+        220,
+        76
+      ]
+    },
+    {
+      "id": "dotnet_stealth_1",
+      "type": "backend",
+      "label": ".NET Playwright",
+      "sublabel": "Create persistent context",
+      "pos": [
+        370,
+        70
+      ],
+      "size": [
+        240,
+        76
+      ]
+    },
+    {
+      "id": "dotnet_stealth_2",
+      "type": "backend",
+      "label": "Persistent Chromium",
+      "sublabel": "Wrapper does not replace engine",
+      "pos": [
+        700,
+        70
+      ],
+      "size": [
+        250,
+        76
+      ],
+      "brand": {
+        "url": "https://raw.githubusercontent.com/managedcode/playwright_stealth/22e7e03aa38db03b4b610c804f856a55aa656033/logo.png",
+        "sha256": "dd190494f5e4c8d5e68f2590c162f615faac16cf27f53fb3ff81a0e499ecbd3b"
+      }
+    },
+    {
+      "id": "dotnet_stealth_3",
+      "type": "database",
+      "label": "Profile directory",
+      "sublabel": "Not default ephemeral context",
+      "pos": [
+        370,
+        245
+      ],
+      "size": [
+        240,
+        76
+      ]
+    },
+    {
+      "id": "dotnet_stealth_4",
+      "type": "security",
+      "label": "Real Shield + scripts",
+      "sublabel": "Keep real extension APIs intact",
+      "pos": [
+        700,
+        245
+      ],
+      "size": [
+        250,
+        76
+      ]
+    },
+    {
+      "id": "dotnet_stealth_5",
+      "type": "security",
+      "label": "Compatibility checks",
+      "sublabel": "Mocked runtime may conflict",
+      "pos": [
+        1050,
+        245
+      ],
+      "size": [
+        220,
+        76
+      ]
+    },
+    {
+      "id": "dotnet_stealth_6",
+      "type": "external",
+      "label": "Browser work · future",
+      "sublabel": "Requires Shield verification",
+      "pos": [
+        700,
+        420
+      ],
+      "size": [
+        250,
+        76
+      ]
+    },
+    {
+      "id": "dotnet_stealth_7",
+      "type": "security",
+      "label": "Init-script patches",
+      "sublabel": "31 advertised signal vectors",
+      "pos": [
+        1050,
+        420
+      ],
+      "size": [
+        220,
+        76
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "flow_0",
+      "from": "dotnet_stealth_0",
+      "to": "dotnet_stealth_1",
+      "label": "proposed",
+      "variant": "dashed"
+    },
+    {
+      "id": "flow_1",
+      "from": "dotnet_stealth_1",
+      "to": "dotnet_stealth_2",
+      "label": "launch",
+      "variant": "dashed"
+    },
+    {
+      "id": "flow_2",
+      "from": "dotnet_stealth_1",
+      "to": "dotnet_stealth_3",
+      "label": "persist",
+      "variant": "default",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "flow_3",
+      "from": "dotnet_stealth_2",
+      "to": "dotnet_stealth_4",
+      "label": "install",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "flow_4",
+      "from": "dotnet_stealth_4",
+      "to": "dotnet_stealth_5",
+      "label": "test",
+      "variant": "security"
+    },
+    {
+      "id": "flow_5",
+      "from": "dotnet_stealth_4",
+      "to": "dotnet_stealth_6",
+      "label": "if pass",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "flow_6",
+      "from": "dotnet_stealth_6",
+      "to": "dotnet_stealth_7",
+      "label": "patch",
+      "variant": "security"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Execution",
+      "items": [
+        ".NET init-script layer over Playwright",
+        "Wrapper; adapter required"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Protection",
+      "items": [
+        "Script patches are not network blocking; extension must remain real.",
+        "Default one-call context pattern does not establish persistent Shield; not a browser engine."
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Evidence",
+      "items": [
+        "Dashed integration links are proposed.",
+        "Detection outcomes are unmeasured."
+      ]
+    }
+  ]
+}

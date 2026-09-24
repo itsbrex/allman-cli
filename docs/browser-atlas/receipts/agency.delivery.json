@@ -1,0 +1,24 @@
+{
+  "schemaVersion": 1,
+  "ok": true,
+  "command": "deliver",
+  "type": "architecture",
+  "input": "/Users/hack/github/allman-cli/docs/browser-atlas/specs/agency.final.json",
+  "output": "/Users/hack/github/allman-cli/docs/browser-atlas/diagrams/agency.html",
+  "specification": {
+    "sha256": "a5b4e90ffac306921be16d1181dde2401ed6b8a6c1761780d7ce9edfd564b36c",
+    "bytes": 4853
+  },
+  "artifact": {
+    "sha256": "91413c369267fd5f389e6d7c760c1069e5aea1d1fa672fe560fba12aa7cc6418",
+    "bytes": 670111
+  },
+  "validation": {
+    "checksPassed": 9,
+    "checkCount": 9,
+    "compositionProfile": "showcase",
+    "compositionStatus": "pass",
+    "errors": 0,
+    "warnings": 0
+  }
+}

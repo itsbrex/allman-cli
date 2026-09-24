@@ -1,0 +1,242 @@
+{
+  "schema_version": 1,
+  "diagram_type": "architecture",
+  "meta": {
+    "title": "Viewforge · WebKit · blocked: shield port",
+    "animation": "trace",
+    "quality_profile": "showcase",
+    "views": [
+      {
+        "id": "control",
+        "label": "Control and identity",
+        "focus": [
+          "viewforge_webkit_0",
+          "viewforge_webkit_1",
+          "viewforge_webkit_2",
+          "viewforge_webkit_3"
+        ],
+        "note": "Proposed native adapter → WebKit persistent dataStore"
+      },
+      {
+        "id": "protection",
+        "label": "Protection boundary",
+        "focus": [
+          "viewforge_webkit_2",
+          "viewforge_webkit_4",
+          "viewforge_webkit_5"
+        ],
+        "note": "Current Chrome MV3 Shield cannot run unchanged; macOS 15.2+ persistence requirement."
+      },
+      {
+        "id": "work",
+        "label": "Sales workflow",
+        "focus": [
+          "viewforge_webkit_4",
+          "viewforge_webkit_6",
+          "viewforge_webkit_7"
+        ],
+        "note": "Native macOS automation and same durable journal model."
+      }
+    ]
+  },
+  "components": [
+    {
+      "id": "viewforge_webkit_0",
+      "type": "frontend",
+      "label": "allman · proposed bridge",
+      "sublabel": "Translate auth and capture API",
+      "pos": [
+        60,
+        70
+      ],
+      "size": [
+        220,
+        76
+      ]
+    },
+    {
+      "id": "viewforge_webkit_1",
+      "type": "backend",
+      "label": "Viewforge coordinator",
+      "sublabel": "CLI / JSONL / bearer HTTP",
+      "pos": [
+        370,
+        70
+      ],
+      "size": [
+        240,
+        76
+      ]
+    },
+    {
+      "id": "viewforge_webkit_2",
+      "type": "backend",
+      "label": "Profile worker",
+      "sublabel": "One Bun process per identity",
+      "pos": [
+        700,
+        70
+      ],
+      "size": [
+        250,
+        76
+      ]
+    },
+    {
+      "id": "viewforge_webkit_3",
+      "type": "database",
+      "label": "SQLite journal",
+      "sublabel": "Intent → result → checkpoint",
+      "pos": [
+        370,
+        245
+      ],
+      "size": [
+        240,
+        76
+      ]
+    },
+    {
+      "id": "viewforge_webkit_4",
+      "type": "backend",
+      "label": "Native browser session",
+      "sublabel": "Bun.WebView · WebKit",
+      "pos": [
+        700,
+        245
+      ],
+      "size": [
+        250,
+        76
+      ]
+    },
+    {
+      "id": "viewforge_webkit_5",
+      "type": "security",
+      "label": "Missing Shield adapter",
+      "sublabel": "Extension lifecycle unverified",
+      "pos": [
+        1050,
+        245
+      ],
+      "size": [
+        220,
+        76
+      ]
+    },
+    {
+      "id": "viewforge_webkit_6",
+      "type": "frontend",
+      "label": "Research workflow",
+      "sublabel": "Typed records; guarded actions",
+      "pos": [
+        700,
+        420
+      ],
+      "size": [
+        250,
+        76
+      ]
+    },
+    {
+      "id": "viewforge_webkit_7",
+      "type": "database",
+      "label": "Persistent dataStore",
+      "sublabel": "Browser state; not DOM heap",
+      "pos": [
+        1050,
+        420
+      ],
+      "size": [
+        220,
+        76
+      ]
+    }
+  ],
+  "connections": [
+    {
+      "id": "flow_0",
+      "from": "viewforge_webkit_0",
+      "to": "viewforge_webkit_1",
+      "label": "proposed",
+      "variant": "dashed"
+    },
+    {
+      "id": "flow_1",
+      "from": "viewforge_webkit_1",
+      "to": "viewforge_webkit_2",
+      "label": "spawn",
+      "variant": "dashed"
+    },
+    {
+      "id": "flow_2",
+      "from": "viewforge_webkit_1",
+      "to": "viewforge_webkit_3",
+      "label": "commit",
+      "variant": "default",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "flow_3",
+      "from": "viewforge_webkit_2",
+      "to": "viewforge_webkit_4",
+      "label": "construct",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "flow_4",
+      "from": "viewforge_webkit_4",
+      "to": "viewforge_webkit_5",
+      "label": "gap",
+      "variant": "security"
+    },
+    {
+      "id": "flow_5",
+      "from": "viewforge_webkit_4",
+      "to": "viewforge_webkit_6",
+      "label": "native",
+      "variant": "dashed",
+      "fromSide": "bottom",
+      "toSide": "top",
+      "labelDy": 24
+    },
+    {
+      "id": "flow_6",
+      "from": "viewforge_webkit_6",
+      "to": "viewforge_webkit_7",
+      "label": "persist",
+      "variant": "security"
+    }
+  ],
+  "cards": [
+    {
+      "dot": "cyan",
+      "title": "Execution",
+      "items": [
+        "Bun.WebView / Apple WebKit",
+        "Blocked: Shield port"
+      ]
+    },
+    {
+      "dot": "rose",
+      "title": "Protection",
+      "items": [
+        "Local persistent store; policy is not a network sandbox.",
+        "Current Chrome MV3 Shield cannot run unchanged; macOS 15.2+ persistence requirement."
+      ]
+    },
+    {
+      "dot": "amber",
+      "title": "Evidence",
+      "items": [
+        "Dashed integration links are proposed.",
+        "Detection outcomes are unmeasured."
+      ]
+    }
+  ]
+}
