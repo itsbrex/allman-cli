@@ -190,7 +190,8 @@ async function profileRows(name: string, config: ExportConfig) {
             ? (actors[0] ?? null)
             : null,
       teamMembers: e.channel === "linkedin" ? [name] : members,
-      status: e.coverage,
+      status: e.status ?? e.coverage,
+      rawRefs: e.historical ? e.references : [],
       observedAt: new Date(e.timestamp).toISOString(),
     });
   }

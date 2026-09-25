@@ -75,6 +75,8 @@ export interface StoredEducation {
 }
 
 export interface StoredConnection {
+  /** Provenance for historical fields filled from local exports; not live enrichment. */
+  provenance?: Record<string, Provenance>;
   /** `urn:li:fsd_profile:<flagshipId>` */
   memberUrn: string;
   /** Flagship profile id (the `ACo…` filename key). */
@@ -473,7 +475,14 @@ export class ConnectionsStore {
     const prev = await this.readConnection(c.flagshipId);
     const merged = { ...(prev ?? {}) } as Record<string, unknown>;
     for (const [k, v] of Object.entries(c)) {
-      if (meaningful(v)) merged[k] = v;
+      if (meaningful(v)) {
+        merged[k] = v;
+        if (k !== "provenance" && prev?.provenance?.[k])
+          merged.provenance = {
+            ...(merged.provenance as Record<string, Provenance>),
+            [k]: { source: "linkedin/sweep", observedAt: nowIso },
+          };
+      }
     }
     // A confirmed connection never gets downgraded to "enrich" by a later
     // ad-hoc enrichment of the same person.
@@ -611,7 +620,14 @@ export class ConnectionsStore {
     // (e.g. don't wipe deep fields when re-running a core enrich).
     const merged = { ...existing } as StoredConnection & Record<string, unknown>;
     for (const [k, v] of Object.entries(patch)) {
-      if (meaningful(v)) merged[k] = v;
+      if (meaningful(v)) {
+        merged[k] = v;
+        if (merged.provenance?.[k])
+          merged.provenance[k] = {
+            source: `linkedin/enrich-${depth}`,
+            observedAt: nowIso,
+          };
+      }
     }
     merged.enrichedAt = nowIso;
     merged.enrichDepth = existing.enrichDepth === "deep" ? "deep" : depth;

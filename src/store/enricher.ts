@@ -34,6 +34,8 @@ export interface Provenance {
   source: ProvenanceSource;
   /** ISO timestamp of when the source reported the value. */
   observedAt: string;
+  /** Optional immutable local evidence reference (for example an archived CSV row). */
+  sourceRef?: string;
   /** 0–1, when the source is probabilistic. Absent means asserted. */
   confidence?: number;
 }

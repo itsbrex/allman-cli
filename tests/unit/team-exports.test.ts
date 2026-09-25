@@ -130,6 +130,47 @@ it("attributes email to the supplied sender owner, not the workspace holding the
   });
 });
 
+it("exports archived messages with historical status, raw provenance and JP ownership", async () => {
+  await writePrivate(join(root, "config/allman/jp/relationships/linkedin-archives/ACojp.json"), {
+    version: 1,
+    account: "ACojp",
+    sources: [],
+    emails: [],
+    events: [
+      {
+        id: "archive-message",
+        account: "ACojp",
+        kind: "message",
+        thread: "archived-thread",
+        timestamp: Date.parse("2026-01-01T00:00:00Z"),
+        timestampPrecision: "instant",
+        originalTimestamp: "2026-01-01 00:00:00 UTC",
+        direction: "outbound",
+        participants: [{ url: "https://www.linkedin.com/in/shared-person", name: "Fixture" }],
+        subject: "",
+        body: "Archived fixture",
+        draft: false,
+        status: "historical-message",
+        sourceRefs: ["/private/messages.csv#record=1"],
+      },
+    ],
+  });
+  await refreshTeamExports();
+  const event = (await load()).rows.find(
+    (r: { sourceKey: string }) => r.sourceKey === "archive-message"
+  );
+  expect(event).toMatchObject({
+    profile: "jp",
+    actorProfile: "jp",
+    teamMembers: ["jp"],
+    status: "historical-message",
+    personKeys: ["linkedin:ACoShared", "url:https://www.linkedin.com/in/shared-person"],
+    rawRefs: ["/private/messages.csv#record=1"],
+    data: { historical: true, eligible: false },
+  });
+  expect((await load()).rows.some((r: { kind: string }) => r.kind === "followup")).toBe(false);
+});
+
 it("retains missing observations but marks them absent, and preserves published exports on corrupt input", async () => {
   await refreshTeamExports();
   await rm(join(root, "brian/ACobrian/connections/ACoShared.json"));

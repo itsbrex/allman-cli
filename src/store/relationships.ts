@@ -1,6 +1,7 @@
 import { join } from "node:path";
 import { type AttioAssociation, correlateAttio } from "../attio/correlation.js";
 import { normalizeLinkedInUrl, readAttioCache } from "../attio/people.js";
+import type { HistoricalEmail } from "../imports/linkedin-archive.js";
 import { companyId } from "../linkedin/api/endpoints/companies.js";
 import { type Contact, contactId, emailAddress, MailStore, stableId } from "../mail/store.js";
 import { type ContactFact, personFacts } from "../relationships/facts.js";
@@ -14,9 +15,12 @@ import { type RelationshipScore, relationshipScore } from "../relationships/rank
 import { applyRankOverride, readRankOverrides } from "../relationships/rank-overrides.js";
 import { companyRollups } from "./company-view.js";
 import type { Store } from "./index.js";
+import { appendLinkedInHistory } from "./linkedin-history.js";
 import { readJson, writePrivate } from "./private-workspace.js";
 import { coalesceTimeline } from "./timeline.js";
 export interface RelationshipContact extends Contact {
+  /** Dated, unverified archive evidence. Never used to auto-merge email identities. */
+  historicalEmails?: HistoricalEmail[];
   rank?: RelationshipScore;
   facts?: ContactFact[];
   qualifications?: Record<string, QualificationView>;
@@ -27,6 +31,12 @@ export interface RelationshipContact extends Contact {
   geoUrn?: string | null;
 }
 export interface TimelineEvent {
+  historical?: boolean;
+  kind?: "message" | "invitation";
+  draft?: boolean;
+  status?: string;
+  timestampPrecision?: "instant" | "date";
+  originalTimestamp?: string;
   /** False for group mail; absent on legacy snapshots. */
   direct?: boolean;
   automated?: boolean;
@@ -255,6 +265,7 @@ export async function relationshipSnapshot(
               : "stored",
         });
     }
+    await appendLinkedInHistory(root, account, contacts, timeline);
     const company = await companyRollups(store, account);
     companies.push(...company.companies);
     mergeReview.push(...company.mergeReview);
