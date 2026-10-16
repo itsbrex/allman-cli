@@ -220,12 +220,15 @@ activity
   });
 
 program
-  .command("session <action> [name]")
+  .command("session <action> [name] [command...]")
   .description("Control the one active LinkedIn profile across all stores")
   .option("-a, --account <slug>", "account to register")
   .option("-s, --store <path>", "store to register")
+  .option("--mcp <url>", "BrowserOS neo MCP endpoint to bind (register, bind-mcp)")
   .option("--json", "output as JSON")
-  .action(async (action, name, _opts, cmd) => sessionCommand(action, name, cmd.optsWithGlobals()));
+  .action(async (action, name, command, _opts, cmd) =>
+    sessionCommand(action, name, cmd.optsWithGlobals(), command)
+  );
 
 // ---------------------------------------------------------------------------
 // login
