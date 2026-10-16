@@ -52,7 +52,7 @@ The installed JP adapter now passes:
 directory. `mcp-resources/skills` points to the selected private vendor resources.
 The wrapper sets `BROWSERCLAW_DIR` to `~/.config/allman/jp/browserclaw-state` and
 executes the unmodified, signature-verified vendor backend at
-`~/.config/allman/jp/backend-vendor/0.0.58/resources/bin/browseros-claw-server`.
+`~/.config/allman/jp/backend-vendor/0.0.72/resources/bin/browseros-claw-server`.
 This resource bundle was copied from the existing official Neo server update.
 The older app-bundled 0.0.53 server also failed cross-call tab ownership checks.
 Backend updates are explicit: verify a vendor resource bundle, retain the old

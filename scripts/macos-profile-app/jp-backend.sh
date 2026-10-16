@@ -4,7 +4,7 @@
 set -euo pipefail
 jp_base=/Users/hack/.config/allman/jp
 jp_state="$jp_base/browserclaw-state"
-jp_binary="$jp_base/backend-vendor/0.0.58/resources/bin/browseros-claw-server"
+jp_binary="$jp_base/backend-vendor/0.0.72/resources/bin/browseros-claw-server"
 if [[ ! -x "$jp_binary" || ! -d "$jp_state" ]]; then
   echo 'JP backend binary or private state directory is missing.' >&2
   exit 1
