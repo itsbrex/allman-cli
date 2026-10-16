@@ -27,12 +27,36 @@ export interface ManagedProfile {
   store: string;
   account: string;
   workspace: string;
-  browser: BrowserConfig & { cdpEndpoint: string; shieldPath: string };
+  browser: BrowserConfig & { cdpEndpoint: string; shieldPath: string; mcpEndpoint?: string };
 }
 export interface SessionRegistry {
   version: 1;
   active: string | null;
   profiles: ManagedProfile[];
+}
+const LOOPBACK_HOSTS = ["127.0.0.1", "localhost", "[::1]"];
+
+/** BrowserOS neo MCP endpoints are loopback-only, like the CDP endpoints they are bound to. */
+export function assertMcpEndpoint(endpoint: unknown): asserts endpoint is string {
+  let url: URL | null = null;
+  try {
+    url = typeof endpoint === "string" ? new URL(endpoint) : null;
+  } catch {
+    url = null;
+  }
+  if (
+    !url ||
+    url.protocol !== "http:" ||
+    !LOOPBACK_HOSTS.includes(url.hostname) ||
+    url.username ||
+    url.password ||
+    url.search ||
+    url.hash ||
+    url.pathname !== "/mcp"
+  )
+    throw new Error(
+      "Session control requires a loopback HTTP MCP endpoint ending in /mcp, such as http://127.0.0.1:9010/mcp"
+    );
 }
 export function sessionControlRoot(): string {
   return allmanConfigRoot();
@@ -65,6 +89,7 @@ export function validateProfile(profile: ManagedProfile): void {
     throw new Error("Session control requires a loopback HTTP CDP endpoint");
   if (profile.browser.profileDir && !isAbsolute(profile.browser.profileDir))
     throw new Error("Invalid session control browser profile directory");
+  if (profile.browser.mcpEndpoint !== undefined) assertMcpEndpoint(profile.browser.mcpEndpoint);
 }
 export function readSessionRegistry(root = sessionControlRoot()): SessionRegistry | null {
   const path = join(root, "session-control.json");
@@ -78,10 +103,14 @@ export function readSessionRegistry(root = sessionControlRoot()): SessionRegistr
     )
       throw new Error("invalid schema");
     value.profiles.forEach(validateProfile);
+    const mcpEndpoints = value.profiles.flatMap((p) =>
+      p.browser.mcpEndpoint ? [new URL(p.browser.mcpEndpoint).href] : []
+    );
     if (
       new Set(value.profiles.map((p) => p.name)).size !== value.profiles.length ||
       new Set(value.profiles.map((p) => new URL(p.browser.cdpEndpoint).href)).size !==
         value.profiles.length ||
+      new Set(mcpEndpoints).size !== mcpEndpoints.length ||
       (value.active !== null && !value.profiles.some((p) => p.name === value.active))
     )
       throw new Error("duplicate or unknown profile");
