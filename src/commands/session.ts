@@ -16,6 +16,7 @@ import {
   saveSessionRegistry,
   validateProfile,
 } from "../linkedin/session-control.js";
+import { runGuardedChild } from "../linkedin/session-run.js";
 import { resolveStorePath, Store } from "../store/index.js";
 import { printData } from "../utils/output.js";
 
@@ -117,7 +118,34 @@ export async function sessionCommand(
       target.browser = browser;
       saveSessionRegistry(registry);
     } else if (action === "run") {
-      throw new Error(`session run is not implemented yet: ${command.join(" ")}`);
+      const target = registry.profiles.find((p) => p.name === name);
+      if (!target) throw new Error(`Unknown profile "${name}". Register it first.`);
+      if (command.length === 0) throw new Error("Use session run <name> -- <command...>");
+      const mcp = target.browser.mcpEndpoint;
+      if (!mcp)
+        throw new Error(
+          `Profile "${target.name}" has no MCP endpoint. Run \`allman session bind-mcp ${target.name} --mcp <url>\` first. No LinkedIn request was made.`
+        );
+      await assertSameBrowser(target);
+      const memberId =
+        (await new Store({ path: target.store }).accounts.resolveId(target.account)) ??
+        target.account;
+      if (!/^ACo[A-Za-z0-9_-]+$/.test(memberId))
+        throw new Error(
+          `Cannot resolve the LinkedIn member ID for profile "${target.name}". No LinkedIn request was made.`
+        );
+      await switchActive(registry, target);
+      if (readSessionRegistry()?.active !== target.name)
+        throw new Error(
+          "Session selection changed during activation; the command was not started."
+        );
+      process.exitCode = await runGuardedChild(command, {
+        ALLMAN_PROFILE: target.name,
+        ALLMAN_NEO_MCP_URL: mcp,
+        ALLMAN_EXPECTED_MEMBER_ID: memberId,
+        ALLMAN_SESSION_RUN: "1",
+      });
+      return;
     } else {
       const target =
         action === "activate" ? registry.profiles.find((p) => p.name === name) : undefined;

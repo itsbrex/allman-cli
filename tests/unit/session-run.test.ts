@@ -111,3 +111,93 @@ describe("session bind-mcp", () => {
     ).rejects.toThrow(/Unknown profile "nobody"/);
   });
 });
+
+describe("session run", () => {
+  beforeEach(() => {
+    saveSessionRegistry({
+      version: 1,
+      active: "brian",
+      profiles: [profile("brian", 9222, 9010), profile("jp", 9223, 9012)],
+    });
+  });
+
+  it("binds, activates, then starts the child with the guard env while holding the lock", async () => {
+    h.child.mockImplementation(async (command: string[], env: Record<string, string>) => {
+      h.calls.push(`spawn:${command.join(" ")}:locked=${existsSync(lock())}`);
+      expect(env).toEqual({
+        ALLMAN_PROFILE: "jp",
+        ALLMAN_NEO_MCP_URL: "http://127.0.0.1:9012/mcp",
+        ALLMAN_EXPECTED_MEMBER_ID: "ACoJp123",
+        ALLMAN_SESSION_RUN: "1",
+      });
+      return 0;
+    });
+    await sessionCommand("run", "jp", {}, ["lmc", "mutuals", "x.xlsx"]);
+    expect(h.calls).toEqual([
+      "bind:jp:http://127.0.0.1:9012/mcp",
+      "pause:brian",
+      "resume:jp",
+      "spawn:lmc mutuals x.xlsx:locked=true",
+    ]);
+    expect(h.resolveId).toHaveBeenCalledWith("jp-slug");
+    expect(readSessionRegistry()?.active).toBe("jp");
+    expect(existsSync(lock())).toBe(false);
+    expect(process.exitCode).toBe(0);
+  });
+
+  it("exits with the child's exit code", async () => {
+    h.child.mockResolvedValueOnce(7);
+    await sessionCommand("run", "jp", {}, ["lmc"]);
+    expect(process.exitCode).toBe(7);
+  });
+
+  it("releases the lock when the child cannot start", async () => {
+    h.child.mockRejectedValueOnce(new Error("spawn lmc ENOENT"));
+    await expect(sessionCommand("run", "jp", {}, ["lmc"])).rejects.toThrow(/spawn lmc ENOENT/);
+    expect(existsSync(lock())).toBe(false);
+  });
+
+  it("refuses a profile without an MCP endpoint before changing anything", async () => {
+    saveSessionRegistry({
+      version: 1,
+      active: "brian",
+      profiles: [profile("brian", 9222, 9010), profile("jp", 9223)],
+    });
+    await expect(sessionCommand("run", "jp", {}, ["lmc"])).rejects.toThrow(
+      /has no MCP endpoint.*No LinkedIn request was made/
+    );
+    expect(h.sameBrowser).not.toHaveBeenCalled();
+    expect(h.pause).not.toHaveBeenCalled();
+    expect(h.child).not.toHaveBeenCalled();
+    expect(readSessionRegistry()?.active).toBe("brian");
+  });
+
+  it("refuses an MCP/CDP mismatch before changing anything", async () => {
+    h.sameBrowser.mockRejectedValueOnce(new Error("MCP endpoint is not the browser"));
+    await expect(sessionCommand("run", "jp", {}, ["lmc"])).rejects.toThrow(/not the browser/);
+    expect(h.pause).not.toHaveBeenCalled();
+    expect(h.child).not.toHaveBeenCalled();
+    expect(readSessionRegistry()?.active).toBe("brian");
+  });
+
+  it("refuses when the member ID cannot be resolved, before changing anything", async () => {
+    h.resolveId.mockResolvedValueOnce(null);
+    await expect(sessionCommand("run", "jp", {}, ["lmc"])).rejects.toThrow(
+      /Cannot resolve the LinkedIn member ID for profile "jp"/
+    );
+    expect(h.pause).not.toHaveBeenCalled();
+    expect(readSessionRegistry()?.active).toBe("brian");
+  });
+
+  it("requires a command", async () => {
+    await expect(sessionCommand("run", "jp", {}, [])).rejects.toThrow(
+      /Use session run <name> -- <command...>/
+    );
+  });
+
+  it("rejects an unknown profile", async () => {
+    await expect(sessionCommand("run", "nobody", {}, ["lmc"])).rejects.toThrow(
+      /Unknown profile "nobody"/
+    );
+  });
+});
