@@ -67,7 +67,7 @@ def main():
         config = {**previous_config, 'name': name, 'profile': args.profile, 'launcher': str(launcher),
                   'repository': str(REPO), 'runtimePath': runtime_path,
                   'logDirectory': str(HOME_DIR / '.config/allman' / args.profile / 'logs'),
-                  'companionEndpoint': 'http://127.0.0.1:9222' if args.profile == 'brian' else 'http://127.0.0.1:9223',
+                  'companionEndpoint': 'http://127.0.0.1:9223' if args.profile == 'brian' else 'http://127.0.0.1:9222',
                   'companionProfileDirectory': str(HOME_DIR / 'Library/Application Support/BrowserClaw'),
                   'browserApplication': '/Applications/BrowserOS neo.app'}
         config['engineApplication'] = str(HOME_DIR / '.config/allman/jp/BrowserOS JP.app')

@@ -25,7 +25,9 @@ def parse_owners(lines):
 def check_binding(command):
     return (bool(re.search(re.escape(f'--user-data-dir={PROFILE}') + r'(?= --|$)', command))
             and bool(re.search(r'--remote-debugging-port=9222(?= |$)', command))
-            and bool(re.search(r'--browseros-cdp-port=9222(?= |$)', command)))
+            and bool(re.search(r'--browseros-cdp-port=9222(?= |$)', command))
+            and bool(re.search(r'--browseros-server-port=9210(?= |$)', command))
+            and bool(re.search(r'--browseros-proxy-port=9010(?= |$)', command)))
 
 
 def main():
@@ -47,7 +49,8 @@ def main():
         with (logs / 'browser.log').open('a') as output:
             process = subprocess.Popen([BINARY, f'--user-data-dir={PROFILE}',
                 '--remote-debugging-address=127.0.0.1', '--remote-debugging-port=9222',
-                '--browseros-cdp-port=9222', '--enable-features=OnDeviceModelForceCpuBackend',
+                '--browseros-cdp-port=9222', '--browseros-server-port=9210',
+                '--browseros-proxy-port=9010', '--enable-features=OnDeviceModelForceCpuBackend',
                 '--no-first-run', '--no-default-browser-check',
                 *(['--restore-last-session'] if args.restore_session else []), 'chrome://version'],
                 stdin=subprocess.DEVNULL, stdout=output, stderr=output,

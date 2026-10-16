@@ -10,6 +10,9 @@ if [[ ! -x "$jp_binary" || ! -d "$jp_state" ]]; then
   exit 1
 fi
 export BROWSERCLAW_DIR="$jp_state"
+# Large MCP results use BROWSEROS_DIR, independently of the backend state root.
+# Keep tool artifacts inside the same writable, JP-only sandbox directory.
+export BROWSEROS_DIR="$jp_state"
 # Keep the real HOME. Upstream boot reconciliation otherwise adopts and rewrites
 # existing browseros-neo MCP entries, even with a separate BROWSERCLAW_DIR.
 # Only this backend process is constrained; browser downloads/extensions retain
