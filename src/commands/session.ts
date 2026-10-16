@@ -13,6 +13,7 @@ import {
   saveSessionRegistry,
   validateProfile,
 } from "../linkedin/session-control.js";
+import { prepareSessionDevelopment } from "../linkedin/session-development.js";
 import { resolveStorePath, Store } from "../store/index.js";
 import { printData } from "../utils/output.js";
 
@@ -74,12 +75,18 @@ export async function sessionCommand(
       try {
         for (const profile of registry.profiles)
           if (profile !== target) await profilePause(profile, true);
+        if (target && (await prepareSessionDevelopment(registry.profiles))) {
+          // A rebuilt extension may have reloaded. Verify its persisted gate again.
+          for (const profile of registry.profiles)
+            if (profile !== target) await profilePause(profile, true, true);
+        }
         if (target) await profilePause(target, false);
         registry.active = target?.name ?? null;
         saveSessionRegistry(registry);
       } catch (error) {
-        // Never leave the target newly enabled after a partially failed switch.
-        if (target) await profilePause(target, true).catch(() => {});
+        // A development reload may have changed any gate. Best-effort pause all
+        // browsers, preserve the original failure, and keep CLI access closed.
+        for (const profile of registry.profiles) await profilePause(profile, true).catch(() => {});
         throw error;
       }
     }

@@ -12,7 +12,9 @@ import {
 } from "@/linkedin/session-control.js";
 
 const open = vi.hoisted(() => vi.fn());
+const development = vi.hoisted(() => vi.fn());
 vi.mock("@/linkedin/auth/browser.js", () => ({ openBrowserContext: open }));
+vi.mock("@/linkedin/session-development.js", () => ({ prepareSessionDevelopment: development }));
 vi.mock("@/utils/output.js", () => ({ printData: vi.fn() }));
 let root: string;
 let rules: Map<string, Map<number, { id: number; action: { type: string } }>>;
@@ -44,6 +46,7 @@ beforeEach(async () => {
   operations = [];
   closed = [];
   failing = null;
+  development.mockReset().mockResolvedValue(false);
   saveSessionRegistry({
     version: 1,
     active: "brian",
@@ -123,6 +126,46 @@ it("blocks the old browser before allowing the new profile and preserves unrelat
   expect(readSessionRegistry()?.active).toBe("jp");
   expect(browserRules().has(7)).toBe(true);
   expect(closed).toEqual(["linkedin"]);
+});
+it("prepares development under the shared lock before enabling the selected browser", async () => {
+  development.mockImplementation(async () => {
+    expect(readSessionRegistry()?.active).toBeNull();
+    expect(operations).toEqual([["http://127.0.0.1:9222", true]]);
+    expect(() => acquireLinkedInLock("competing switch")).toThrow("already running");
+    return true;
+  });
+  await sessionCommand("activate", "jp", {});
+  expect(development).toHaveBeenCalledExactlyOnceWith(readSessionRegistry()?.profiles);
+  expect(operations.at(-1)).toEqual(["http://127.0.0.1:9233", false]);
+  expect(readSessionRegistry()?.active).toBe("jp");
+});
+it("keeps both browsers paused when the development restart fails", async () => {
+  development.mockRejectedValue(new Error("unrecognized port owner"));
+  await expect(sessionCommand("activate", "jp", {})).rejects.toThrow("unrecognized port owner");
+  expect(readSessionRegistry()?.active).toBeNull();
+  expect(operations).toEqual([
+    ["http://127.0.0.1:9222", true],
+    ["http://127.0.0.1:9222", true],
+    ["http://127.0.0.1:9233", true],
+  ]);
+  const release = acquireLinkedInLock("recovery");
+  release();
+});
+it("refuses to enable the target if a development reload lost an inactive gate", async () => {
+  development.mockImplementation(async () => {
+    browserRules().delete(gateId);
+    return true;
+  });
+  await expect(sessionCommand("activate", "jp", {})).rejects.toThrow("pause state differs");
+  expect(readSessionRegistry()?.active).toBeNull();
+  expect(operations).not.toContainEqual(["http://127.0.0.1:9233", false]);
+  expect(browserRules().has(gateId)).toBe(true);
+  expect(browserRules("http://127.0.0.1:9233").has(gateId)).toBe(true);
+});
+it("does not restart development for read-only status or pause", async () => {
+  await sessionCommand("status", undefined, {});
+  await sessionCommand("pause", undefined, {});
+  expect(development).not.toHaveBeenCalled();
 });
 it("leaves all CLI access paused when an inactive browser cannot be protected", async () => {
   failing = "http://127.0.0.1:9222";

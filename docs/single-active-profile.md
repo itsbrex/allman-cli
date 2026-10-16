@@ -72,6 +72,49 @@ Keep all launchers on the guarded checkout and retain the shared configuration.
 Direct CLI HTTP requests are outside Shield's browser interception but are
 subject to the CLI account and command lock.
 
+## Development server on profile activation (macOS)
+
+To manage a local LinkedIn Shield development checkout on every activation, create
+`~/.config/allman/session-development.json` (or the same file beneath
+`$XDG_CONFIG_HOME/allman`) with private machine-specific paths:
+
+```json
+{
+  "version": 1,
+  "shield": {
+    "root": "/absolute/path/to/linkedin-shield",
+    "node": "/absolute/path/to/node-24/bin/node",
+    "port": 8396
+  },
+  "extensions": [
+    "/absolute/path/to/linkedin-shield/.dev-build",
+    "/absolute/path/to/session-alive/.dev-build"
+  ]
+}
+```
+
+Use Node 24.2 or newer, as required by Shield's development server. Every registered
+profile must use that Shield `.dev-build`; every listed extension must already be
+enabled in each browser. Paths are matched against the installed extensions before
+granting **Local network** and **Apps on device** (loopback) access to those exact
+extension origins through Chromium's persistent Site settings. Other extensions,
+website permissions, and global network settings remain unchanged. Unsupported
+settings APIs or policy blocks fail the switch.
+
+`allman session activate <name>` now holds the shared command lock while protecting
+inactive profiles, saving those permissions, stopping the verified Shield listener,
+and starting `node dev/server.mjs` from that checkout. This is the same script run by
+`bun run dev`. Node is launched directly so its PID owns the listener. Output goes
+to `~/.config/allman/shield-dev.log`. A different process on the configured port is
+never killed. A healthy build and extension reconnect acknowledgements are required
+before inactive gates are checked again and the selected profile is enabled.
+
+CLI activation, native profile apps, and dashboard switching all use this path.
+Reactivating the same profile also restarts development; read-only `session status`,
+registration, and `session pause` do not. Failure leaves `active: null`. Do not start
+a second `bun run dev` while the managed server owns port 8396. Without this optional
+configuration, session switching retains its existing behavior.
+
 [Named profile folders](profile-folders.md) scope default stores and workspaces
 with `ALLMAN_PROFILE`. They never scope the shared registry or command lock.
 Do not use different `XDG_CONFIG_HOME` values to isolate account settings: that
@@ -82,7 +125,7 @@ does not activate it; `session activate` remains the only account-switch workflo
 
 `allman-jp` selects JP's store/account; ordinary commands attach to its existing
 browser. Only the launcher's login branch automatically invokes its browser opener.
-The saved JP endpoint is port 9233; Brian uses 9222.
+The saved JP endpoint is port 9223; Brian uses 9222.
 
 ```sh
 allman-jp-browser           # reopen the existing dedicated JP profile; no new login
