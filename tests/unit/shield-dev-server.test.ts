@@ -1,5 +1,5 @@
 import { type ChildProcess, execFile, spawn } from "node:child_process";
-import { mkdir, mkdtemp, realpath, rm, writeFile } from "node:fs/promises";
+import { mkdir, mkdtemp, realpath, rm, symlink, writeFile } from "node:fs/promises";
 import { createServer } from "node:net";
 import { tmpdir } from "node:os";
 import { join } from "node:path";
@@ -21,10 +21,11 @@ async function listener(): Promise<number | undefined> {
     return undefined;
   }
 }
-async function start(script: string) {
+async function start(script: string, argv0?: string) {
   const child = spawn(config.node, [script], {
     cwd: root,
     stdio: "ignore",
+    argv0,
     env: { ...process.env, SHIELD_DEV_PORT: String(config.port) },
   });
   children.push(child);
@@ -63,6 +64,21 @@ macTest(
   "replaces the exact dev server and waits for healthy replacement PID",
   async () => {
     const previous = await start("dev/server.mjs");
+    await restartShieldDevelopment(config, join(root, "state"), 0);
+    expect(await listener()).toBeTruthy();
+    expect(await listener()).not.toBe(previous.pid);
+    expect(previous.exitCode === 0 || previous.signalCode === "SIGTERM").toBe(true);
+  },
+  20000
+);
+macTest(
+  "replaces a server started as bare `node` through a symlinked node path",
+  async () => {
+    // `bun run dev` in the Shield checkout runs `node dev/server.mjs`: argv0 is the
+    // bare name, and mise exposes node through a versioned symlink.
+    const previous = await start("dev/server.mjs", "node");
+    await symlink(config.node, join(root, "node-link"));
+    config = { ...config, node: join(root, "node-link") };
     await restartShieldDevelopment(config, join(root, "state"), 0);
     expect(await listener()).toBeTruthy();
     expect(await listener()).not.toBe(previous.pid);

@@ -29,25 +29,33 @@ async function listenerPids(port: number): Promise<number[]> {
   }
 }
 
-async function assertOwnedServer(pid: number, config: ServerConfig): Promise<void> {
-  const [cwd, command, executable] = await Promise.all([
-    exec("lsof", ["-a", "-p", String(pid), "-d", "cwd", "-Fn"], { timeout: 5000 }),
-    exec("ps", ["-p", String(pid), "-o", "command="], { timeout: 5000 }),
-    exec("ps", ["-p", String(pid), "-o", "comm="], { timeout: 5000 }),
-  ]);
-  const directory = cwd.stdout
+function firstPath(lsofOutput: string): string | undefined {
+  return lsofOutput
     .split("\n")
     .find((line) => line.startsWith("n"))
     ?.slice(1);
-  const binary = executable.stdout.trim();
+}
+
+async function assertOwnedServer(pid: number, config: ServerConfig): Promise<void> {
+  // argv0 is unreliable: `bun run dev` starts the server as a bare `node`, so the
+  // executable comes from the process's first open text file, not from `ps comm`.
+  const [cwd, text, command] = await Promise.all([
+    exec("lsof", ["-a", "-p", String(pid), "-d", "cwd", "-Fn"], { timeout: 5000 }),
+    exec("lsof", ["-a", "-p", String(pid), "-d", "txt", "-Fn"], { timeout: 5000 }),
+    exec("ps", ["-p", String(pid), "-o", "command="], { timeout: 5000 }),
+  ]);
+  const directory = firstPath(cwd.stdout);
+  const binary = firstPath(text.stdout);
   let owned = false;
   try {
+    const root = realpathSync(config.root);
     owned = Boolean(
       directory &&
-        realpathSync(directory) === config.root &&
-        realpathSync(binary) === config.node &&
-        ["dev/server.mjs", join(config.root, "dev/server.mjs")].some(
-          (script) => command.stdout.trim() === `${binary} ${script}`
+        binary &&
+        realpathSync(directory) === root &&
+        realpathSync(binary) === realpathSync(config.node) &&
+        ["dev/server.mjs", join(root, "dev/server.mjs")].some((script) =>
+          command.stdout.trim().endsWith(` ${script}`)
         )
     );
   } catch {
