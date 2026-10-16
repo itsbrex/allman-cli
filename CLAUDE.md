@@ -173,6 +173,7 @@ allman connections-of <slug> [--flagship|--salesnav] [--limit N] [--csv <path>] 
 allman enrich [target] [--deep] [--force] [--limit N] [--json]
 allman connect <slug|url|urn> [--note <text>] [--dry-run] [--json]
 allman store path|commit|status
+allman session status|register <name>|activate <name>|pause|bind-mcp <name> --mcp <url>|run <name> -- <command...>
 ```
 
 ### Connections (network export)
@@ -365,7 +366,14 @@ process lock and CLI network-command classification. An empty `connections --geo
 array is the network default, not a local query. `status --check` resolves exactly
 one account. New commands that can reach LinkedIn must remain guarded; local-only
 commands must not initialize a session. Browser overrides and Neo MCP routing
-cannot bypass a registered CDP binding. Direct library consumers must go through
+cannot bypass a registered CDP binding. `session bind-mcp` records a profile's
+BrowserOS neo MCP endpoint only after proving it shares page targets with the
+profile's CDP endpoint; `session run <name> -- <cmd>` activates that profile under
+the shared lock and starts the program with `ALLMAN_NEO_MCP_URL`,
+`ALLMAN_EXPECTED_MEMBER_ID`, `ALLMAN_PROFILE` and `ALLMAN_SESSION_RUN=1`. Brian's
+launcher pins neo to proxy 9010 / server 9210 (MCP `http://127.0.0.1:9010/mcp`);
+JP's engine uses proxy 9012 / server 9211. See [session run](docs/session-run.md).
+Direct library consumers must go through
 the CLI guard or explicitly acquire/check session control themselves.
 
 Named configuration uses `ALLMAN_PROFILE` or shared `default-profile.json`.
