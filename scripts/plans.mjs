@@ -1,5 +1,5 @@
 #!/usr/bin/env bun
-// PLANS_TPL_VERSION: 28
+// PLANS_TPL_VERSION: 37
 // Plan-page toolchain for docs/plans/ — browse, create, and index interactive
 // HTML plan pages. Runs on `bun` (preferred, faster) or `node`.
 //
@@ -9,6 +9,8 @@
 //   bun run plans new <slug> [--title "T"] [--source "who/what"]
 //                                 # stamp a new interactive plan page (auto-numbered,
 //                                 # repo accent color, provenance line)
+//   bun run plans publish <slug> [--seq N] [--notify]
+//                                 # v31: copy the plan to the cresa.one Site, verify its card
 //   bun run plans app <slug> [--title "T"] [--badge "TAG"] [--dest dir] [--recipe name]
 //                                 # stamp a single-file skeleton APP. Delegates to appkit
 //                                 # (~/.claude/templates/appkit) — the canonical parts +
@@ -37,7 +39,8 @@
 //                                 # `tailscale serve` (tailnet-only, needs the Tailscale app
 //                                 # logged in on both devices); funnel = public via Tailscale
 //                                 # Funnel; ngrok / cloudflare = a launchd tunnel agent
-//                                 # (public, random URL). Every remote request needs the shared key
+//                                 # (public; named Cloudflare tunnels keep a permanent hostname).
+//                                 # Every remote request needs the shared key
 //                                 # from ~/.claude/plans-hub/hub.config.json (link carries it
 //                                 # once, then a cookie). Pages route as /<appName>/plans/….
 //   bun run plans hub notify [status|set --channel imessage|command|off --to <handle>|--transport osascript|imsg|--preview on|off|--command "…"|test]
@@ -80,6 +83,18 @@
 // line instead of metric tiles, no colored side borders, thumb-reach action bar
 // on phones, clearer status/submit copy, themed browser surfaces, an authored
 // send moment, and an axe-clean paper theme. Visual evidence in provenance/.
+// v36 (serve + focus, 2026-10-13): replace only the exact active Portless
+// hostname, refuse replacement after a shutdown timeout, and retain visible
+// keyboard focus on published index rows.
+// v33 (notify, 2026-10-09): `plans wait` waits for each link's card, not just
+// its page, before texting; see warmPreviewCards.
+// v32 (docs, 2026-10-06): DESIGN.md says to start background waits as
+// `bun scripts/plans.mjs wait`, because token-saver ends `bun run …` tasks at 300 s.
+// v31 (publish, 2026-10-06): `plans wait` copies the plan to a cresa.one Site
+// (hub.config.json `publish`), verifies the link card, and texts the Site link;
+// a failed publish exits 3 and texts nothing. Submit on the Site copy reaches
+// the hub through the Site's /_hub proxy route. Summaries no longer print the
+// plan number twice ("#003 #003"). See the "publish to a cresa.one Site" section.
 // v19 (remote + notify): the hub answers any non-.localhost Host with
 // path-prefixed routing (/<appName>/plans/<file>.html) behind a shared key, and
 // rewrites each served page's ENDPOINT line to its own prefix, so a page opened
@@ -102,7 +117,7 @@ import readline from 'node:readline';
 import { existsSync, readFileSync, rmSync, watch as fsWatch, statSync } from 'node:fs';
 import os from 'node:os';
 import { spawn, spawnSync } from 'node:child_process';
-import { randomBytes } from 'node:crypto';
+import { randomBytes, createHash } from 'node:crypto';
 import { fileURLToPath, pathToFileURL } from 'node:url';
 
 // fileURLToPath, NOT .pathname: URL pathnames keep percent-encoding, so a repo
@@ -214,10 +229,10 @@ async function readLockOwner(ownerPath = SEQUENCE_LOCK_OWNER_PATH) {
   }
 }
 
-async function retireSequenceLock(expectedToken, reason) {
-  const quarantine = `${SEQUENCE_LOCK_PATH}.${reason}-${randomBytes(8).toString('hex')}`;
+async function retireSequenceLock(expectedToken, reason, lockPath = SEQUENCE_LOCK_PATH) {
+  const quarantine = `${lockPath}.${reason}-${randomBytes(8).toString('hex')}`;
   try {
-    await fs.rename(SEQUENCE_LOCK_PATH, quarantine);
+    await fs.rename(lockPath, quarantine);
   } catch (error) {
     if (error.code === 'ENOENT') return false;
     throw error;
@@ -230,15 +245,16 @@ async function retireSequenceLock(expectedToken, reason) {
   return true;
 }
 
-async function acquireSequenceLock() {
-  await fs.mkdir(PLANS_DIR, { recursive: true });
+async function acquireSequenceLock(lockPath = SEQUENCE_LOCK_PATH) {
+  const ownerPath = path.join(lockPath, "owner.json");
+  await fs.mkdir(path.dirname(lockPath), { recursive: true });
   const started = Date.now();
   const token = randomBytes(18).toString('base64url');
   const identity = processIdentity(process.pid);
   while (true) {
     try {
-      await fs.mkdir(SEQUENCE_LOCK_PATH, { mode: 0o700 });
-      await fs.writeFile(SEQUENCE_LOCK_OWNER_PATH, JSON.stringify({
+      await fs.mkdir(lockPath, { mode: 0o700 });
+      await fs.writeFile(ownerPath, JSON.stringify({
         pid: process.pid,
         processIdentity: identity,
         token,
@@ -248,22 +264,22 @@ async function acquireSequenceLock() {
       return async () => {
         if (released) return;
         released = true;
-        const owner = await readLockOwner();
+        const owner = await readLockOwner(ownerPath);
         if (owner?.token !== token) return;
-        await retireSequenceLock(token, 'release');
+        await retireSequenceLock(token, 'release', lockPath);
       };
     } catch (error) {
       if (error.code !== 'EEXIST') throw error;
       try {
         const [stat, owner] = await Promise.all([
-          fs.stat(SEQUENCE_LOCK_PATH),
-          readLockOwner(),
+          fs.stat(lockPath),
+          readLockOwner(ownerPath),
         ]);
         if (
           Date.now() - stat.mtimeMs > SEQUENCE_LOCK_STALE_MS &&
           !lockOwnerIsAlive(owner)
         ) {
-          await retireSequenceLock(owner?.token, 'stale');
+          await retireSequenceLock(owner?.token, 'stale', lockPath);
           continue;
         }
       } catch (statError) {
@@ -271,7 +287,7 @@ async function acquireSequenceLock() {
         throw statError;
       }
       if (Date.now() - started >= SEQUENCE_LOCK_TIMEOUT_MS) {
-        throw new Error(`Timed out waiting for ${SEQUENCE_LOCK_PATH}`);
+        throw new Error(`Timed out waiting for ${lockPath}`);
       }
       await new Promise(resolve => setTimeout(resolve, 25));
     }
@@ -541,50 +557,53 @@ function hubLoaded() { return launchctl('print', `${hubDomain()}/${HUB_LABEL}`).
 async function hubRegister(argv) {
   const { flags } = parseFlags(argv);
   const quiet = 'quiet' in flags;
-  const cfg = await ensureConfig();
-  const port = await hubPort();
-  const rootReal = await fs.realpath(ROOT);
-  const reg = await readJsonOr(HUB_REGISTRY_PATH, { version: 1, apps: {} });
-  if (!reg.apps || typeof reg.apps !== 'object') reg.apps = {};
-  // Collision: the name belongs to a different, still-existing repo → suffix once.
-  let name = cfg.appName;
-  const owner = reg.apps[name];
-  if (owner && owner.root !== rootReal && existsSync(owner.root)) {
-    let n = 2;
-    while (reg.apps[`${name}-${n}`] && reg.apps[`${name}-${n}`].root !== rootReal && existsSync(reg.apps[`${name}-${n}`].root)) n++;
-    const next = `${name}-${n}`;
-    console.log(`[plans hub] appName "${name}" already routes to ${owner.root}; this repo now uses "${next}" (docs/plans/plans.config.json updated — commit it).`);
-    cfg.appName = validateAppName(next);
-    await writeConfig(cfg);
-    name = next;
-  }
-  const now = new Date().toISOString();
-  const prev = reg.apps[name] || {};
-  const isNew = prev.root !== rootReal;
-  const entry = { root: rootReal, registeredAt: prev.registeredAt || now, lastSeen: now, aliasedAt: prev.aliasedAt || null };
-  let aliased = false;
-  if (!process.env.PLANS_HUB_OFFLINE && have('portless')) {
-    const stale = !entry.aliasedAt || (Date.now() - Date.parse(entry.aliasedAt)) > 86_400_000;
-    if (stale || 'force' in flags) {
-      const r = spawnSync('portless', ['alias', name, String(port)], { encoding: 'utf8' });
-      if (r.status === 0) { entry.aliasedAt = now; aliased = true; }
-      else if (!quiet) console.error(`[plans hub] portless alias failed: ${String(r.stderr || r.stdout || '').trim()}`);
+  const release = await acquireSequenceLock(path.join(path.dirname(HUB_REGISTRY_PATH), ".registry.lock"));
+  try {
+    const cfg = await ensureConfig();
+    const port = await hubPort();
+    const rootReal = await fs.realpath(ROOT);
+    const reg = await readJsonOr(HUB_REGISTRY_PATH, { version: 1, apps: {} });
+    if (!reg.apps || typeof reg.apps !== 'object') reg.apps = {};
+    // Collision: the name belongs to a different, still-existing repo → suffix once.
+    let name = cfg.appName;
+    const owner = reg.apps[name];
+    if (owner && owner.root !== rootReal && existsSync(owner.root)) {
+      let n = 2;
+      while (reg.apps[`${name}-${n}`] && reg.apps[`${name}-${n}`].root !== rootReal && existsSync(reg.apps[`${name}-${n}`].root)) n++;
+      const next = `${name}-${n}`;
+      console.log(`[plans hub] appName "${name}" already routes to ${owner.root}; this repo now uses "${next}" (docs/plans/plans.config.json updated — commit it).`);
+      cfg.appName = validateAppName(next);
+      await writeConfig(cfg);
+      name = next;
     }
-  } else if (isNew && !quiet) {
-    console.log('[plans hub] portless is not installed — pages open from file://. `npm i -g portless && portless service install` enables https://<appName>.localhost.');
-  }
-  reg.apps[name] = entry;
-  await writeJsonAtomic(HUB_REGISTRY_PATH, reg);
-  if (!process.env.PLANS_HUB_OFFLINE && !(await hubHealth())) {
-    if (existsSync(HUB_PLIST_DST)) {
-      if (hubLoaded()) launchctl('kickstart', '-k', `${hubDomain()}/${HUB_LABEL}`);
-      else launchctl('bootstrap', hubDomain(), HUB_PLIST_DST);
+    const now = new Date().toISOString();
+    const prev = reg.apps[name] || {};
+    const isNew = prev.root !== rootReal;
+    const entry = { root: rootReal, registeredAt: prev.registeredAt || now, lastSeen: now, aliasedAt: prev.aliasedAt || null };
+    let aliased = false;
+    if (!process.env.PLANS_HUB_OFFLINE && have('portless')) {
+      const stale = !entry.aliasedAt || (Date.now() - Date.parse(entry.aliasedAt)) > 86_400_000;
+      if (stale || 'force' in flags) {
+        const r = spawnSync('portless', ['alias', name, String(port)], { encoding: 'utf8', timeout: 5000 });
+        if (r.status === 0) { entry.aliasedAt = now; aliased = true; }
+        else if (!quiet) console.error(`[plans hub] portless alias failed: ${String(r.stderr || r.stdout || '').trim()}`);
+      }
     } else if (isNew && !quiet) {
-      console.log(`[plans hub] hub agent not installed — run \`bun run plans hub install\` once; then https://${name}.localhost/plans/`);
+      console.log('[plans hub] portless is not installed — pages open from file://. `npm i -g portless && portless service install` enables https://<appName>.localhost.');
     }
-  }
-  if (!quiet) console.log(`[plans hub] ${name} -> ${rootReal}${aliased ? ' (portless alias registered)' : ''} · https://${name}.localhost/plans/`);
-  return name;
+    reg.apps[name] = entry;
+    await writeJsonAtomic(HUB_REGISTRY_PATH, reg);
+    if (!process.env.PLANS_HUB_OFFLINE && !(await hubHealth())) {
+      if (existsSync(HUB_PLIST_DST)) {
+        if (hubLoaded()) launchctl('kickstart', '-k', `${hubDomain()}/${HUB_LABEL}`);
+        else launchctl('bootstrap', hubDomain(), HUB_PLIST_DST);
+      } else if (isNew && !quiet) {
+        console.log(`[plans hub] hub agent not installed — run \`bun run plans hub install\` once; then https://${name}.localhost/plans/`);
+      }
+    }
+    if (!quiet) console.log(`[plans hub] ${name} -> ${rootReal}${aliased ? ' (portless alias registered)' : ''} · https://${name}.localhost/plans/`);
+    return name;
+  } finally { await release(); }
 }
 
 async function hubInstall() {
@@ -645,6 +664,7 @@ async function cmdHub(argv) {
   }
   if (sub === 'remote') return hubRemote(argv.slice(1));
   if (sub === 'notify') return hubNotify(argv.slice(1));
+  if (sub === 'publish') return hubPublish(argv.slice(1));
   if (sub === 'status' || !sub) {
     const cfg = await ensureConfig();
     const h = await hubHealth();
@@ -659,9 +679,11 @@ async function cmdHub(argv) {
     console.log(`remote:   ${info.enabled ? `${info.provider} · ${info.baseUrl ? `${info.baseUrl}/` : '(url unknown)'}${info.reason ? ` · ${info.reason}` : ' · live'}` : 'off — bun run plans hub remote on [--provider tailscale|funnel|ngrok|cloudflare]'}`);
     const n = await notifyConfig();
     console.log(`notify:   ${n.channel && n.channel !== 'off' ? `${n.channel}${n.to ? ` -> ${n.to}` : ''}${n.command ? ` (${n.command})` : ''}` : 'off — bun run plans hub notify set --channel imessage --to <your iMessage handle>'}`);
+    const pub = await publishConfig();
+    console.log(`publish:  ${pub ? `${pub.provider} · ${pub.baseUrl}/ · access ${pub.access} (bun run plans hub publish status)` : 'off — bun run plans hub publish set --site <slug> --allow <your email>'}`);
     return;
   }
-  console.error('Usage: plans hub register [--quiet] | status | install | uninstall | start | stop | logs | url [--remote] | run | remote … | notify …');
+  console.error('Usage: plans hub register [--quiet] | status | install | uninstall | start | stop | logs | url [--remote] | run | remote … | notify … | publish …');
   process.exit(1);
 }
 
@@ -759,6 +781,13 @@ ${spec.args(port).map(a => `    <string>${escapeHtml(a)}</string>`).join('\n')}
 `;
 }
 function tunnelLoaded() { return launchctl('print', `${hubDomain()}/${HUB_TUNNEL_LABEL}`).status === 0; }
+function stopTailscaleRemote(remote) {
+  if (!remote?.enabled || !['tailscale', 'funnel'].includes(remote.provider)) return;
+  const bin = tailscaleBin();
+  if (!bin) throw new Error('Cannot retire previous remote: Tailscale CLI is unavailable.');
+  const result = spawnSync(bin, [remote.provider === 'funnel' ? 'funnel' : 'serve', '--yes', `--https=${Number(remote.tsPort) || TS_HUB_PORT}`, 'off'], { encoding: 'utf8', timeout: 20000 });
+  if (result.status !== 0) throw new Error(`Cannot retire previous ${remote.provider} listener: ${String(result.stderr || result.stdout || '').trim()}`);
+}
 async function hubRemote(argv) {
   const { flags, rest } = parseFlags(argv);
   const sub = rest[0] || 'status';
@@ -778,10 +807,7 @@ async function hubRemote(argv) {
   }
   if (sub === 'off') {
     const r = cfg.remote || {};
-    if (r.provider === 'tailscale' || r.provider === 'funnel') {
-      const bin = tailscaleBin();
-      if (bin) spawnSync(bin, [r.provider === 'funnel' ? 'funnel' : 'serve', '--yes', `--https=${Number(r.tsPort) || TS_HUB_PORT}`, 'off'], { encoding: 'utf8', timeout: 20000 });
-    }
+    stopTailscaleRemote(r);
     if (tunnelLoaded()) launchctl('bootout', `${hubDomain()}/${HUB_TUNNEL_LABEL}`);
     if (existsSync(HUB_TUNNEL_PLIST)) await fs.rm(HUB_TUNNEL_PLIST, { force: true });
     cfg.remote = { ...r, enabled: false, disabledAt: new Date().toISOString() };
@@ -791,6 +817,17 @@ async function hubRemote(argv) {
   }
   if (sub === 'on') {
     const provider = flags.provider || cfg.remote?.provider || 'tailscale';
+    if (!['tailscale', 'funnel', 'ngrok', 'cloudflare'].includes(provider)) fail(`unknown provider "${provider}"`);
+    const requestedPort = Number(flags['ts-port']) || Number(cfg.remote?.tsPort) || TS_HUB_PORT;
+    if ('ts-port' in flags && (!Number.isInteger(Number(flags['ts-port'])) || Number(flags['ts-port']) < 1 || Number(flags['ts-port']) > 65535)) fail('--ts-port must be an integer from 1 to 65535');
+    const previous = cfg.remote;
+    if (previous?.enabled && ['tailscale', 'funnel'].includes(previous.provider) &&
+        (previous.provider !== provider || (Number(previous.tsPort) || TS_HUB_PORT) !== requestedPort)) {
+      stopTailscaleRemote(previous);
+      // If activation fails, persisted state truthfully records that the old listener is off.
+      cfg.remote = { ...previous, enabled: false, disabledAt: new Date().toISOString() };
+      await writeHubConfig(cfg);
+    }
     const secret = cfg.remote?.secret || randomBytes(24).toString('base64url');
     let baseUrl = null;
     if (provider === 'tailscale' || provider === 'funnel') {
@@ -845,7 +882,7 @@ ingress:
     service: http://127.0.0.1:${port}
   - service: http_status:404
 `, { mode: 0o600 });
-      const routeArgs = ['tunnel', 'route', 'dns', ...(flags['overwrite-dns'] ? ['--overwrite-dns'] : []), name, hostname];
+      const routeArgs = ['tunnel', 'route', 'dns', ...('overwrite-dns' in flags ? ['--overwrite-dns'] : []), name, hostname];
       const route = spawnSync(bin, routeArgs, { encoding: 'utf8', timeout: 60000 });
       if (route.status !== 0) {
         // Tolerate the record already pointing at this tunnel; refuse to clobber anything else.
@@ -1055,24 +1092,37 @@ async function waitingMarkers() {
   }
   return out.sort((a, b) => Date.parse(b.startedAt || 0) - Date.parse(a.startedAt || 0));
 }
-function shortTitle(t) { return String(t || '').replace(/\s+/g, ' ').trim().slice(0, 80); }
+// Stamped pages title themselves "#003 Title". Strip that prefix wherever the
+// number is printed separately, or the text reads "#003 #003 Title".
+function bareTitle(t) { return String(t || '').replace(/^\s*#\d+\s+/, ''); }
+function shortTitle(t) { return bareTitle(t).replace(/\s+/g, ' ').trim().slice(0, 80); }
 // { text, links } — the text is one message; each link is sent as its own
-// message so it unfurls into the hub's per-page Open Graph card.
-async function waitingMessage(items, { test = false } = {}) {
+// message so it unfurls into that page's Open Graph card. With a publish Site
+// configured (v31), a plan already copied there is linked on the Site instead
+// of the hub; a public Site has no submit route, so the hub link follows it.
+async function waitingMessage(items, { test = false, published = {} } = {}) {
   const info = await remoteInfo();
+  const pub = await publishConfig();
   const link = (p) => info.live ? remoteLink(info, p) : null;
   const lines = [];
   const links = [];
+  const count = (it) => published[planKey(it.slug, it.seq)]?.decisions;
+  const about = (it) => `(${it.app}${count(it) ? ` · ${count(it)} decision${count(it) === 1 ? '' : 's'}` : ''})`;
   if (test) lines.push('Plans hub test — this is how Claude will reach you.');
-  else if (items.length === 1) lines.push(`Claude is waiting on #${String(items[0].seq).padStart(3, '0')} ${shortTitle(items[0].title)} (${items[0].app}).`);
-  else if (items.length > 1) lines.push(`Claude is waiting on ${items.length} plans: ${items.map(i => `#${String(i.seq).padStart(3, '0')} ${shortTitle(i.title)} (${i.app})`).join('; ')}.`);
+  else if (items.length === 1) lines.push(`Claude is waiting on #${String(items[0].seq).padStart(3, '0')} ${shortTitle(items[0].title)} ${about(items[0])}.`);
+  else if (items.length > 1) lines.push(`Claude is waiting on ${items.length} plans: ${items.map(i => `#${String(i.seq).padStart(3, '0')} ${shortTitle(i.title)} ${about(i)}`).join('; ')}.`);
   else lines.push('No plan is waiting on you right now.');
   for (const it of items.slice(0, 5)) {
     const p = `/${it.app}/plans/${path.basename(it.file)}`;
-    links.push({ label: `#${String(it.seq).padStart(3, '0')} ${shortTitle(it.title)}`, url: link(p) || `https://${it.app}.localhost/plans/${path.basename(it.file)}` });
+    const label = `#${String(it.seq).padStart(3, '0')} ${shortTitle(it.title)}`;
+    const site = published[planKey(it.slug, it.seq)]?.url || (pub && existsSync(mirrorPagePath(pub, it.app, it.seq, it.slug)) ? publishedUrl(pub, it.app, it.seq, it.slug) : null);
+    if (site) {
+      links.push({ label, url: site });
+      if (!publishProtected(pub)) links.push({ label: `${label} (submit)`, url: link(p) });
+    } else links.push({ label, url: link(p) || `https://${it.app}.localhost/plans/${path.basename(it.file)}` });
   }
-  if (items.length !== 1 || test) links.push({ label: 'All plans', url: link('/') || null });
-  if (!info.live) lines.push(info.enabled ? `Remote is not reachable right now: ${info.reason}.` : 'Remote access is off — links work on the LAN only.');
+  if (items.length !== 1 || test) links.push({ label: 'All plans', url: (pub && items.length ? `${pub.baseUrl}/` : null) || link('/') || null });
+  if (!info.live) lines.push(pub ? `Submit cannot reach Claude right now (${info.enabled ? info.reason : 'hub remote access is off'}); it saves a file instead.` : info.enabled ? `Remote is not reachable right now: ${info.reason}.` : 'Remote access is off — links work on the LAN only.');
   return { text: lines.join('\n'), links: links.filter(l => l.url) };
 }
 async function hubNotify(argv) {
@@ -1117,19 +1167,39 @@ async function cmdNotify(argv) {
 // iMessage fetches the page the instant the text lands, and a cold Open Graph
 // card takes a few seconds to render — long enough for the preview to come back
 // bare. Ask the local hub for each link first so the card is already on disk.
+// v33: since hub v24 a page waits at most CARD_WAIT_MS (1.5 s) for its card,
+// so fetching the page only starts the render. The card URL waits for it, so
+// fetch that too: the text goes out once the card is current. Fetching the page
+// alone let the 2026-10-09 06:45 text leave 2 s before its card, and Messages
+// built no link preview.
+function metaContent(body, prop) {
+  const tag = body.match(new RegExp(`<meta[^>]+(?:property|name)=["']${prop}["'][^>]*>`, 'i'))?.[0];
+  const content = tag?.match(/content=["']([^"']*)["']/i)?.[1];
+  return content ? decodeHtmlText(content) : '';
+}
 async function warmPreviewCards(links) {
   const cfg = await hubConfig();
   const secret = cfg.remote?.secret;
   if (!secret || !links?.length) return;
-  const port = await hubPort();
+  const local = `http://127.0.0.1:${await hubPort()}`;
+  const get = async (url) => {
+    try { const r = await fetch(url, { signal: AbortSignal.timeout(45000) }); return r.ok ? await r.text() : ''; } catch { return ''; }
+  };
   for (const l of links.slice(0, 6)) {
     let route = null;
     try { route = new URL(l.url).pathname; } catch { continue; }
-    const url = `http://127.0.0.1:${port}${route}?key=${encodeURIComponent(secret)}`;
-    try { const r = await fetch(url, { signal: AbortSignal.timeout(45000) }); await r.arrayBuffer(); } catch {}
+    const page = await get(`${local}${route}?key=${encodeURIComponent(secret)}`);
+    // The hub names the card on the public origin; ask the local port for it.
+    let card = null;
+    try { const u = new URL(metaContent(page, 'og:image')); card = `${local}${u.pathname}${u.search}`; } catch {}
+    if (card) await get(card);
   }
 }
-async function announceWaiting(cfg, plan, { started, notify }) {
+// v31: with a publish Site configured, the plan is copied there BEFORE the
+// text goes out and the text carries the Site link. A failed publish throws:
+// `plans wait` then exits 3 without texting, so a half-done announcement
+// (hub link only, no Site copy) never reaches the phone.
+async function announceWaiting(cfg, plan, { started, notify, publish = true }) {
   const key = `${plan.slug}-${String(plan.seq).padStart(3, '0')}`;
   const dir = path.join(HUB_WAITING_DIR, cfg.appName);
   const marker = path.join(dir, `${key}.json`);
@@ -1137,10 +1207,19 @@ async function announceWaiting(cfg, plan, { started, notify }) {
   const prev = await readJsonOr(marker, null);
   const entry = { app: cfg.appName, slug: plan.slug, seq: plan.seq, title: plan.title, file: plan.file, startedAt: new Date(started).toISOString(), pid: process.pid, notifiedAt: prev?.notifiedAt || null };
   await writeJsonAtomic(marker, entry);
+  const published = {};
+  const pub = publish ? await publishConfig() : null;
+  if (pub) {
+    try { published[key] = await publishPlan(cfg, entry, pub); }
+    catch (err) { await fs.rm(marker, { force: true }); throw Object.assign(err, { publishFailed: true }); }
+    entry.publishedUrl = published[key].url;
+    await writeJsonAtomic(marker, entry);
+    console.error(`[plans wait] published ${published[key].url}`);
+  }
   const recently = entry.notifiedAt && (Date.now() - Date.parse(entry.notifiedAt)) < NOTIFY_DEDUPE_MS;
   if (notify && !recently) {
     const n = await notifyConfig();
-    const message = await waitingMessage([entry]);
+    const message = await waitingMessage([entry], { published });
     const preview = await previewFor(n, entry);
     await warmPreviewCards(message.links);
     const r = sendNotification(n, message.text, { file: preview, links: message.links });
@@ -1148,6 +1227,417 @@ async function announceWaiting(cfg, plan, { started, notify }) {
     else console.error(`[plans wait] no text sent — ${r.reason}`);
   }
   return marker;
+}
+
+
+/* ---------------- publish to a cresa.one Site (v31) ---------------- */
+// `plans publish <slug>` copies a plan page to the cresa.one Site named in
+// hub.config.json `publish`, then checks the link card a phone will show.
+// `plans wait` runs it before texting, so the text links the Site page
+// (https://<site>.cresa.one/<app>/<NNN>-<slug>.html) instead of the hub tunnel.
+//
+// - One local mirror directory holds the whole Site, because a cresa.one
+//   publish replaces every file. Pages from all repos live there side by side.
+// - cresa.one does not serve a folder's index.html (`/x/` redirects to `/x`,
+//   which is a 404), so each page is a flat `<NNN>-<slug>.html` file and its
+//   card is `<NNN>-<slug>/og.png`.
+// - A protected Site (access "restricted") hides every file from link
+//   previewers and shows only the Site viewer title, description, and image.
+//   Each publish therefore points the viewer metadata at the plan being sent.
+// - Submit on the Site copy posts to PROXY_PREFIX on the same origin. cresa.one
+//   checks the viewer, then forwards the request to the hub tunnel with
+//   `Authorization: Bearer <remote.proxyToken>`. Proxy routes exist only on
+//   protected Sites, so a public Site cannot submit and the text adds the hub link.
+const PUBLISH_DEFAULTS = {
+  provider: 'cresa-one',
+  access: 'restricted',
+  siteTitle: 'Claude Plans',
+  tags: ['claude-code', 'decisions', 'plans'],
+  mirror: path.join(HUB_DIR, 'cresa-one-site'),
+  script: path.join(os.homedir(), '.claude', 'skills', 'cresa-one', 'scripts', 'publish.sh'),
+  ogScript: path.join(os.homedir(), '.claude', 'skills', 'cresa-one', 'scripts', 'og-image.py'),
+};
+const PROXY_PREFIX = '/_hub';
+const PROXY_VARIABLE = 'PLANS_HUB_SUBMIT_TOKEN';
+const PREVIEW_UA = 'facebookexternalhit/1.1 (+http://www.facebook.com/externalhit_uatext.php) Twitterbot/1.0';
+const CRESA_API = process.env.__PLANS_CRESA_API || 'https://cresa.one/api/v1';
+const PAGE_RE = /^(\d{3})-([a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?)\.html$/;
+
+async function publishConfig() {
+  const p = (await hubConfig()).publish;
+  if (!p || typeof p !== 'object' || !p.site) return null;
+  return { ...PUBLISH_DEFAULTS, ...p, baseUrl: String(p.baseUrl || `https://${p.site}.cresa.one`).replace(/\/+$/, '') };
+}
+function publishProtected(pub) { return !!pub && pub.access !== 'anyone_with_link'; }
+function pageStem(seq, slug) { return `${String(seq).padStart(3, '0')}-${slug}`; }
+function mirrorPagePath(pub, app, seq, slug) { return path.join(pub.mirror, app, `${pageStem(seq, slug)}.html`); }
+function publishedUrl(pub, app, seq, slug) { return `${pub.baseUrl}/${app}/${pageStem(seq, slug)}.html`; }
+
+// Facts the card and the text need, read from the stamped page source.
+function planFacts(source) {
+  const metaField = (k) => {
+    const m = source.match(new RegExp(`^\\s*${k}:\\s*("(?:[^"\\\\]|\\\\.)*")`, 'm'));
+    try { return m ? JSON.parse(m[1]) : null; } catch { return null; }
+  };
+  const block = source.match(/^var PLAN_ITEMS = \[([\s\S]*?)^\];/m)?.[1] || '';
+  return { date: metaField('date'), decisions: (block.match(/^\s*\{\s*id\s*:/gm) || []).length };
+}
+
+function publishTags({ title, description, url, image, siteName }) {
+  const e = escapeHtml;
+  return [
+    `<meta name="description" content="${e(description)}">`,
+    `<link rel="canonical" href="${e(url)}">`,
+    `<meta property="og:type" content="website">`,
+    `<meta property="og:site_name" content="${e(siteName)}">`,
+    `<meta property="og:title" content="${e(title)}">`,
+    `<meta property="og:description" content="${e(description)}">`,
+    `<meta property="og:url" content="${e(url)}">`,
+    ...(image ? [
+      `<meta property="og:image" content="${e(image)}">`,
+      `<meta property="og:image:width" content="1200">`,
+      `<meta property="og:image:height" content="630">`,
+      `<meta property="og:image:alt" content="${e(title)}">`,
+      `<meta name="twitter:card" content="summary_large_image">`,
+      `<meta name="twitter:image" content="${e(image)}">`,
+    ] : [`<meta name="twitter:card" content="summary">`]),
+    `<meta name="twitter:title" content="${e(title)}">`,
+    `<meta name="twitter:description" content="${e(description)}">`,
+  ].join('\n');
+}
+
+// The Site copy of a plan page: earlier share tags removed, fresh ones after
+// </title>, and ENDPOINT pinned to the Site proxy route. The template derives
+// ENDPOINT from a /plans/ path, which the flat Site path does not have.
+function mirrorPage(source, { tags, endpoint }) {
+  let out = source
+    .replace(/^[ \t]*<meta\s+(?:property|name)="(?:og:[^"]*|twitter:[^"]*|description)"[^>]*>[ \t]*\r?\n?/gim, '')
+    .replace(/^[ \t]*<link\s+rel="canonical"[^>]*>[ \t]*\r?\n?/gim, '');
+  out = out.replace(/<\/title>/i, (m) => `${m}\n${tags}`);
+  const pin = `ENDPOINT = ${JSON.stringify(endpoint)}; // plans publish: Site proxy route to the plans hub`;
+  const derive = /^if \(\/\^https\?:\$\/\.test\(location\.protocol\)\) ENDPOINT = [^\n]*$/m;
+  if (derive.test(out)) out = out.replace(derive, (m) => `${m}\n${pin}`);
+  else out = out.replace(/^var ENDPOINT = [^\n]*$/m, (m) => `${m}\n${pin}`);
+  return out;
+}
+
+// The hub renders the same card it serves on the tunnel. Ask the local hub
+// for the page (that renders the card), then copy the PNG. Without the hub,
+// fall back to the cresa-one skill's og-image.py.
+async function planCard(pub, app, file, { title, sub, label }) {
+  const name = path.basename(file);
+  const png = path.join(HUB_DIR, 'og', app, `${name}.png`);
+  const secret = (await hubConfig()).remote?.secret;
+  if (secret) {
+    try {
+      const r = await fetch(`http://127.0.0.1:${await hubPort()}/${app}/plans/${encodeURIComponent(name)}?key=${encodeURIComponent(secret)}`, { signal: AbortSignal.timeout(45000) });
+      await r.arrayBuffer();
+      if (r.ok && existsSync(png) && statSync(png).mtimeMs >= statSync(file).mtimeMs) return png;
+    } catch {}
+  }
+  return ogScriptCard(pub, { title, sub, label, footer: new URL(pub.baseUrl).host });
+}
+async function ogScriptCard(pub, { title, sub, label, footer }) {
+  if (!existsSync(pub.ogScript)) return null;
+  const out = await fs.mkdtemp(path.join(os.tmpdir(), 'plans-og-'));
+  const args = [pub.ogScript, '--title', title, '--subtitle', sub, '--label', label, '--footer', footer, '--layout', 'editorial-right', '--out', out];
+  const r = have('uv') ? spawnSync('uv', ['run', '--quiet', ...args], { encoding: 'utf8', timeout: 120000 }) : spawnSync(pub.ogScript, args.slice(1), { encoding: 'utf8', timeout: 120000 });
+  if (r.status !== 0) return null;
+  const png = (await fs.readdir(out)).find(f => f.endsWith('.png') && !f.endsWith('_thumb.png'));
+  return png ? path.join(out, png) : null;
+}
+
+function planStatus(app, slug, seq) {
+  const key = `${planKey(slug, seq)}.json`;
+  if (existsSync(path.join(HUB_DONE_DIR, app, key))) return 'implemented';
+  if (existsSync(path.join(HUB_INBOX_DIR, app, key))) return 'submitted';
+  const marker = path.join(HUB_WAITING_DIR, app, key);
+  try { const m = JSON.parse(readFileSync(marker, 'utf8')); if (!m.pid || processIsAlive(m.pid)) return 'waiting'; } catch {}
+  return 'idle';
+}
+
+// Site landing page: every mirrored plan, waiting first, grouped by repo.
+async function writeMirrorIndex(pub) {
+  const rows = [];
+  let appsDirs = [];
+  try { appsDirs = (await fs.readdir(pub.mirror, { withFileTypes: true })).filter(d => d.isDirectory() && !d.name.startsWith('.')).map(d => d.name); } catch {}
+  for (const app of appsDirs) {
+    for (const name of await fs.readdir(path.join(pub.mirror, app))) {
+      const m = name.match(PAGE_RE);
+      if (!m) continue;
+      const head = (await fs.readFile(path.join(pub.mirror, app, name), 'utf8')).slice(0, 6000);
+      const title = decodeHtmlText(head.match(/<title>([^<]+)<\/title>/i)?.[1] || name);
+      const facts = planFacts(await fs.readFile(path.join(pub.mirror, app, name), 'utf8'));
+      rows.push({ app, name, seq: Number(m[1]), slug: m[2], title: bareTitle(title), date: facts.date || '', decisions: facts.decisions, status: planStatus(app, m[2], Number(m[1])) });
+    }
+  }
+  const rank = { waiting: 0, submitted: 1, idle: 2, implemented: 3 };
+  rows.sort((a, b) => rank[a.status] - rank[b.status] || b.date.localeCompare(a.date) || b.seq - a.seq);
+  const label = { waiting: 'Waiting', submitted: 'Submitted', implemented: 'Done', idle: '' };
+  const byApp = new Map();
+  for (const r of rows) { if (!byApp.has(r.app)) byApp.set(r.app, []); byApp.get(r.app).push(r); }
+  const e = escapeHtml;
+  const waiting = rows.filter(r => r.status === 'waiting').length;
+  const description = waiting ? `${waiting} plan${waiting === 1 ? '' : 's'} waiting for your decisions.` : 'Decision pages from every repo, ready to review.';
+  const sections = [...byApp].map(([app, list]) => `  <h2>${e(app)}</h2>\n  <ul>\n${list.map(r => `    <li><a class="row" href="/${e(app)}/${e(r.name)}">
+      <span class="seq">#${String(r.seq).padStart(3, '0')}</span>
+      <span class="t"><b>${e(r.title)}</b><span>${e([r.date, r.decisions ? `${r.decisions} decision${r.decisions === 1 ? '' : 's'}` : ''].filter(Boolean).join(' · '))}</span></span>
+      <span class="st st-${r.status}">${label[r.status]}</span>
+    </a></li>`).join('\n')}\n  </ul>`).join('\n');
+  const html = `<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>${e(pub.siteTitle)}</title>
+${publishTags({ title: pub.siteTitle, description, url: `${pub.baseUrl}/`, image: existsSync(path.join(pub.mirror, 'og.png')) ? `${pub.baseUrl}/og.png` : null, siteName: pub.siteTitle })}
+<style>
+:root{--bg:#000;--surface:#0d0d0f;--line:#26262b;--ink:#f5f5f5;--muted:#a3a3ab;--accent:oklch(0.78 0.16 245);--warn:oklch(0.83 0.16 75);--ok:oklch(0.78 0.15 150);
+  --font-ui:system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;--font-mono:ui-monospace,"SF Mono",Menlo,monospace}
+@media (prefers-color-scheme: light){:root:not([data-theme="dark"]){--bg:#fafaf7;--surface:#fff;--line:#e4e4de;--ink:#141414;--muted:#55555c;--accent:oklch(0.5 0.16 245);--warn:oklch(0.55 0.14 75);--ok:oklch(0.5 0.14 150)}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:400 1rem/1.5 var(--font-ui)}
+main{max-width:760px;margin:0 auto;padding:32px 16px 64px}
+h1{font-size:1.75rem;letter-spacing:-.02em;margin:0 0 4px}
+.sub{color:var(--muted);margin:0 0 24px}
+h2{font:600 .75rem/1 var(--font-mono);letter-spacing:.1em;text-transform:uppercase;color:var(--muted);margin:24px 0 8px}
+ul{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+a.row{display:flex;gap:12px;align-items:center;min-height:56px;padding:12px 16px;background:var(--surface);border:1px solid var(--line);border-radius:12px;color:inherit;text-decoration:none}
+a.row:hover{border-color:var(--accent)}
+a.row:focus-visible{border-color:var(--accent);outline:2px solid var(--accent);outline-offset:3px}
+.seq{font:600 .8125rem var(--font-mono);background:var(--accent);color:#000;border-radius:999px;padding:2px 10px;flex:none}
+.t{flex:1;min-width:0}
+.t b{display:block;font-weight:600}
+.t span{color:var(--muted);font:400 .8125rem var(--font-mono)}
+.st{font:600 .75rem var(--font-mono);flex:none;color:var(--muted)}
+.st-waiting{color:var(--warn)}
+.st-implemented{color:var(--ok)}
+</style>
+</head>
+<body>
+<main>
+  <h1>${e(pub.siteTitle)}</h1>
+  <p class="sub">Decision pages from every repo. Open one, approve or reject each item, then submit.</p>
+${sections || '  <p class="sub">No plans published yet.</p>'}
+</main>
+</body>
+</html>
+`;
+  await fs.writeFile(path.join(pub.mirror, 'index.html'), html);
+  return { waiting, plans: rows.length };
+}
+
+function cresaKey() {
+  if (process.env.CRESAONE_API_KEY) return process.env.CRESAONE_API_KEY.trim();
+  try { return readFileSync(path.join(os.homedir(), '.cresaone', 'credentials'), 'utf8').split('\n')[0].trim() || null; } catch { return null; }
+}
+async function cresaApi(method, route, body) {
+  const key = cresaKey();
+  if (!key) throw new Error('no cresa.one API key (set CRESAONE_API_KEY or save ~/.cresaone/credentials)');
+  const r = await fetch(`${CRESA_API}${route}`, {
+    method, signal: AbortSignal.timeout(30000),
+    headers: { authorization: `Bearer ${key}`, ...(body ? { 'content-type': 'application/json' } : {}) },
+    body: body ? JSON.stringify(body) : undefined,
+  });
+  const text = await r.text();
+  let data = null;
+  try { data = text ? JSON.parse(text) : null; } catch {}
+  if (!r.ok) throw new Error(`cresa.one ${method} ${route} → HTTP ${r.status}${data?.error ? `: ${data.error.message || data.error}` : ''}`);
+  return data;
+}
+async function siteExists(pub) {
+  try { await cresaApi('GET', `/publish/${pub.site}`); return true; }
+  catch (err) { if (/HTTP 404/.test(err.message)) return false; throw err; }
+}
+
+// Make the Site match the config: access mode, public link cards, and (when
+// protected) the submit proxy route plus its Bearer variable. Idempotent: reads
+// first and writes only what differs. Needs the Site to exist.
+async function ensureSiteAccess(pub) {
+  const hub = await hubConfig();
+  const readAccess = async () => (await cresaApi('GET', `/publish/${pub.site}/access`))?.access || {};
+  let current = await readAccess();
+  if (!publishProtected(pub)) {
+    if (current.mode !== 'anyone_with_link') await cresaApi('PATCH', `/publish/${pub.site}/access`, { mode: 'anyone_with_link' });
+    return { mode: 'anyone_with_link', proxy: false };
+  }
+  if (pub.access !== 'restricted') throw new Error(`publish.access "${pub.access}" is not supported (use restricted or anyone_with_link)`);
+  const allowedEmails = [...new Set([...(current.allowedEmails || []), ...(pub.allowEmails || [])])].sort();
+  const allowedDomains = [...new Set([...(current.allowedDomains || []), ...(pub.allowDomains || [])])].sort();
+  if (!allowedEmails.length && !allowedDomains.length) throw new Error('restricted access needs at least one allowed email (bun run plans hub publish set --allow you@example.com)');
+  const sameList = (a = [], b = []) => JSON.stringify([...a].sort()) === JSON.stringify(b);
+  if (current.mode !== 'restricted' || !sameList(current.allowedEmails, allowedEmails) || !sameList(current.allowedDomains, allowedDomains)) {
+    await cresaApi('PATCH', `/publish/${pub.site}/access`, { mode: 'restricted', allowedEmails, allowedDomains });
+    current = await readAccess();
+  }
+  if (current.publicPreviewEnabled !== true) await cresaApi('PATCH', `/publish/${pub.site}/access`, { publicPreviewEnabled: true });
+  const upstream = hub.remote?.baseUrl ? new URL(hub.remote.baseUrl).origin : null;
+  if (!hub.remote?.enabled || !upstream || !hub.remote?.secret) return { mode: 'restricted', proxy: false, reason: 'hub remote access is off, so Submit has nowhere to go (bun run plans hub remote on)' };
+  if (!hub.remote.proxyToken) {
+    hub.remote.proxyToken = randomBytes(32).toString('base64url');
+    await writeHubConfig(hub);
+  }
+  const vars = (await cresaApi('GET', '/me/variables'))?.variables || [];
+  const v = vars.find(x => x.name === PROXY_VARIABLE);
+  // cresa.one never returns a variable's value, so the hub records a
+  // fingerprint of what it last wrote and rewrites when the token or origin moved.
+  const fingerprint = createHash('sha256').update(`${hub.remote.proxyToken}\n${upstream}`).digest('hex').slice(0, 16);
+  if (!v || v.upstreamOrigin !== upstream || hub.remote.proxyTokenSynced !== fingerprint) {
+    await cresaApi('PUT', `/me/variables/${PROXY_VARIABLE}`, { value: hub.remote.proxyToken, upstreamOrigin: upstream });
+    hub.remote.proxyTokenSynced = fingerprint;
+    await writeHubConfig(hub);
+  }
+  const routes = (await cresaApi('GET', `/publish/${pub.site}/proxy-routes`))?.proxyRoutes || [];
+  const route = routes.find(r => r.pathPrefix === PROXY_PREFIX);
+  if (route && (route.upstreamOrigin !== upstream || route.authVariableName !== PROXY_VARIABLE)) {
+    await cresaApi('DELETE', `/publish/${pub.site}/proxy-routes/${route.id}`);
+  }
+  if (!route || route.upstreamOrigin !== upstream || route.authVariableName !== PROXY_VARIABLE) {
+    await cresaApi('POST', `/publish/${pub.site}/proxy-routes`, { pathPrefix: PROXY_PREFIX, upstreamOrigin: upstream, authVariableName: PROXY_VARIABLE });
+  }
+  return { mode: 'restricted', proxy: true };
+}
+
+function runPublishScript(pub, viewer) {
+  if (!existsSync(pub.script)) throw new Error(`publish script not found: ${pub.script} (install the cresa-one skill)`);
+  const args = [pub.mirror, '--slug', pub.site, '--title', viewer.title, '--description', viewer.description,
+    '--og-image-path', viewer.ogImagePath, '--tags', JSON.stringify(pub.tags), '--client', 'claude'];
+  // A protected Site answers every file with its access gate, so byte-level
+  // verification would fail by design; verifyPreview checks the card instead.
+  if (publishProtected(pub)) args.push('--no-verify');
+  const r = spawnSync(pub.script, args, { encoding: 'utf8', timeout: 300000, cwd: pub.mirror });
+  if (r.status !== 0) throw new Error(`publish.sh exit ${r.status}: ${(r.stderr || r.stdout || '').trim().split('\n').slice(-3).join(' | ')}`);
+  return r.stdout;
+}
+
+// Fetch the link the way a link previewer does and prove the card is there:
+// og:title names this plan and og:image answers 200 image/*. Retries briefly
+// because the Site CDN can serve the previous version for a few seconds.
+async function verifyPreview(url, expectTitle) {
+  const want = bareTitle(expectTitle).slice(0, 40);
+  let reason = 'not checked';
+  for (let attempt = 0; attempt < 6; attempt++) {
+    if (attempt) await new Promise(res => setTimeout(res, 3000));
+    try {
+      const r = await fetch(url, { headers: { 'user-agent': PREVIEW_UA }, redirect: 'follow', signal: AbortSignal.timeout(20000) });
+      const body = await r.text();
+      const title = metaContent(body, 'og:title');
+      const image = metaContent(body, 'og:image');
+      if (!title) { reason = `${url} (HTTP ${r.status}) has no og:title`; continue; }
+      if (want && !title.includes(want)) { reason = `og:title is "${title}", expected "${want}…"`; continue; }
+      if (!image) { reason = `${url} has no og:image`; continue; }
+      const img = await fetch(new URL(image, url), { headers: { 'user-agent': PREVIEW_UA }, signal: AbortSignal.timeout(20000) });
+      await img.arrayBuffer();
+      if (!img.ok || !/^image\//.test(img.headers.get('content-type') || '')) { reason = `og:image ${image} answered HTTP ${img.status} ${img.headers.get('content-type') || ''}`; continue; }
+      return { ok: true, title, image };
+    } catch (err) { reason = err.message; }
+  }
+  return { ok: false, reason };
+}
+
+// Copy one plan to the Site, publish, and verify. Returns { url, decisions }.
+async function publishPlan(cfg, plan, pub) {
+  const source = await fs.readFile(plan.file, 'utf8');
+  const facts = planFacts(source);
+  const stem = pageStem(plan.seq, plan.slug);
+  const app = cfg.appName;
+  const url = publishedUrl(pub, app, plan.seq, plan.slug);
+  const title = bareTitle(plan.title);
+  const status = planStatus(app, plan.slug, plan.seq);
+  const sub = [`#${String(plan.seq).padStart(3, '0')}`, app, facts.date, facts.decisions ? `${facts.decisions} decision${facts.decisions === 1 ? '' : 's'}` : null].filter(Boolean).join(' · ');
+  const description = `${sub}${status === 'waiting' ? ' waiting for you' : status === 'submitted' ? ' · submitted' : status === 'implemented' ? ' · done' : ''}`;
+  const dir = path.join(pub.mirror, app);
+  await fs.mkdir(path.join(dir, stem), { recursive: true });
+  const card = await planCard(pub, app, plan.file, { title, sub, label: `PLAN #${String(plan.seq).padStart(3, '0')}` });
+  const ogPath = `/${app}/${stem}/og.png`;
+  if (card) await fs.copyFile(card, path.join(dir, stem, 'og.png'));
+  const image = card || existsSync(path.join(dir, stem, 'og.png')) ? `${pub.baseUrl}${ogPath}` : null;
+  const tags = publishTags({ title, description, url, image, siteName: pub.siteTitle });
+  await fs.writeFile(path.join(dir, `${stem}.html`), mirrorPage(source, { tags, endpoint: `${PROXY_PREFIX}/${app}` }));
+  if (!existsSync(path.join(pub.mirror, 'og.png'))) {
+    const root = await ogScriptCard(pub, { title: pub.siteTitle, sub: 'Decision pages from every repo', label: 'PLANS', footer: new URL(pub.baseUrl).host });
+    if (root) await fs.copyFile(root, path.join(pub.mirror, 'og.png'));
+  }
+  await writeMirrorIndex(pub);
+  const exists = await siteExists(pub);
+  if (exists) await ensureSiteAccess(pub);
+  // Protected: link previewers only ever see the viewer metadata, so it names
+  // this plan. Public: each page carries its own tags; the viewer stays the Site.
+  const viewer = publishProtected(pub)
+    ? { title, description, ogImagePath: image ? ogPath : '/og.png' }
+    : { title: pub.siteTitle, description: `Latest: #${String(plan.seq).padStart(3, '0')} ${title} (${app})`, ogImagePath: '/og.png' };
+  runPublishScript(pub, viewer);
+  // A brand-new Site is created public; lock it down straight after.
+  const access = await ensureSiteAccess(pub);
+  if (process.env.__PLANS_PUBLISH_SKIP_VERIFY !== '1') {
+    const v = await verifyPreview(url, title);
+    if (!v.ok) throw new Error(`link card check failed for ${url}: ${v.reason}`);
+  }
+  return { url, decisions: facts.decisions, access };
+}
+
+async function cmdPublish(argv) {
+  const { flags, rest } = parseFlags(argv);
+  const resolved = await resolvePlan(rest[0], flags.seq);
+  if (!rest[0]) { console.error('Usage: plans publish <slug> [--seq N] [--notify]'); process.exit(1); }
+  if (!resolved?.plan) { console.error(`No plan page for slug "${rest[0]}" in ${PLANS_DIR}`); process.exit(1); }
+  const pub = await publishConfig();
+  if (!pub) { console.error('[plans publish] no Site configured — bun run plans hub publish set --site <slug> --allow <your email>'); process.exit(1); }
+  const cfg = await ensureConfig();
+  const entry = { app: cfg.appName, slug: resolved.slug, seq: resolved.seq, title: resolved.plan.title, file: resolved.plan.path };
+  let result;
+  try { result = await publishPlan(cfg, entry, pub); }
+  catch (err) { console.error(`[plans publish] failed — ${err.message}`); process.exit(3); }
+  if (result.access?.reason) console.error(`[plans publish] warning: ${result.access.reason}`);
+  console.log(result.url);
+  if ('notify' in flags) {
+    const message = await waitingMessage([entry], { published: { [planKey(entry.slug, entry.seq)]: result } });
+    const r = sendNotification(await notifyConfig(), message.text, { links: message.links });
+    if (r.sent) console.error('[plans publish] texted you the link');
+    else { console.error(`[plans publish] no text sent — ${r.reason}`); process.exit(1); }
+  }
+}
+
+async function hubPublish(argv) {
+  const { flags, rest } = parseFlags(argv);
+  const sub = rest[0] || 'status';
+  const cfg = await hubConfig();
+  if (sub === 'status') {
+    const pub = await publishConfig();
+    if (!pub) { console.log('publish: off — bun run plans hub publish set --site <slug> --allow <your email>'); return; }
+    console.log(`publish:  ${pub.provider} · site ${pub.site} · ${pub.baseUrl}/ · access ${pub.access}${pub.allowEmails?.length ? ` (${pub.allowEmails.join(', ')})` : ''}`);
+    console.log(`mirror:   ${pub.mirror}`);
+    try {
+      const a = (await cresaApi('GET', `/publish/${pub.site}/access`))?.access || {};
+      const routes = (await cresaApi('GET', `/publish/${pub.site}/proxy-routes`))?.proxyRoutes || [];
+      console.log(`live:     access ${a.mode}${a.publicPreviewEnabled ? ' · link cards public' : ''} · submit route ${routes.some(r => r.pathPrefix === PROXY_PREFIX) ? `${PROXY_PREFIX} → ${routes.find(r => r.pathPrefix === PROXY_PREFIX).upstreamOrigin}` : 'none'}`);
+    } catch (err) { console.log(`live:     ${err.message}`); }
+    return;
+  }
+  if (sub === 'set') {
+    const next = { ...(cfg.publish || {}) };
+    if (flags.site) next.site = flags.site;
+    if (!next.site) { console.error('publish set needs --site <cresa.one slug>'); process.exit(1); }
+    if ('base-url' in flags) next.baseUrl = flags['base-url'];
+    if ('mirror' in flags) next.mirror = path.resolve(flags.mirror);
+    if ('title' in flags) next.siteTitle = flags.title;
+    if ('access' in flags) {
+      if (!['restricted', 'anyone_with_link'].includes(flags.access)) { console.error('access must be restricted | anyone_with_link'); process.exit(1); }
+      next.access = flags.access;
+    }
+    if ('allow' in flags) next.allowEmails = [...new Set([...(next.allowEmails || []), ...flags.allow.split(',').map(s => s.trim().toLowerCase()).filter(Boolean)])];
+    cfg.publish = next;
+    await writeHubConfig(cfg);
+    const pub = await publishConfig();
+    if (await siteExists(pub).catch(() => false)) {
+      const a = await ensureSiteAccess(pub);
+      console.log(`[plans hub publish] ${pub.baseUrl}/ · access ${a.mode}${a.proxy ? ` · submit route ${PROXY_PREFIX}` : ''}${a.reason ? ` · ${a.reason}` : ''}`);
+    } else console.log(`[plans hub publish] ${pub.baseUrl}/ · the Site is created on the first \`plans publish\``);
+    return;
+  }
+  if (sub === 'off') { delete cfg.publish; await writeHubConfig(cfg); console.log('[plans hub publish] off (the Site itself is untouched)'); return; }
+  console.error('Usage: plans hub publish [status | set --site <slug> [--allow you@example.com] [--access restricted|anyone_with_link] [--base-url URL] [--mirror dir] [--title "Site title"] | off]');
+  process.exit(1);
 }
 
 
@@ -1163,6 +1653,32 @@ async function resolvePlan(slugArg, seqFlag) {
   const plan = plans.find(p => p.seq === seq) || null;
   return { slug, seq, plan };
 }
+function submissionHash(inbox) { return createHash('sha256').update(JSON.stringify(inbox)).digest('hex'); }
+function sameSubmission(done, inbox) {
+  return !!(done && inbox && typeof inbox.receivedAt === 'string' && done.submittedAt === inbox.receivedAt &&
+    (!done.submissionHash || done.submissionHash === submissionHash(inbox)));
+}
+function fullyImplemented(done, inbox) {
+  return sameSubmission(done, inbox) && Array.isArray(done.items) && Array.isArray(inbox.decisions) &&
+    inbox.decisions.every(d => d.status !== 'pending' && (d.status !== 'approved' || done.items.includes(d.id)));
+}
+function validateImport(value) {
+  if (!value || value.version !== 2 || value.kind !== 'plan-decisions' ||
+      typeof value.plan?.slug !== 'string' || !/^[a-z0-9](?:[a-z0-9-]{0,78}[a-z0-9])?$/.test(value.plan.slug) ||
+      !Number.isSafeInteger(value.plan.seq) || value.plan.seq < 1 ||
+      (value.plan.repo != null && typeof value.plan.repo !== 'string') ||
+      (value.submittedAt != null && (typeof value.submittedAt !== 'string' || !Number.isFinite(Date.parse(value.submittedAt)))) ||
+      !Array.isArray(value.decisions) || value.decisions.length > 500) return false;
+  const ids = new Set();
+  for (const item of value.decisions) {
+    if (!item || typeof item.id !== 'string' || !item.id || ids.has(item.id) ||
+        !['approved', 'rejected', 'pending'].includes(item.status) ||
+        !['group', 'kind', 'title', 'current', 'suggested'].every(k => typeof item[k] === 'string') ||
+        typeof item.edited !== 'boolean') return false;
+    ids.add(item.id);
+  }
+  return true;
+}
 async function cmdDone(argv) {
   const { flags, rest } = parseFlags(argv);
   const cfg = await ensureConfig();
@@ -1172,8 +1688,9 @@ async function cmdDone(argv) {
   const inboxFile = path.join(HUB_INBOX_DIR, cfg.appName, `${key}.json`);
   const inbox = await readJsonOr(inboxFile, null);
   if (!inbox && !('force' in flags)) { console.error(`[plans done] no submission in the hub inbox for ${key} (${inboxFile}). Wait for the reader to submit, import a legacy file (plans inbox import), or pass --force.`); process.exit(1); }
-  const approved = inbox ? inbox.decisions.filter(d => d.status === 'approved').map(d => d.id) : [];
-  const items = flags.items ? flags.items.split(',').map(x => x.trim()).filter(Boolean) : approved;
+  const approved = Array.isArray(inbox?.decisions) ? inbox.decisions.filter(d => d.status === 'approved').map(d => d.id) : [];
+  let items = 'items' in flags ? flags.items.split(',').map(x => x.trim()).filter(Boolean) : approved;
+  if (inbox && items.some(id => !approved.includes(id))) throw new Error('Only approved decision IDs from the current submission can be marked done.');
   const commits = flags.commit ? flags.commit.split(',').map(x => x.trim()).filter(Boolean) : [];
   let head = null;
   try { head = spawnSync('git', ['-C', ROOT, 'rev-parse', '--short', 'HEAD'], { encoding: 'utf8' }).stdout.trim() || null; } catch {}
@@ -1181,8 +1698,10 @@ async function cmdDone(argv) {
   await fs.mkdir(dir, { recursive: true, mode: 0o700 });
   const out = path.join(dir, `${key}.json`);
   const prev = await readJsonOr(out, null);
+  const matching = sameSubmission(prev, inbox) ? prev : null;
+  items = [...new Set([...(matching?.items || []).filter(id => approved.includes(id)), ...items])];
   const entry = { app: cfg.appName, slug: r.slug, seq: r.seq, title: r.plan?.title || r.slug, file: r.plan?.path || null, doneAt: new Date().toISOString(),
-    items, skipped: approved.filter(id => !items.includes(id)), note: flags.note || prev?.note || '', commits: [...new Set([...(prev?.commits || []), ...commits])], head, inbox: inbox ? inboxFile : null, submittedAt: inbox?.receivedAt || null };
+    items, skipped: approved.filter(id => !items.includes(id)), note: flags.note || matching?.note || '', commits: [...new Set([...(matching?.commits || []), ...commits])], head, inbox: inbox ? inboxFile : null, submittedAt: inbox?.receivedAt || null, submissionHash: inbox ? submissionHash(inbox) : null };
   await writeJsonAtomic(out, entry);
   console.log(out);
   console.error(`[plans done] ${cfg.appName} · ${key} — ${items.length} item${items.length === 1 ? '' : 's'} recorded as implemented${entry.skipped.length ? ` (${entry.skipped.length} approved item${entry.skipped.length === 1 ? '' : 's'} not listed: ${entry.skipped.join(', ')})` : ''}`);
@@ -1212,14 +1731,14 @@ async function lifecycle(app, root) {
     const waiting = await readJsonOr(path.join(HUB_WAITING_DIR, app, `${key}.json`), null);
     const inbox = await readJsonOr(path.join(HUB_INBOX_DIR, app, `${key}.json`), null);
     const done = await readJsonOr(path.join(HUB_DONE_DIR, app, `${key}.json`), null);
-    const counts = inbox ? inbox.decisions.reduce((c, d) => { c[d.status] = (c[d.status] || 0) + 1; return c; }, { approved: 0, rejected: 0, pending: 0 }) : null;
-    const approvedIds = inbox ? inbox.decisions.filter(d => d.status === 'approved').map(d => d.id) : [];
+    const counts = Array.isArray(inbox?.decisions) ? inbox.decisions.reduce((c, d) => { c[d.status] = (c[d.status] || 0) + 1; return c; }, { approved: 0, rejected: 0, pending: 0 }) : null;
+    const approvedIds = Array.isArray(inbox?.decisions) ? inbox.decisions.filter(d => d.status === 'approved').map(d => d.id) : [];
     let status = 'stamped';
     if (waiting && waiting.pid && processIsAlive(waiting.pid) && (!inbox || Date.parse(inbox.receivedAt) < Date.parse(waiting.startedAt))) status = 'waiting';
-    else if (inbox && done && Date.parse(done.doneAt) >= Date.parse(inbox.receivedAt) - 1000) status = 'implemented';
+    else if (fullyImplemented(done, inbox)) status = 'implemented';
     else if (inbox) status = 'submitted';
     const hint = gitHint(root, inbox?.receivedAt || date, seq, slug, approvedIds);
-    out.push({ app, root, file: n, seq, slug, title, date, status, submittedAt: inbox?.receivedAt || null, via: inbox?.via || null, counts, implementedAt: done?.doneAt || null, doneItems: done?.items?.length ?? null, doneNote: done?.note || '', commits: done?.commits || [], git: hint });
+    out.push({ app, root, file: n, seq, slug, title, date, status, submittedAt: inbox?.receivedAt || null, via: inbox?.via || null, counts, implementedAt: status === 'implemented' ? done.doneAt : null, doneItems: sameSubmission(done, inbox) ? done.items?.length ?? 0 : null, doneNote: done?.note || '', commits: done?.commits || [], git: hint });
   }
   return out;
 }
@@ -1241,8 +1760,8 @@ async function cmdStatus(argv) {
   let lastApp = null;
   for (const r of rows) {
     if (r.app !== lastApp) { console.log(`\n${r.app}  (${r.root})`); lastApp = r.app; }
-    const sub = r.submittedAt ? `submitted ${r.submittedAt.slice(0, 10)}${r.via === 'import' ? ' (imported)' : ''} · ${r.counts.approved} ✓ ${r.counts.rejected} ✗${r.counts.pending ? ` ${r.counts.pending} ○` : ''}` : 'not submitted';
-    const impl = r.implementedAt ? `implemented ${r.implementedAt.slice(0, 10)} (${r.doneItems} items${r.commits.length ? `, ${r.commits.length} commits` : ''})${r.doneNote ? ` — ${r.doneNote}` : ''}` : r.submittedAt ? 'NOT implemented (no `plans done` record)' : '';
+    const sub = r.submittedAt ? `submitted ${r.submittedAt.slice(0, 10)}${r.via === 'import' ? ' (imported)' : ''} · ${r.counts?.approved || 0} ✓ ${r.counts?.rejected || 0} ✗${r.counts?.pending ? ` ${r.counts.pending} ○` : ''}` : 'not submitted';
+    const impl = r.implementedAt ? `implemented ${r.implementedAt.slice(0, 10)} (${r.doneItems} items${r.commits.length ? `, ${r.commits.length} commits` : ''})${r.doneNote ? ` — ${r.doneNote}` : ''}` : r.submittedAt ? `NOT implemented (${r.doneItems || 0} approved items recorded for this submission)` : '';
     const git = r.git ? `${r.git.after} commits since${r.git.mentions.length ? `, ${r.git.mentions.length} mention it` : ''}` : 'no git';
     console.log(`  ${icon[r.status]} #${String(r.seq).padStart(3, '0')} ${r.title}  [${r.date}]`);
     console.log(`       ${sub}${impl ? ` · ${impl}` : ''} · git: ${git}`);
@@ -1260,16 +1779,20 @@ async function cmdInbox(argv) {
     try { files = (await fs.readdir(dl)).filter(n => n.endsWith('-decisions.json')).map(n => path.join(dl, n)); } catch {}
   }
   const reg = await readJsonOr(HUB_REGISTRY_PATH, { version: 1, apps: {} });
-  const byName = new Map();
-  for (const [app, e] of Object.entries(reg.apps || {})) if (e?.root) { byName.set(app, [app, e.root]); byName.set(path.basename(e.root), [app, e.root]); }
   let imported = 0;
   for (const file of files) {
-    const d = await readJsonOr(file, null);
-    if (!d || d.kind !== 'plan-decisions' || d.version !== 2 || !d.plan?.slug || !Number.isInteger(d.plan?.seq)) { console.log(`skip  ${path.basename(file)} — not a v2 plan-decisions payload`); continue; }
+    let d = null;
+    try { if ((await fs.stat(file)).size <= 1_000_000) d = await readJsonOr(file, null); } catch {}
+    if (!validateImport(d)) { console.log(`skip  ${path.basename(file)} — not a v2 plan-decisions payload`); continue; }
     const key = planKey(d.plan.slug, d.plan.seq);
-    // Match: repo name from the payload, else any registered repo that has the page.
-    let hit = d.plan.repo ? byName.get(d.plan.repo) : null;
-    if (!hit) for (const [app, e] of Object.entries(reg.apps || {})) { try { if ((await fs.readdir(path.join(e.root, 'docs', 'plans'))).some(n => n.endsWith(pageSuffix(d.plan.slug, d.plan.seq)))) { hit = [app, e.root]; break; } } catch {} }
+    // Never guess between repositories with the same slug/sequence or basename.
+    const candidates = [];
+    for (const [app, e] of Object.entries(reg.apps || {})) {
+      if (!e?.root || (d.plan.repo && d.plan.repo !== app && d.plan.repo !== path.basename(e.root))) continue;
+      try { if ((await fs.readdir(path.join(e.root, 'docs', 'plans'))).some(n => n.endsWith(pageSuffix(d.plan.slug, d.plan.seq)))) candidates.push([app, e.root]); } catch {}
+    }
+    if (candidates.length > 1) { console.log(`skip  ${path.basename(file)} — ambiguous repository; use its unique appName in plan.repo`); continue; }
+    const hit = candidates[0];
     if (!hit) {
       const guess = ['github', 'myscripts'].map(d2 => path.join(os.homedir(), d2, d.plan.repo || '')).find(p2 => d.plan.repo && existsSync(path.join(p2, 'docs', 'plans')));
       console.log(`skip  ${path.basename(file)} — repo "${d.plan.repo}" is not registered with the hub${guess ? ` (found ${guess}: run \`bun run plans hub register\` there, then re-run)` : ''}`);
@@ -1295,7 +1818,7 @@ async function cmdInbox(argv) {
 async function cmdWait(argv) {
   const { flags, rest } = parseFlags(argv);
   const slug = (rest[0] || '').toLowerCase().replace(/[^a-z0-9-]+/g, '-').replace(/^-+|-+$/g, '');
-  if (!slug) { console.error('Usage: plans wait <slug> [--seq N] [--timeout seconds] [--any] [--no-notify]'); process.exit(1); }
+  if (!slug) { console.error('Usage: plans wait <slug> [--seq N] [--timeout seconds] [--any] [--no-notify] [--no-publish]'); process.exit(1); }
   const cfg = await ensureConfig();
   const plans = (await listPlans()).filter(p => p.name.endsWith(`-${slug}.html`) && p.seq != null);
   let seq = Number(flags.seq);
@@ -1318,7 +1841,14 @@ async function cmdWait(argv) {
   if (await ready()) { console.log(target); return; }
   console.error(`[plans wait] ${cfg.appName} · ${slug} #${seq} — waiting for a submission at https://${cfg.appName}.localhost/plans/`);
   // v19: marker for the remote landing page + a text with the link.
-  const marker = await announceWaiting(cfg, { slug, seq, title: plan.title, file: plan.path }, { started, notify: !('no-notify' in flags) });
+  let marker;
+  try { marker = await announceWaiting(cfg, { slug, seq, title: plan.title, file: plan.path }, { started, notify: !('no-notify' in flags), publish: !('no-publish' in flags) }); }
+  catch (err) {
+    if (!err.publishFailed) throw err;
+    console.error(`[plans wait] publish failed, nothing texted — ${err.message}`);
+    console.error('[plans wait] fix the cause and run wait again (bun run plans hub publish status), or pass --no-publish to text the hub link only');
+    process.exit(3);
+  }
   const clear = () => { try { rmSync(marker, { force: true }); } catch {} };
   for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP']) process.on(sig, () => { clear(); process.exit(130); });
   await new Promise((resolve, reject) => {
@@ -1516,9 +2046,9 @@ async function cmdApp(argv) {
 
   // Delegate to appkit unless an unported named variant was explicitly asked for.
   const kitBin = path.join(process.env.HOME || '', '.claude', 'templates', 'appkit', 'bin', 'appkit.mjs');
-  const wantsLegacyVariant = !!flags.template;
+  const wantsLegacyVariant = !!flags.template && flags.template !== "changes";
   if (!wantsLegacyVariant && existsSync(kitBin)) {
-    const args = [kitBin, 'new', slug, '--recipe', flags.recipe || 'workspace', '--root', ROOT];
+    const args = [kitBin, 'new', slug, '--recipe', flags.recipe || (flags.template === 'changes' ? 'changes' : 'workspace'), '--root', ROOT];
     if (flags.title) args.push('--title', flags.title);
     if (flags.badge) args.push('--badge', flags.badge);
     if (flags.dest) args.push('--dest', destination.relative);
@@ -1568,17 +2098,69 @@ async function cmdApp(argv) {
 // reached at the SAME stable https://<appName>.localhost URL — no hardcoded
 // ports, no EADDRINUSE. portless injects a free PORT (+ HOST, PORTLESS_URL)
 // into the child, so servers must listen on process.env.PORT.
+//
+// Re-running the same `serve` replaces the previous instance of that app name
+// (v35). portless's own `--force` is not enough: it SIGTERMs the old portless
+// and writes the new route in one step, and the dying portless then removes
+// the route *by hostname* on its way out — wiping the entry the new instance
+// just registered. So we retire the old owner ourselves, wait for it to be
+// gone, and only then start portless. `--keep` restores the refuse-to-clobber
+// behaviour; `--force` is accepted as a no-op for muscle memory.
+
+// portless keeps live routes in <state>/routes.json as {hostname, port, pid}.
+function portlessRoutesFile() {
+  return path.join(process.env.PORTLESS_STATE_DIR || path.join(os.homedir(), '.portless'), 'routes.json');
+}
+
+// Match the full hostname using the running proxy's persisted TLD. A prefix
+// match could select <name>.<other-project>.<tld>, which belongs to a worktree
+// of another app. PORTLESS_TLD only configures a new proxy, not an active one.
+// Alias routes (pid 0) and dead owners are not conflicts — portless replaces
+// those on its own.
+function portlessLiveRoute(name) {
+  const routesFile = portlessRoutesFile();
+  let tld = 'localhost';
+  try { tld = readFileSync(path.join(path.dirname(routesFile), 'proxy.tld'), 'utf8').trim() || tld; }
+  catch (err) { if (err.code !== 'ENOENT') return null; }
+  if (!/^[a-z0-9]+$/.test(tld)) return null;
+  let routes;
+  try { routes = JSON.parse(readFileSync(routesFile, 'utf8')); } catch { return null; }
+  if (!Array.isArray(routes)) return null;
+  const route = routes.find(r => r?.hostname === `${name}.${tld}`);
+  if (!route || !route.pid || route.pid === process.pid || !processIsAlive(route.pid)) return null;
+  return route;
+}
+
+// SIGTERM the previous portless for this name and wait until it has exited.
+// portless kills its own dev-server process group and drops its route before
+// exiting. If it stalls, refuse replacement: SIGKILL skips that cleanup,
+// and the detached dev server's process group is NOT the portless owner's PID.
+async function retirePortlessOwner(route, { graceMs = 5000 } = {}) {
+  const { pid } = route;
+  try { process.kill(pid, 'SIGTERM'); } catch (err) { if (err.code === 'ESRCH') return true; throw err; }
+  const deadline = Date.now() + graceMs;
+  while (Date.now() < deadline) {
+    if (!processIsAlive(pid)) return true;
+    await new Promise(r => setTimeout(r, 100));
+  }
+  return !processIsAlive(pid);
+}
+
 async function cmdServe(argv) {
   let name = null;
   let local = false;
+  let replace = true;
   for (;;) {
     if (argv[0] === '--name') { name = argv[1] || null; argv = argv.slice(2); continue; }
     if (argv[0] === '--local') { local = true; argv = argv.slice(1); continue; }
+    if (argv[0] === '--keep') { replace = false; argv = argv.slice(1); continue; }
+    if (argv[0] === '--force' || argv[0] === '--replace') { replace = true; argv = argv.slice(1); continue; }
     break;
   }
   if (!argv.length) {
-    console.error('Usage: plans serve [--name <appName>] [--local] <command> [args…]');
+    console.error('Usage: plans serve [--name <appName>] [--local] [--keep] <command> [args…]');
     console.error('Example: plans serve bun web/pipeline-server.ts');
+    console.error('Re-running replaces a previous instance of the same app name; --keep refuses instead.');
     process.exit(1);
   }
   const cfg = await ensureConfig();
@@ -1593,6 +2175,19 @@ async function cmdServe(argv) {
     env.PORT = env.PORT || '0';
   } else {
     console.log(`[plans serve] ${name} -> https://${name}.localhost`);
+    const previous = portlessLiveRoute(name);
+    if (previous) {
+      if (!replace) {
+        console.error(`[plans serve] ${name} is already served by PID ${previous.pid} (--keep). Stop it or drop --keep to replace it.`);
+        process.exit(1);
+      }
+      console.log(`[plans serve] replacing the previous ${name} instance (PID ${previous.pid})`);
+      const gone = await retirePortlessOwner(previous);
+      if (!gone) {
+        console.error(`[plans serve] PID ${previous.pid} would not exit; refusing to start a second ${name}.`);
+        process.exit(1);
+      }
+    }
     // v19: when the hub's remote provider is Tailscale, share this app on the
     // tailnet too (portless: `tailscale serve` per app on its own https port).
     // `--local` or PLANS_SERVE_LOCAL=1 keeps it LAN-only.
@@ -1608,6 +2203,12 @@ async function cmdServe(argv) {
   const child = spawn(bin, args, { stdio: 'inherit', env });
   child.on('exit', code => process.exit(code ?? 0));
   child.on('error', err => { console.error(err.message); process.exit(1); });
+  // Forward termination to portless so `kill <wrapper pid>` (or a terminal
+  // closing) also stops the dev server instead of orphaning it. Ctrl-C already
+  // reaches portless through the terminal's process group.
+  for (const sig of ['SIGINT', 'SIGTERM', 'SIGHUP']) {
+    process.on(sig, () => { try { child.kill(sig); } catch {} });
+  }
 }
 
 /* ---------------- index dashboard ---------------- */
@@ -1645,7 +2246,7 @@ function indexCss(cfg) {
   return `${fonts}
 :root{color-scheme:dark;${tokens}
   --ease-out:cubic-bezier(.16,1,.3,1);--d-fast:120ms;--d-state:200ms}
-@media(prefers-color-scheme:light){:root${mono ? '.never' : ''}{color-scheme:light;
+@media(prefers-color-scheme:light){:root{color-scheme:light;
   --bg:#f8f7f4;--surface-1:#f4f3ef;--surface-2:#efede8;--surface-3:#e7e4dd;
   --hairline:#e4e1db;--hairline-strong:#d5d2ca;--ink:#15171c;--ink-muted:#4b4f59;--ink-faint:#5e636d;
   --accent:color-mix(in oklab,${cfg.accent} 62%,black);--accent-ink:#fff;--focus:oklch(.5 .12 245)}}
@@ -1669,7 +2270,7 @@ input.search{width:100%;background:var(--surface-1);border:1px solid var(--hairl
   border-radius:var(--r);color:var(--ink);font-family:var(--font-ui);font-size:.9375rem;
   min-height:44px;padding:0 14px;margin-bottom:20px;transition:border-color var(--d-fast)}
 input.search::placeholder{color:var(--ink-faint)}
-input.search:hover{border-color:var(--hairline-strong)}
+@media(hover:hover) and (pointer:fine){input.search:hover{border-color:var(--hairline-strong)}}
 input.search:focus-visible{border-color:var(--accent);outline-offset:0;outline-color:transparent;box-shadow:0 0 0 3px color-mix(in oklch,var(--accent),transparent 80%)}
 h2{font-family:var(--font-mono);font-size:.75rem;font-weight:600;letter-spacing:.1em;
   text-transform:uppercase;color:var(--ink-muted);margin:32px 0 10px;display:flex;align-items:baseline;gap:8px}
@@ -1679,7 +2280,7 @@ a.row{display:flex;align-items:center;gap:12px;background:var(--surface-1);
   border:1px solid var(--hairline);border-radius:var(--r);padding:12px 16px;margin-bottom:8px;
   color:inherit;text-decoration:none;min-height:56px;
   transition:border-color var(--d-fast),background var(--d-fast),transform var(--d-fast) var(--ease-out)}
-a.row:hover{border-color:var(--hairline-strong);background:var(--surface-2);transform:translateX(2px)}
+@media(hover:hover) and (pointer:fine){a.row:hover{border-color:var(--hairline-strong);background:var(--surface-2)}}
 a.row:active{transform:none}
 a.row.hidden{display:none}
 .seq{font-family:var(--font-mono);font-size:.75rem;font-weight:700;flex:none;
@@ -1700,7 +2301,14 @@ a.row.latest .seq{background:var(--accent);border-color:var(--accent);color:var(
 .empty code{font-family:var(--font-mono);font-size:.875rem;background:var(--surface-2);padding:2px 7px;border-radius:5px}
 .none{color:var(--ink-faint);font-size:.875rem;padding:8px 0 0}
 @media(max-width:560px){.rt .t{white-space:normal;line-height:1.35}.when{display:none}.wrap{padding-top:28px}}
-@media(prefers-reduced-motion:reduce){*{transition:none!important}}`;
+/* v37 native browse surface */
+:root{--ease-out:cubic-bezier(.23,1,.32,1);--r:16px}
+.wrap{max-width:900px;padding: max(36px,env(safe-area-inset-top)) max(20px,env(safe-area-inset-right)) max(48px,env(safe-area-inset-bottom)) max(20px,env(safe-area-inset-left))}
+.search{min-height:48px!important;border-radius:14px!important;font-size:16px!important}
+a.row{border-radius:16px;padding:16px;min-height:72px;gap:14px}.seq{border-radius:10px!important;min-width:44px;min-height:44px;display:grid;place-items:center}.rt .t{font-weight:650;line-height:1.35}.rt{min-width:0}.rt .f{overflow-wrap:anywhere}.pill{border-radius:8px!important}
+@media(hover:none){a.row:hover{transform:none}}a.row:active{transform:scale(.985)}
+@media(max-width:560px){body{font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",sans-serif}.wrap{padding-top:max(24px,env(safe-area-inset-top))}h1{font-size:30px;letter-spacing:-.035em}.rt .f{display:none}.pill{font-size:9px;padding:4px 6px}.sub{line-height:1.6}a.row{padding:14px;gap:10px}}
+@media(prefers-reduced-motion:reduce){*{transition:none!important}a.row:active{transform:none}}`;
 }
 
 async function cmdIndex(argv) {
@@ -1729,7 +2337,7 @@ async function writeIndex(argv) {
   const updated = new Date().toISOString().replace('T', ' ').slice(0, 16) + ' UTC';
 
   const apps = await listApps();
-  const appRows = apps.map(a => ({ file: path.relative(PLANS_DIR, a.path).split(path.sep).join('/'), title: a.title, name: a.name, date: new Date(a.mtime).toISOString().slice(0, 10) }));
+  const appRows = apps.map(a => ({ route: encodeURIComponent(path.basename(a.path)), file: path.relative(PLANS_DIR, a.path).split(path.sep).join('/'), title: a.title, name: a.name, date: new Date(a.mtime).toISOString().slice(0, 10) }));
   const html = `<!DOCTYPE html>
 <html lang="en">
 <head>
@@ -1763,7 +2371,7 @@ ${rows.length === 0 ? `    <div class="empty"><b>No plan pages yet</b>Stamp the 
   </div>
 ${appRows.length ? `  <h2 id="h-apps">Apps <span class="n" id="n-apps">${appRows.length}</span></h2>
   <div id="apps">
-${appRows.map(a => `    <a class="row" href="${escapeHtml(a.file)}">
+${appRows.map(a => `    <a class="row" data-app-file="${escapeHtml(a.route)}" href="${escapeHtml(a.file)}">
       <span class="seq">app</span>
       <span class="rt"><span class="t">${escapeHtml(a.title)}</span><span class="f">${escapeHtml(a.name)}</span></span>
       <span class="when">${escapeHtml(a.date)}</span>
@@ -1773,6 +2381,12 @@ ${appRows.map(a => `    <a class="row" href="${escapeHtml(a.file)}">
 </main>
 <script>
 (function(){
+  if (/^https?:$/.test(location.protocol)) {
+    var prefix = location.pathname.replace(/\\/plans\\/(?:index\\.html)?$/, '');
+    document.querySelectorAll('[data-app-file]').forEach(function(link){
+      link.setAttribute('href', prefix + '/apps/' + link.getAttribute('data-app-file'));
+    });
+  }
   var q = document.getElementById('q');
   function apply(){
     var v = q.value.trim().toLowerCase();
@@ -1798,7 +2412,7 @@ ${appRows.map(a => `    <a class="row" href="${escapeHtml(a.file)}">
 </html>
 `;
   await fs.mkdir(PLANS_DIR, { recursive: true });
-  await fs.writeFile(path.join(PLANS_DIR, 'index.html'), html);
+  await fs.writeFile(path.join(PLANS_DIR, 'index.html'), html.replace(/[ \t]+$/gm, ''));
   if (!quiet) console.log(path.join(PLANS_DIR, 'index.html'));
 }
 
@@ -1818,14 +2432,20 @@ Usage:
   bun run plans index [--quiet] # regenerate docs/plans/index.html dashboard
   bun run plans serve [--name x] <cmd…>
                                 # run a dev/app server through portless -> https://<appName>.localhost
-  bun run plans wait <slug> [--seq N] [--timeout S] [--any]
-                                # block until that plan's decisions land in the hub inbox; prints the path
+  bun run plans wait <slug> [--seq N] [--timeout S] [--any] [--no-notify] [--no-publish]
+                                # publish the plan (when a Site is set), text you its link, then block
+                                # until the decisions land in the hub inbox; prints the path.
+                                # Exit 3 = publish failed and nothing was texted.
+  bun run plans publish <slug> [--seq N] [--notify]
+                                # v31: copy the plan to the cresa.one Site, publish, verify the link card
   bun run plans hub [status|register|install|start|stop|logs|url [--remote]|run]
                                 # v17 always-on hub: https://<appName>.localhost/plans/ via portless
   bun run plans hub remote [status|on|off] [--provider tailscale|funnel|ngrok|cloudflare]
                                 # v19: reach every plan from your phone off-LAN (keyed link, then cookie)
   bun run plans hub notify [status|set --channel imessage|command|off --to <handle>|test]
                                 # v19: how 'plans wait' texts you (iMessage to yourself, or a command)
+  bun run plans hub publish [status|set --site <slug> --allow <email> [--access restricted|anyone_with_link]|off]
+                                # v31: the cresa.one Site that 'plans wait' publishes to before texting
   bun run plans notify [--test] # text the "waiting for you" link now
   bun run plans done <slug> [--items d01,d03] [--note "…"] [--commit sha]
                                 # record that the approved decisions were executed (→ "implemented")
@@ -1846,6 +2466,7 @@ async function main() {
   if (arg === 'index') return cmdIndex(process.argv.slice(3));
   if (arg === 'serve') return cmdServe(process.argv.slice(3));
   if (arg === 'wait') return cmdWait(process.argv.slice(3));
+  if (arg === 'publish') return cmdPublish(process.argv.slice(3));
   if (arg === 'hub') return cmdHub(process.argv.slice(3));
   if (arg === 'notify') return cmdNotify(process.argv.slice(3));
   if (arg === 'done') return cmdDone(process.argv.slice(3));

@@ -823,12 +823,67 @@ PLAN_ITEMS.forEach(function(f){
 });
 
 /* ============ state ============ */
-var LS_KEY = "plans:" + PLAN_META.slug + ":" + PLAN_META.seq;
+// v30: the existing submission token identifies this stamped page across routes.
+// Legacy keys had no repository identity. Keep them intact; shared origins and
+// file URLs need explicit recovery because their owner cannot be established.
+var LEGACY_LS_KEY = "plans:" + PLAN_META.slug + ":" + PLAN_META.seq;
+var LS_KEY = "plans:v2:" + encodeURIComponent(PLAN_META.repo) + ":" +
+  encodeURIComponent(typeof SUBMISSION_TOKEN === "string" && SUBMISSION_TOKEN || location.pathname) +
+  ":" + PLAN_META.slug + ":" + PLAN_META.seq;
 var UI_KEY = LS_KEY + ":ui";
-var state = {};
-try{ state = JSON.parse(localStorage.getItem(LS_KEY) || "{}"); }catch(e){ state = {}; }
-function saveState(){ localStorage.setItem(LS_KEY, JSON.stringify(state)); }
-function st(id){ if(!state[id]) state[id] = {status:"pending", text:null}; return state[id]; }
+var storageMemory = {};
+function storageGet(key){
+  try{
+    var value = localStorage.getItem(key);
+    if(value != null) storageMemory[key] = value;
+    return value;
+  }catch(e){ return Object.prototype.hasOwnProperty.call(storageMemory,key) ? storageMemory[key] : null; }
+}
+function storageSet(key,value){
+  storageMemory[key] = value;
+  try{ localStorage.setItem(key,value); }catch(e){}
+}
+function readDecisionState(raw){
+  var result = {};
+  try{
+    var saved = JSON.parse(raw || "{}");
+    PLAN_ITEMS.forEach(function(item){
+      var value = saved && Object.prototype.hasOwnProperty.call(saved,item.id) && saved[item.id];
+      if(value && ["pending","approved","rejected"].indexOf(value.status) !== -1 &&
+          (value.text == null || typeof value.text === "string"))
+        Object.defineProperty(result,item.id,{value:{status:value.status,text:value.text == null ? null : value.text},enumerable:true,writable:true,configurable:true});
+    });
+  }catch(e){}
+  return result;
+}
+var legacyState = storageGet(LEGACY_LS_KEY);
+var dedicatedOrigin = /^https?:$/.test(location.protocol) && /^[a-z0-9-]+\.localhost$/.test(location.hostname);
+if(storageGet(LS_KEY) == null && legacyState && dedicatedOrigin){
+  storageSet(LS_KEY, JSON.stringify(readDecisionState(legacyState)));
+  var legacyUi = storageGet(LEGACY_LS_KEY + ":ui");
+  if(legacyUi) storageSet(UI_KEY, legacyUi);
+}
+var state = readDecisionState(storageGet(LS_KEY));
+function saveState(){ storageSet(LS_KEY, JSON.stringify(state)); }
+function st(id){ if(!Object.prototype.hasOwnProperty.call(state,id)) Object.defineProperty(state,id,{value:{status:"pending",text:null},enumerable:true,writable:true,configurable:true}); return state[id]; }
+function offerLegacyRecovery(){
+  if(!legacyState || dedicatedOrigin || storageGet(LS_KEY + ":legacy-reviewed")) return;
+  var button = document.createElement("button");
+  button.type = "button";
+  button.textContent = "Recover older saved decisions";
+  button.addEventListener("click", function(){
+    if(!window.confirm("Older saved decisions for " + PLAN_META.slug + " #" + PLAN_META.seq +
+      " have no repository identity and may belong to another repo. Restore them to " + PLAN_META.repo +
+      "? This replaces this page's current selections. The original saved data is kept.")) return;
+    state = readDecisionState(legacyState);
+    saveState();
+    var legacyUi = storageGet(LEGACY_LS_KEY + ":ui");
+    if(legacyUi) storageSet(UI_KEY,legacyUi);
+    storageSet(LS_KEY + ":legacy-reviewed","1");
+    location.reload();
+  });
+  (document.querySelector("main") || document.body).prepend(button);
+}
 /* Seed author defaults exactly once; saved decisions always win. */
 PLAN_ITEMS.forEach(function(f){
   if(f.dflt && f.dflt !== "pending" && !state[f.id]) state[f.id] = {status:f.dflt, text:null};
@@ -836,11 +891,11 @@ PLAN_ITEMS.forEach(function(f){
 saveState();
 
 var ui = {idx:0, mode:"overview"};
-try{ var u = JSON.parse(localStorage.getItem(UI_KEY) || "{}");
+try{ var u = JSON.parse(storageGet(UI_KEY) || "{}");
   if(typeof u.idx === "number" && u.idx >= 0 && u.idx < PLAN_ITEMS.length) ui.idx = u.idx;
   if(u.mode === "focus") ui.mode = "focus";
 }catch(e){}
-function saveUi(){ localStorage.setItem(UI_KEY, JSON.stringify(ui)); }
+function saveUi(){ storageSet(UI_KEY, JSON.stringify(ui)); }
 
 var review = false;      /* review mode: navigation constrained to pending */
 var submitted = false;
@@ -1623,6 +1678,7 @@ try{
 }catch(e){}
 buildTrack(); buildRows(); paintCounts();
 if(ui.mode === "focus"){ goFocus(ui.idx, null); } else { goOverview(); }
+offerLegacyRecovery();
 </script>
 </body>
 </html>

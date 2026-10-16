@@ -24,6 +24,27 @@ writes `YYYY-MM-DD-NNN-<slug>.html`, and regenerates the dashboard. Then edit
 the file: fill the thesis paragraph (`#plan-sub`), replace the sample
 `PLAN_ITEMS`, and optionally add `.prose` context sections above the groups.
 
+### Done means published, checked, and texted (v31)
+
+A plan is not handed over until every step below has run. Do them in order:
+
+1. Stamp the page and fill it (above).
+2. Run `bun scripts/plans.mjs wait <slug>` in the background. Do not use
+   `bun run plans wait`: the token-saver hook wraps `bun run …` with a
+   300-second timeout, so the task ends with exit 124. The wait process itself
+   keeps running, and its exit never reaches you. With a publish Site set
+   (`bun run plans hub publish status`), it copies the page to the Site,
+   checks the link card, and texts the Site link. Do not text a link by hand.
+3. Check the `wait` output. You need both `[plans wait] published <url>` and
+   `[plans wait] texted you the link`. Exit code 3 means the publish failed
+   and nothing was texted: fix the cause and run `wait` again.
+4. Give the user the published URL in the chat too.
+5. When the submission arrives, execute the approved items, then record them
+   with `bun run plans done <slug>`.
+
+`bun run plans publish <slug> [--notify]` runs step 2's publish on its own,
+for example after you edit a page that is already waiting.
+
 ## Numbering & provenance
 
 - `plans.config.json` holds `nextSeq`; every stamped page gets a monotonically
@@ -145,6 +166,56 @@ file to Claude.
 `plans.config.json`) with `/ping` + `/submit`. For those, run the v16 loopback
 listener below (per-repo port, slug handshake, token). Never kill a listener
 that answers `/ping` — it is live, not stale.
+
+### Publishing to a cresa.one Site (v31)
+
+`hub.config.json` `publish` names one cresa.one Site for every repo. Set it once
+per machine:
+
+```bash
+bun run plans hub publish set --site plans --allow you@example.com   # access restricted (default)
+bun run plans hub publish status                                      # config + live access + submit route
+```
+
+`plans wait` (and `plans publish`) then does this for each plan:
+
+1. Copies the page to the mirror directory (`~/.claude/plans-hub/cresa-one-site/`
+   by default) as `<appName>/<NNN>-<slug>.html`. The copy gets its own Open Graph
+   and Twitter tags, and its `ENDPOINT` is pinned to `/_hub/<appName>`.
+2. Copies the hub's card for the page to `<appName>/<NNN>-<slug>/og.png`. If the
+   hub cannot render one, it uses the cresa-one skill's `og-image.py` instead.
+3. Rewrites the Site's `index.html` to list every mirrored plan, waiting plans first.
+4. Runs the cresa-one skill's `publish.sh` on the whole mirror. The Site viewer
+   title, description, and image are set to this plan.
+5. Sets the Site's access policy, public link cards, and submit route
+   (see Rules below). It reads first and writes only what differs.
+6. Fetches the URL as a link previewer would and checks two things. The
+   og:title must name this plan, and og:image must answer 200 `image/*`. If
+   either check fails, `wait` exits with code 3 and texts nothing.
+
+Rules that cost a session each to learn:
+
+- **Flat files only.** cresa.one does not serve a folder's `index.html`.
+  `/x/` redirects to `/x`, which answers 404. Pages must be `<NNN>-<slug>.html`.
+- **The mirror is the whole Site.** A publish replaces every file on the Site,
+  so the mirror holds pages from all repos. Never publish a single page
+  directory to the Site.
+- **A protected Site shows only its viewer metadata to link previewers.** Pages
+  stay behind the access gate. That is why each publish points the viewer
+  metadata at the plan being texted. An older link then shows the newest
+  plan's card.
+- **Submit uses a proxy route on a protected Site.** The route is `/_hub` →
+  the hub tunnel origin. cresa.one checks the viewer, then adds
+  `Authorization: Bearer <remote.proxyToken>` from the service variable
+  `PLANS_HUB_SUBMIT_TOKEN`. On the hub, that Bearer opens only
+  `/<app>/plans/_submit` and `/<app>/plans/_ping`, and the page token is still
+  checked.
+- **A public Site cannot submit.** Proxy routes exist only on protected Sites.
+  With `--access anyone_with_link`, Submit on the copy downloads a JSON file,
+  so the text also carries the hub link. Anyone who guesses the Site URL can
+  read a public Site, so keep it restricted.
+- `publish.sh` runs with `--no-verify` on a protected Site, because every
+  file answers with the access gate. The card check in step 6 replaces it.
 
 ### Reviewing from your phone (v19 remote + notify)
 
@@ -346,12 +417,12 @@ and the monolith app template) expose 12 themes in the command bar with live
 preview and on `t`; Paper darkens danger/warn/focus (and the plan template's
 kind-chip hues) for AA on light.
 
-**Motion policy (deliberate):** the OS `prefers-reduced-motion` media query is
-NOT honored by default — motion is full unless the person picks Motion:
-Reduced (toolbar button on plan pages, command-bar Setting in app shells),
-applied as `html[data-motion=reduced]` and persisted. This is a conscious
-departure from the usual accessibility default for these internal tools; the
-reduced setting remains one click away and sticky.
+**Motion policy:** the stock v29+ plan template honors OS
+`prefers-reduced-motion: reduce` for animations and transitions. Its persisted
+Motion: Reduced toggle additionally disables smooth scrolling. Mono and legacy
+AppKit shells retain their explicit toggle policy; recipes have their own CSS.
+Theme and motion preferences use the origin-wide `plan-ui` key (all repos share
+that preference when viewed through the same hub hostname).
 
 ## Color
 
@@ -490,8 +561,8 @@ Plan pages need no widescreen change — `.wrap` is already capped.
 navigate), state-badge pop on decide, hover lift, chip select, toast slide,
 progress-segment scale on hover. Auto-advance waits ~260ms so the state
 change is seen before the next card slides in. No page-load choreography.
-Reduced motion is the explicit `html[data-motion=reduced]` gate (see Motion
-policy under Theme) — it kills transitions, animations, and smooth scroll.
+Reduced motion uses the OS preference plus the explicit `html[data-motion=reduced]`
+gate in the stock plan template (see Motion policy under Theme).
 
 ## Semantic z-index scale
 
@@ -537,3 +608,33 @@ It must open from `file://` with no network and no build step — `bun run plans
 (or a double-click) always works offline. The only network call is the optional
 `127.0.0.1:<per-repo port>` listener ping/submit, which degrades gracefully
 (offline or busy-with-another-plan both fall back to a JSON download).
+
+
+## Review layout standard — September 23, 2026
+
+Follow the Target Enrichment reference (`https://allman-enrichment.localhost/apps/target-enrichment.html`) for new decision plans and results apps: embedded Geist fonts, warm charcoal/goldenrod dark theme and paper light theme, compact app header, short scope panel, compact metric tiles, full-width search, filter chips with counts, rows for scanning, and a detail inspector/drawer for evidence. Keep headings near 28–32px; avoid giant hero text and walls of expanded cards. Maintain keyboard access, visible focus, 44px primary touch targets, reduced-motion behavior, and mobile layouts.
+
+For results/evidence apps use `bun ~/.claude/templates/appkit/bin/appkit.mjs new <slug> --recipe review --root <repo> --title <title>`. Replace its `review-data` JSON with verified rows. Results are read-only; do not add decision submission actions to factual rows. For decision plans continue using `bun run plans new`; its managed template retains approval/rejection/editing, drafts, review validation and authenticated submission. Recommendations, submitted decisions and observed completion must remain distinct.
+
+Keep paired HTML and Markdown. Explain every verification count: what ran, fixture versus live evidence, skipped/blocked checks, and what a pass cannot prove. An OpenAPI operation is method plus path; changed fingerprints are not automatically breaking changes, and route coverage is not parameter coverage.
+
+Existing pages need an explicit, content-preserving migration. Preserve IDs, source hashes, legacy storage data, saved decisions, submission tokens and hub receipts. The Attio installation includes a surgical local v29 layout merge over existing WIP; its original `.plans-template.json` remains unchanged so managed drift remains visible. Do not force a managed upgrade over these local changes.
+
+## v30 storage and completion safety
+
+Decision keys include repository metadata and the existing per-page submission
+token. Tokens, authored decisions, and inbox receipts are not regenerated.
+Dedicated `<app>.localhost` origins copy legacy decisions and position once,
+without deleting old keys. Shared hub origins and `file://` cannot prove who
+owns an old `plans:<slug>:<seq>` entry; use **Recover older saved decisions** only
+when those choices belong to the displayed repo. Recovery keeps the old entry.
+Browser storage is origin-specific; changing hostname does not transfer data.
+
+`plans done --items` accumulates approved IDs only within the exact current
+receipt. Partial work remains submitted. A new receipt invalidates completion;
+pending decisions also prevent implemented status. Import validates the complete
+v2 payload and refuses ambiguous repository matches.
+
+New apps still default to AppKit's `workspace` recipe. `review` (AppKit 1.2.0)
+is an explicit read-only evidence recipe, not a replacement for interactive plan
+decisions. Existing apps remain authored outputs and need AppKit migration.

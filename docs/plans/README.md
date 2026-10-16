@@ -29,18 +29,19 @@ Since v16 stamping is context-aware (a title or source containing quotes or
 tags can neither break nor inject into the page), `plans new` takes a sequence
 lock so two sessions never mint the same `#NNN`, and every page carries a
 random submission token the decision listener must see (see `DESIGN.md`,
-"Receiving decisions"). Tests: `node --test ~/.claude/templates/plans/tests/`.
+"Receiving decisions"). Tests: `node --test ~/.claude/templates/plans/tests/*.test.mjs`.
 
 Plan pages (v13) carry a 13-entry theme system — default **Auto** resolves to
 Cresa goldenrod on dark systems, paper on light; **Repo accent** restores the
 stamped per-repo color — plus a persisted Motion toggle. Both live on the
-toolbar and are shared across a repo's plan pages via the `plan-ui`
-localStorage key.
+toolbar and are shared across the browser origin via the `plan-ui`
+localStorage key; repos on the shared hub hostname share these UI preferences.
+Stock plans honor the OS reduced-motion preference as of v29.
 
 ## App skeletons — owned by appkit, not by this folder
 
 ```bash
-bun run plans app <slug> [--title "Title"] [--badge "TAG"] [--dest dir] [--recipe workspace|records]
+bun run plans app <slug> [--title "Title"] [--badge "TAG"] [--dest dir] [--recipe workspace|records|qa-review|review]
 appkit new <slug> --recipe workspace          # the same thing, direct
 ```
 
@@ -107,7 +108,9 @@ a keyed, path-prefixed mirror of every repo: `/` lists what is waiting on you,
 same origin. `bun run plans wait <slug>` then texts you the link.
 
 ```bash
-bun run plans hub remote on --provider tailscale      # private (tailnet); or funnel | ngrok | cloudflare (public)
+bun run plans hub remote on --provider cloudflare --tunnel-name plans-hub --hostname plans.cresa.dev
+# Existing permanent hostname on this machine. Keep its current tunnel and key.
+# Optional new setup: --provider tailscale is private; funnel/ngrok/Cloudflare are public.
 bun run plans hub notify set --channel imessage --to <your iMessage handle>
 bun run plans notify --test                           # get the link on your phone now
 bun run plans hub status                              # remote + notify lines at the bottom
@@ -115,6 +118,24 @@ bun run plans hub status                              # remote + notify lines at
 
 Details, security model and the per-page ENDPOINT rewrite: `DESIGN.md`
 ("Reviewing from your phone").
+
+## Publish to cresa.one (v31)
+
+With a publish Site set, `bun run plans wait <slug>` first copies the plan to
+that Site. It then checks the link card and texts you the Site link, for
+example `https://plans.cresa.one/<appName>/003-<slug>.html`. If the publish
+fails, `wait` exits with code 3 and texts nothing.
+
+```bash
+bun run plans hub publish set --site plans --allow you@example.com   # once per machine
+bun run plans publish <slug> [--notify]   # publish one plan now (no wait)
+bun run plans hub publish status          # config, live access mode, submit route
+```
+
+The Site is restricted to the allowed emails. Link cards stay public. Submit on
+the Site copy reaches Claude through the Site's `/_hub` proxy route. The
+checklist and rules are in `DESIGN.md`, under "Done means published, checked,
+and texted" and "Publishing to a cresa.one Site".
 
 ## Serving apps (portless — REQUIRED, no raw ports)
 
@@ -138,6 +159,11 @@ Any server that backs an HTML page/app in this repo MUST be started through
   fallback for direct runs), bind `process.env.HOST` when set, and when
   auto-opening a browser prefer `process.env.PORTLESS_URL`. NEVER hardcode a
   port number in code, scripts, or docs.
+- **Safe replacement:** re-running replaces only the exact app hostname under
+  the active proxy's TLD. `--keep` refuses replacement. If the previous owner
+  cannot shut down gracefully within five seconds, the wrapper exits without
+  starting another server; it never force-kills an owner and leaves its detached
+  server behind.
 - **package.json:** wire app scripts through the wrapper, e.g.
   `"web": "bun scripts/plans.mjs serve bun web/server.ts"`.
 - Cross-service refs: `portless get <name>`. No portless installed? The wrapper
@@ -188,3 +214,22 @@ offline app for every review run. Add captures with
 Carousel, notes, pass/issue status, run progress, and portable exports are included.
 Details: `~/.claude/templates/appkit/docs/QA-REVIEW.md`. Existing startup-hook
 delegation discovers this recipe without copying template internals into projects.
+
+## v30 guarded maintenance
+
+Startup reads the version from canonical `plans.mjs`; managed copies and their
+provenance now report the same version. Missing/incomplete provenance, symlinks,
+customized files, and `.no-claude-plans-upgrade` prevent automatic replacement.
+The default app recipe remains `workspace`; `review` is opt-in (AppKit 1.2.0).
+
+For an uncommitted but unchanged managed installation, explicit upgrades may
+use `--expect-installed <installedSourceHash>` alongside `--expect-source` after
+reviewing both snapshots. This only permits files still matching their manifest;
+custom edits remain blocked. The manager backs up original bytes and provenance.
+
+Existing authored pages are a separate operation: run
+`node ~/.claude/templates/plans/migrate-pages.mjs <repo>` to inspect recognized
+storage blocks, then `--expect <snapshotHash>` to apply exactly that preview.
+Only storage plumbing changes; authored content and submission tokens survive.
+Unrecognized/custom blocks require manual review. Old browser saves are kept;
+shared-origin legacy decisions require explicit recovery in the page.
